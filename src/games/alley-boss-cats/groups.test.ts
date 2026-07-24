@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BOARD_SIZE } from "./types";
 import type { Board } from "./types";
 import { getAllGroups, getConnectedGroup, getGroupLiberties } from "./groups";
+import { calculateTerritories } from "./territory";
 
 function emptyBoard(): Board {
   return Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill("EMPTY"));
@@ -98,17 +99,17 @@ describe("getGroupLiberties", () => {
     expect(getGroupLiberties(board, group).size).toBe(0);
   });
 
-  it("excludes confirmed-territory cells from liberties", () => {
+  it("still counts a confirmed-territory cell as a liberty", () => {
+    // A territory is only ever bordered by its owner's own castles, so
+    // treating those cells as non-liberties would let a player strangle the
+    // very group that walled the territory off. A gap is a gap.
     const board = emptyBoard();
-    board[4][4] = "PLAYER_A";
-    board[3][4] = "PLAYER_B";
-    board[4][3] = "PLAYER_B";
-    board[4][5] = "PLAYER_B";
-    // (5,4) is the only empty neighbor left
-    const group = getConnectedGroup(board, 4, 4);
+    board[0][1] = "PLAYER_A";
+    board[1][0] = "PLAYER_A";
+    // (0,0) is now A's territory, walled by two castles and two board edges.
+    expect(calculateTerritories(board).A).toEqual([{ row: 0, col: 0 }]);
 
-    expect(getGroupLiberties(board, group).size).toBe(1);
-    const locked = new Set<string>(["5,4"]);
-    expect(getGroupLiberties(board, group, locked).size).toBe(0);
+    const group = getConnectedGroup(board, 0, 1);
+    expect(getGroupLiberties(board, group)).toContain("0,0");
   });
 });

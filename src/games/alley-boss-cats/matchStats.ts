@@ -1,6 +1,5 @@
 import { getAllGroups, getGroupLiberties } from "./groups";
 import { createInitialState, applyMove, passTurn } from "./rules";
-import { lockedCellKeys } from "./territory";
 import { opponent } from "./types";
 import type { Coord, GameState, Move, Player } from "./types";
 
@@ -65,9 +64,8 @@ function countThreatsCreated(moveHistory: Move[]): Record<Player, number> {
     state = applyMove(state, move.row, move.col);
     if (state.winner) continue; // capture win — no "threat", the game just ended
 
-    const locked = lockedCellKeys(state.territories);
     const opponentInAtari = getAllGroups(state.board, opponent(move.player)).some(
-      (group) => getGroupLiberties(state.board, group, locked).size === 1,
+      (group) => getGroupLiberties(state.board, group).size === 1,
     );
     if (opponentInAtari) threats[move.player] += 1;
   }

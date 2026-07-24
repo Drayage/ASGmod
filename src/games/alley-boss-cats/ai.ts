@@ -1,6 +1,5 @@
 import { getAllGroups, getGroupLiberties } from "./groups";
 import { applyMove, getLegalMoves, isGameOver, passTurn } from "./rules";
-import { lockedCellKeys } from "./territory";
 import { opponent } from "./types";
 import type { Coord, GameState, Player } from "./types";
 
@@ -20,12 +19,10 @@ function territoryCount(state: GameState, player: Player): number {
  * only to steer the AI's evaluation — not the authoritative scoring rule. */
 function potentialTerritory(state: GameState, player: Player): number {
   const opp = opponent(player);
-  const locked = lockedCellKeys(state.territories);
   let count = 0;
   for (let row = 0; row < state.board.length; row++) {
     for (let col = 0; col < state.board[row].length; col++) {
       if (state.board[row][col] !== "EMPTY") continue;
-      if (locked.has(`${row},${col}`)) continue;
       let bordersPlayer = false;
       let bordersOpponent = false;
       for (const [dr, dc] of [
@@ -47,45 +44,70 @@ function potentialTerritory(state: GameState, player: Player): number {
   return count;
 }
 
-function totalLiberties(state: GameState, player: Player): number {
-  const locked = lockedCellKeys(state.territories);
-  return getAllGroups(state.board, player).reduce(
-    (sum, group) => sum + getGroupLiberties(state.board, group, locked).size,
-    0,
-  );
+interface ShapeStats {
+  totalLiberties: number;
+  /** Groups down to a single escape route — one move from being destroyed. */
+  atari: number;
+  /** Groups down to two escape routes — one move from atari. */
+  nearAtari: number;
+  connectedBonus: number;
+  isolated: number;
 }
 
-function groupsInAtari(state: GameState, player: Player): number {
-  const locked = lockedCellKeys(state.territories);
-  return getAllGroups(state.board, player).filter(
-    (group) => getGroupLiberties(state.board, group, locked).size === 1,
-  ).length;
+/** One pass over a player's groups collecting everything the evaluation
+ * needs. Computing these separately re-walked the whole board per term. */
+function shapeStats(state: GameState, player: Player): ShapeStats {
+  const stats: ShapeStats = {
+    totalLiberties: 0,
+    atari: 0,
+    nearAtari: 0,
+    connectedBonus: 0,
+    isolated: 0,
+  };
+  for (const group of getAllGroups(state.board, player)) {
+    const liberties = getGroupLiberties(state.board, group).size;
+    stats.totalLiberties += liberties;
+    if (liberties === 1) stats.atari += 1;
+    else if (liberties === 2) stats.nearAtari += 1;
+    stats.connectedBonus += group.length - 1;
+    if (group.length === 1) stats.isolated += 1;
+  }
+  return stats;
 }
 
-function connectedGroupScore(state: GameState, player: Player): number {
-  return getAllGroups(state.board, player).reduce((sum, group) => sum + (group.length - 1), 0);
-}
-
-function isolatedCatCount(state: GameState, player: Player): number {
-  return getAllGroups(state.board, player).filter((group) => group.length === 1).length;
-}
+/** Just short of a decided game — used for positions that are lost/won barring
+ * a miracle, so search still prefers a real win over a merely winning shape. */
+const NEAR_DECISIVE = 400_000;
 
 export function evaluateState(state: GameState, aiPlayer: Player): number {
   if (state.winner === aiPlayer) return 1_000_000;
   if (state.winner && state.winner !== aiPlayer) return -1_000_000;
 
   const opp = opponent(aiPlayer);
+  const mine = shapeStats(state, aiPlayer);
+  const theirs = shapeStats(state, opp);
+
+  // Destroying one castle wins outright, so a group left in atari with the
+  // opponent to move is effectively already lost. Encoding that here gives
+  // the search a ply of tactical sight for free at every leaf.
+  if (mine.atari > 0 && state.currentPlayer === opp) return -NEAR_DECISIVE;
+  if (theirs.atari > 0 && state.currentPlayer === aiPlayer) return NEAR_DECISIVE;
+
   return (
     territoryCount(state, aiPlayer) * 100 -
     territoryCount(state, opp) * 100 +
     potentialTerritory(state, aiPlayer) * 8 -
     potentialTerritory(state, opp) * 8 +
-    totalLiberties(state, aiPlayer) * 5 -
-    totalLiberties(state, opp) * 6 +
-    groupsInAtari(state, opp) * 45 -
-    groupsInAtari(state, aiPlayer) * 60 +
-    connectedGroupScore(state, aiPlayer) * 3 -
-    isolatedCatCount(state, aiPlayer) * 5
+    mine.totalLiberties * 5 -
+    theirs.totalLiberties * 6 +
+    theirs.atari * 45 -
+    mine.atari * 90 +
+    // A two-liberty group is one forcing move from atari — the shape the AI
+    // used to wander into happily.
+    theirs.nearAtari * 16 -
+    mine.nearAtari * 34 +
+    mine.connectedBonus * 3 -
+    mine.isolated * 5
   );
 }
 
@@ -115,6 +137,32 @@ function opponentHasImmediateWin(state: GameState, aiPlayer: Player): boolean {
   return false;
 }
 
+export interface SafeActions {
+  /** A move that wins on the spot, if one exists — always play it. */
+  winningMove: AIAction | null;
+  /** Moves that don't hand the opponent an immediate capture win. Falls back
+   * to every legal action when every move loses, so callers always get
+   * something playable. */
+  pool: AIAction[];
+}
+
+/**
+ * Shared tactical floor for every difficulty: take a win when it's there, and
+ * otherwise never volunteer a move that lets the opponent win next turn.
+ * HARD layers its deeper search on top of this rather than rediscovering it,
+ * so a shallow search can never drop below NORMAL's tactical standard.
+ */
+export function getSafeActions(state: GameState, player: Player): SafeActions {
+  const actions = candidateActions(state, player);
+  const winningMove = immediateWin(state, player, actions);
+  if (winningMove) return { winningMove, pool: actions };
+
+  const safe = actions.filter(
+    (action) => !opponentHasImmediateWin(applyAction(state, action), player),
+  );
+  return { winningMove: null, pool: safe.length > 0 ? safe : actions };
+}
+
 export function rankByStaticEval(state: GameState, player: Player, actions: AIAction[]): AIAction[] {
   return [...actions]
     .map((action) => ({ action, score: evaluateState(applyAction(state, action), player) }))
@@ -136,15 +184,8 @@ export function getAIMove(
   player: Player,
   difficulty: Exclude<Difficulty, "HARD">,
 ): AIAction {
-  const actions = candidateActions(state, player);
-
-  const winningMove = immediateWin(state, player, actions);
+  const { winningMove, pool } = getSafeActions(state, player);
   if (winningMove) return winningMove;
-
-  const safeActions = actions.filter(
-    (action) => !opponentHasImmediateWin(applyAction(state, action), player),
-  );
-  const pool = safeActions.length > 0 ? safeActions : actions;
 
   if (difficulty === "EASY") {
     const ranked = rankByStaticEval(state, player, pool);

@@ -32,14 +32,17 @@ export function getConnectedGroup(board: Board, startRow: number, startCol: numb
   return group;
 }
 
-/** Empty cells adjacent to `group` that count as an escape route: not an
- * opponent/own cat, not the communal feeding spot, and not confirmed
- * territory (`lockedCells`). */
-export function getGroupLiberties(
-  board: Board,
-  group: Coord[],
-  lockedCells: ReadonlySet<string> = new Set(),
-): Set<string> {
+/**
+ * Empty cells adjacent to `group` — a group is only captured when it is
+ * surrounded with no gap left at all.
+ *
+ * Confirmed territory still counts as a liberty even though nobody may play
+ * there. A territory is only recognised when a single player's castles form
+ * its entire border, so the cells it would "take away" always belong to that
+ * same player's own walls; excluding them would mean sealing your own
+ * territory could strangle the very group that formed it.
+ */
+export function getGroupLiberties(board: Board, group: Coord[]): Set<string> {
   const liberties = new Set<string>();
   for (const { row, col } of group) {
     for (const [dr, dc] of DIRECTIONS) {
@@ -47,9 +50,7 @@ export function getGroupLiberties(
       const c = col + dc;
       if (!inBounds(r, c)) continue;
       if (board[r][c] !== "EMPTY") continue;
-      const k = key(r, c);
-      if (lockedCells.has(k)) continue;
-      liberties.add(k);
+      liberties.add(key(r, c));
     }
   }
   return liberties;
@@ -76,12 +77,8 @@ export function getAllGroups(board: Board, player: Player): Coord[][] {
 }
 
 /** Any group of `player` that has zero liberties, i.e. is captured. */
-export function findCapturedGroups(
-  board: Board,
-  player: Player,
-  lockedCells: ReadonlySet<string> = new Set(),
-): Coord[][] {
+export function findCapturedGroups(board: Board, player: Player): Coord[][] {
   return getAllGroups(board, player).filter(
-    (group) => getGroupLiberties(board, group, lockedCells).size === 0,
+    (group) => getGroupLiberties(board, group).size === 0,
   );
 }

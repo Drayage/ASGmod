@@ -1,5 +1,5 @@
 import { findCapturedGroups } from "./groups";
-import { calculateTerritories, lockedCellKeys } from "./territory";
+import { calculateTerritories } from "./territory";
 import {
   BOARD_SIZE,
   CENTER,
@@ -53,12 +53,11 @@ export function isLegalMove(state: GameState, row: number, col: number, player: 
 
   const simBoard = cloneBoard(state.board);
   simBoard[row][col] = playerCell(player);
-  const locked = lockedCellKeys(state.territories);
 
-  const capturedOpponent = findCapturedGroups(simBoard, opponent(player), locked);
+  const capturedOpponent = findCapturedGroups(simBoard, opponent(player));
   if (capturedOpponent.length > 0) return true;
 
-  const capturedSelf = findCapturedGroups(simBoard, player, locked);
+  const capturedSelf = findCapturedGroups(simBoard, player);
   return capturedSelf.length === 0;
 }
 
@@ -93,12 +92,11 @@ export function applyMove(state: GameState, row: number, col: number): GameState
 
   const board = cloneBoard(state.board);
   board[row][col] = playerCell(player);
-  const locked = lockedCellKeys(state.territories);
 
   const move: Move = { turn: state.moveHistory.length + 1, player, type: "PLACE", row, col };
   const remainingCats = { ...state.remainingCats, [player]: state.remainingCats[player] - 1 };
 
-  const capturedOpponent = findCapturedGroups(board, opponent(player), locked);
+  const capturedOpponent = findCapturedGroups(board, opponent(player));
   if (capturedOpponent.length > 0) {
     return {
       ...state,
@@ -113,7 +111,7 @@ export function applyMove(state: GameState, row: number, col: number): GameState
   // Defensive net only: isLegalMove already rules suicides out for callers
   // that check legality first, but a caller bypassing that check should
   // still never end up with a silently-broken state.
-  const capturedSelf = findCapturedGroups(board, player, locked);
+  const capturedSelf = findCapturedGroups(board, player);
   if (capturedSelf.length > 0) {
     throw new Error("Illegal move: would self-capture without capturing the opponent");
   }

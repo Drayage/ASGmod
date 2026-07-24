@@ -2,8 +2,8 @@ import type { AIAction } from "../ai";
 import type { GameState, Player } from "../types";
 import type { AIWorkerRequest } from "../aiWorker";
 
-const HARD_TIME_LIMIT_MS = 900;
-const WATCHDOG_MARGIN_MS = 2000;
+const HARD_TIME_LIMIT_MS = 2500;
+const WATCHDOG_MARGIN_MS = 3000;
 
 /** Thin wrapper around the HARD-difficulty Web Worker: one worker per
  * client, spun up lazily and reused across moves, with a watchdog timeout

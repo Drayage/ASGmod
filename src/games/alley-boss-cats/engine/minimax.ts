@@ -1,11 +1,12 @@
-import { applyAction, candidateActions, evaluateState, rankByStaticEval } from "../ai";
+import { applyAction, evaluateState, getSafeActions } from "../ai";
 import type { AIAction } from "../ai";
 import { opponent } from "../types";
 import type { Board, GameState, Player } from "../types";
+import { localMoveScore, orderedCandidates } from "./moveOrdering";
 import { TranspositionTable } from "./transpositionTable";
 
 const WIN_SCORE = 1_000_000;
-const MAX_DEPTH = 6;
+const MAX_DEPTH = 8;
 
 const CELL_CODE: Record<Board[number][number], string> = {
   EMPTY: "E",
@@ -26,28 +27,14 @@ function actionKey(action: AIAction): string {
   return action.type === "PASS" ? "PASS" : `${action.row},${action.col}`;
 }
 
-/** Branch factor shrinks with remaining depth so the search stays inside
- * its time budget while still looking deep along the most promising line. */
+/** Branch factor narrows as the search deepens so the tree stays inside its
+ * time budget while still following the critical line a long way. */
 function branchLimit(remainingDepth: number): number {
-  if (remainingDepth >= 4) return 8;
-  if (remainingDepth === 3) return 7;
-  if (remainingDepth === 2) return 6;
-  return 5;
-}
-
-function orderActions(
-  state: GameState,
-  playerToMove: Player,
-  actions: AIAction[],
-  tt: TranspositionTable,
-): AIAction[] {
-  const ranked = rankByStaticEval(state, playerToMove, actions);
-  const hint = tt.getBestMoveKey(positionKey(state));
-  if (!hint) return ranked;
-  const hintIndex = ranked.findIndex((action) => actionKey(action) === hint);
-  if (hintIndex <= 0) return ranked;
-  const [hinted] = ranked.splice(hintIndex, 1);
-  return [hinted, ...ranked];
+  if (remainingDepth >= 5) return 14;
+  if (remainingDepth === 4) return 12;
+  if (remainingDepth === 3) return 10;
+  if (remainingDepth === 2) return 8;
+  return 6;
 }
 
 function minimax(
@@ -60,18 +47,21 @@ function minimax(
   tt: TranspositionTable,
   rootPlayer: Player,
 ): number {
-  // Checked at entry, not just after each child, so a deadline hit unwinds
-  // the whole call stack immediately instead of only after the current
-  // ply's loop finishes — otherwise one deep first branch could run far
-  // past the time budget before anything notices.
+  // Checked on entry, not just between siblings, so a deadline unwinds the
+  // whole stack at once instead of after the current ply finishes.
   if (state.winner || remainingDepth === 0 || Date.now() >= deadline) {
     return evaluateState(state, rootPlayer);
   }
 
-  const actions = orderActions(state, playerToMove, candidateActions(state, playerToMove), tt).slice(
-    0,
+  const key = positionKey(state);
+  const actions = orderedCandidates(
+    state,
+    playerToMove,
     branchLimit(remainingDepth),
+    tt.getBestMoveKey(key),
   );
+  if (actions.length === 0) return evaluateState(state, rootPlayer);
+
   const maximizing = playerToMove === rootPlayer;
   let best = maximizing ? -Infinity : Infinity;
   let bestActionKey: string | null = null;
@@ -94,7 +84,7 @@ function minimax(
     if (Date.now() >= deadline) break;
   }
 
-  if (bestActionKey) tt.setBestMoveKey(positionKey(state), bestActionKey);
+  if (bestActionKey) tt.setBestMoveKey(key, bestActionKey);
   return best;
 }
 
@@ -108,26 +98,58 @@ export function findBestMoveMinimax(
 ): AIAction {
   const deadline = Date.now() + timeLimitMs;
   const tt = new TranspositionTable();
-  const rootActions = candidateActions(rootState, aiPlayer);
-  let bestAction: AIAction = rootActions[0] ?? { type: "PASS" };
 
-  for (let depth = 1; depth <= MAX_DEPTH && Date.now() < deadline; depth++) {
-    const ordered = orderActions(rootState, aiPlayer, rootActions, tt);
+  // Start from the same tactical floor every difficulty uses. Search then
+  // only has to choose *among safe moves*, so running out of time degrades
+  // to NORMAL's standard instead of to a blunder.
+  const { winningMove, pool } = getSafeActions(rootState, aiPlayer);
+  if (winningMove) return winningMove;
+  if (pool.length <= 1) return pool[0] ?? { type: "PASS" };
+
+  // Rank the safe pool locally once; deeper iterations reorder via the TT.
+  const rootActions = [...pool].sort((a, b) => {
+    const sa = a.type === "PLACE" ? localMoveScore(rootState.board, a.row, a.col, aiPlayer) : -Infinity;
+    const sb = b.type === "PLACE" ? localMoveScore(rootState.board, b.row, b.col, aiPlayer) : -Infinity;
+    return sb - sa;
+  });
+
+  let bestAction: AIAction = rootActions[0];
+
+  for (let depth = 1; depth <= MAX_DEPTH; depth++) {
+    if (Date.now() >= deadline) break;
+
     let bestScore = -Infinity;
-    let bestAtThisDepth = ordered[0];
+    let bestAtThisDepth = rootActions[0];
+    let completed = true;
+
+    // Try the previous iteration's choice first — it is usually still best,
+    // which makes alpha tight immediately and prunes the rest hard.
+    const ordered = [bestAction, ...rootActions.filter((a) => a !== bestAction)];
 
     for (const action of ordered) {
+      if (Date.now() >= deadline) {
+        completed = false;
+        break;
+      }
+
       const child = applyAction(rootState, action);
+      // Pass the running best as alpha so later root moves can be pruned;
+      // searching every root move from -Infinity throws away all the
+      // cutoffs alpha-beta exists to provide.
       const score = child.winner
         ? evaluateState(child, aiPlayer)
-        : minimax(child, opponent(aiPlayer), depth - 1, -Infinity, Infinity, deadline, tt, aiPlayer);
+        : minimax(child, opponent(aiPlayer), depth - 1, bestScore, Infinity, deadline, tt, aiPlayer);
 
       if (score > bestScore) {
         bestScore = score;
         bestAtThisDepth = action;
       }
-      if (Date.now() >= deadline) break;
     }
+
+    // A depth cut short by the clock has only looked at a prefix of the move
+    // list, so its "best" can be worse than the previous depth's fully
+    // searched answer — discard it and keep the older, complete result.
+    if (!completed) break;
 
     bestAction = bestAtThisDepth;
     if (bestScore >= WIN_SCORE) break; // forced win found, no need to search deeper

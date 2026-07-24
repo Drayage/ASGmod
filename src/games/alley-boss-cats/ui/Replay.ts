@@ -1,5 +1,5 @@
 import { applyMove, createInitialState, passTurn } from "../rules";
-import type { GameState, Move } from "../types";
+import type { GameState, Move, Player } from "../types";
 import { renderBoard } from "./BoardView";
 
 const AUTOPLAY_INTERVAL_MS = 700;
@@ -13,10 +13,13 @@ function replayToIndex(moveHistory: Move[], index: number): GameState {
   return state;
 }
 
+const PLAYER_NAME: Record<Player, string> = { A: "치즈냥", B: "고등어냥" };
+
 function describeMove(move: Move | undefined): string {
   if (!move) return "대국 시작";
-  if (move.type === "PASS") return `${move.turn}수: 쉬어가기`;
-  return `${move.turn}수: (${move.row + 1}, ${move.col + 1})에 배치`;
+  const who = PLAYER_NAME[move.player];
+  if (move.type === "PASS") return `${move.turn}수 · ${who} 쉬어가기`;
+  return `${move.turn}수 · ${who} ${move.row + 1}행 ${move.col + 1}열`;
 }
 
 export function renderReplay(host: HTMLElement, moveHistory: Move[], onClose: () => void): void {
