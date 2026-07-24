@@ -6,14 +6,14 @@ import type { GameMeta } from "../shared/types";
  * See src/games/README.md for the folder contract.
  */
 const games: GameMeta[] = [
-  // {
-  //   id: "example",
-  //   title: "예시 게임",
-  //   description: "한 줄 설명",
-  //   minPlayers: 2,
-  //   maxPlayers: 2,
-  //   load: () => import("./example/game"),
-  // },
+  {
+    id: "alley-boss-cats",
+    title: "골목대냥",
+    description: "골목을 둘러싸고 상대 고양이의 도망길을 막으세요.",
+    minPlayers: 2,
+    maxPlayers: 2,
+    load: () => import("./alley-boss-cats/game"),
+  },
 ];
 
 export default games;
