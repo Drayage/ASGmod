@@ -1,0 +1,140 @@
+:root {
+  --bg: #f5f6f8;
+  --fg: #111318;
+  --muted: #6b7280;
+  --card-bg: #ffffff;
+  --accent: #3b5bdb;
+  --border: #d9dce1;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111318;
+    --fg: #eef0f4;
+    --muted: #9aa1ac;
+    --card-bg: #1a1d24;
+    --accent: #7c9aff;
+    --border: #2a2e37;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+
+#app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  min-height: 100dvh;
+}
+
+a {
+  color: inherit;
+}
+
+.hub-header h1 {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.hub-header p {
+  color: var(--muted);
+  margin-top: 0;
+}
+
+.game-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.game-card {
+  display: block;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  transition: border-color 0.15s ease;
+}
+
+.game-card:hover,
+.game-card:focus-visible {
+  border-color: var(--accent);
+}
+
+.game-card h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.game-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.game-card .players {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--accent);
+}
+
+.empty-state {
+  color: var(--muted);
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 1rem;
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.back-link:hover {
+  color: var(--fg);
+}
+
+.game-stage {
+  margin-top: 1rem;
+}
+
+/* Shared grid board primitives (src/shared/board.ts) */
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), 1fr);
+  grid-template-rows: repeat(var(--rows, 3), 1fr);
+  gap: 4px;
+  max-width: min(90vw, 420px);
+  aspect-ratio: var(--cols, 3) / var(--rows, 3);
+  margin: 0 auto;
+}
+
+.board-cell {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 6px;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--fg);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.board-cell:hover,
+.board-cell:focus-visible {
+  border-color: var(--accent);
+}
