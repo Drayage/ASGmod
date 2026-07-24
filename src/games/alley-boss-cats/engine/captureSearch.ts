@@ -1,5 +1,5 @@
 import type { AIAction } from "../ai";
-import { getAllGroups, getGroupLiberties } from "../groups";
+import { getAllGroups, getConnectedGroup, getGroupLiberties } from "../groups";
 import { applyMove, isLegalMove } from "../rules";
 import { coordKeySet } from "../territory";
 import { DIRECTIONS, inBounds, opponent } from "../types";
@@ -91,19 +91,21 @@ interface ReadContext {
   defender: Player;
   /** Stone identifying the group under attack. */
   anchor: Coord;
-  focus: Set<string>;
   deadline: number;
+}
+
+/** The group currently containing the anchor stone, or null once captured. */
+function currentTarget(board: Board, ctx: ReadContext): Coord[] | null {
+  if (!groupStillThere(board, ctx.anchor, ctx.defender)) return null;
+  return getConnectedGroup(board, ctx.anchor.row, ctx.anchor.col);
 }
 
 /** Attacker to move: can they force a win within `depth` plies? */
 function attackerCanForce(state: GameState, depth: number, ctx: ReadContext): boolean {
   if (depth <= 0 || Date.now() >= ctx.deadline) return false;
-  if (!groupStillThere(state.board, ctx.anchor, ctx.defender)) return false;
 
   // Once the target has room to run, stop calling it a forced capture.
-  const target = getAllGroups(state.board, ctx.defender).find((g) =>
-    g.some((c) => c.row === ctx.anchor.row && c.col === ctx.anchor.col),
-  );
+  const target = currentTarget(state.board, ctx);
   if (!target) return false;
   const targetLiberties = getGroupLiberties(state.board, target);
   if (targetLiberties.size > MAX_TRACKED_LIBERTIES) return false;
@@ -111,7 +113,7 @@ function attackerCanForce(state: GameState, depth: number, ctx: ReadContext): bo
   // territory can never be filled by anyone.
   if (hasTerritoryLiberty(state, ctx.defender, targetLiberties)) return false;
 
-  for (const move of movesWithin(state, ctx.attacker, ctx.focus)) {
+  for (const move of movesWithin(state, ctx.attacker, focusAround(state.board, target))) {
     const next = applyMove(state, move.row, move.col);
     if (next.winner === ctx.attacker) return true;
     if (next.winner) continue; // somehow lost — not a forcing line
@@ -124,11 +126,18 @@ function attackerCanForce(state: GameState, depth: number, ctx: ReadContext): bo
  * unproven position counts as an escape, so this never invents a capture. */
 function defenderCanEscape(state: GameState, depth: number, ctx: ReadContext): boolean {
   if (depth <= 0 || Date.now() >= ctx.deadline) return true;
-  if (!groupStillThere(state.board, ctx.anchor, ctx.defender)) return true; // already gone
+  const target = currentTarget(state.board, ctx);
+  if (!target) return true; // already gone
 
-  const candidates = [...ctx.focus, ...immediateWinCells(state, ctx.defender)];
+  const candidates = [
+    ...focusAround(state.board, target),
+    ...immediateWinCells(state, ctx.defender),
+  ];
   const moves = movesWithin(state, ctx.defender, candidates);
-  if (moves.length === 0) return false; // nowhere to run inside the fight
+  // No playable move anywhere in the fight. The focus is rebuilt from the
+  // group's *current* liberties, so a group with room to breathe always has
+  // one here — reaching this line means the group really is trapped.
+  if (moves.length === 0) return false;
 
   for (const move of moves) {
     const next = applyMove(state, move.row, move.col);
@@ -167,15 +176,9 @@ export function findForcedCapture(
 
   for (const { group } of targets) {
     if (Date.now() >= deadline) break;
-    const ctx: ReadContext = {
-      attacker,
-      defender,
-      anchor: group[0],
-      focus: focusAround(state.board, group),
-      deadline,
-    };
+    const ctx: ReadContext = { attacker, defender, anchor: group[0], deadline };
 
-    for (const move of movesWithin(state, attacker, ctx.focus)) {
+    for (const move of movesWithin(state, attacker, focusAround(state.board, group))) {
       const next = applyMove(state, move.row, move.col);
       if (next.winner === attacker) {
         return { move: { type: "PLACE", ...move }, target: group[0] };

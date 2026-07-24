@@ -137,27 +137,26 @@ export function findBestMoveVeryHard(
   const screenDeadline = Date.now() + timeLimitMs * DEFEND_READ_SHARE;
   const perMoveMs = Math.max(30, (timeLimitMs * DEFEND_READ_SHARE) / Math.max(1, screened.length));
 
-  const survivors: AIAction[] = [];
-  let screenedAll = true;
+  // Screening only ever *removes* candidates. A move that was never examined
+  // is unproven, not refuted, so it stays in — dropping everything below the
+  // screening limit would discard most of the pool untested.
+  const refuted = new Set<AIAction>();
   for (const action of screened) {
-    if (Date.now() >= screenDeadline) {
-      screenedAll = false;
-      break;
-    }
+    if (Date.now() >= screenDeadline) break;
     const next = applyAction(rootState, action);
     if (next.winner === aiPlayer) return action;
-    if (next.winner) continue;
-    if (!opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, perMoveMs)) {
-      survivors.push(action);
+    if (next.winner) {
+      refuted.add(action); // this move loses on the spot
+      continue;
+    }
+    if (opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, perMoveMs)) {
+      refuted.add(action);
     }
   }
 
-  // If every screened move loses by force, don't corner ourselves into that
-  // small set — hand the search the full pool and let it pick the best try.
-  const searchPool = survivors.length > 0 ? survivors : ranked;
-  // Moves we never got around to screening stay eligible; they are unproven,
-  // not refuted.
-  const finalPool = screenedAll ? searchPool : [...new Set([...searchPool, ...ranked])];
+  const survivors = ranked.filter((action) => !refuted.has(action));
+  // If literally everything is refuted, play the best try rather than nothing.
+  const finalPool = survivors.length > 0 ? survivors : ranked;
 
   const remaining = Math.max(300, deadline - Date.now());
   return searchWithin(rootState, aiPlayer, finalPool, remaining);
