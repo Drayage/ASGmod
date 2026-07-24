@@ -49,7 +49,7 @@ npm run preview
 
 1. 저장소 Settings → Pages → Source를 **GitHub Actions**로 설정한다.
 2. `main` 브랜치에 push하면 `.github/workflows/deploy.yml`이 빌드 후 자동 배포한다.
-3. 배포 주소는 `https://<user>.github.io/asgmod/` 형태이며, 이는
+3. 배포 주소는 `https://<user>.github.io/ASGmod/` 형태이며, 이는
    `vite.config.ts`의 `BASE_PATH`와 반드시 일치해야 한다. 저장소 이름이
    바뀌거나 커스텀 도메인을 쓰면 `BASE_PATH`도 함께 바꿔줘야 한다
    (커스텀 도메인이면 `"/"`).

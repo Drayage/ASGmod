@@ -1,9 +1,9 @@
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-// GitHub Pages project site is served from https://<user>.github.io/asgmod/
+// GitHub Pages project site is served from https://<user>.github.io/ASGmod/
 // Update BASE_PATH if the repo is ever renamed or moved to a custom domain (use "/" then).
-const BASE_PATH = "/asgmod/";
+const BASE_PATH = "/ASGmod/";
 
 export default defineConfig({
   base: BASE_PATH,
