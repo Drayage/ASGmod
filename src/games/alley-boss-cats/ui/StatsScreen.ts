@@ -16,7 +16,7 @@ export function renderStats(host: HTMLElement): void {
     <p>승 / 패: ${stats.wins} / ${stats.losses} (승률 ${winRate}%)</p>
     <p>포위 승리: ${stats.captureWins}회 · 영토 승리: ${stats.territoryWins}회</p>
     <p class="abc-stats-subhead">난이도별 승리</p>
-    <p>쉬움 ${stats.winsByDifficulty.EASY}회 · 보통 ${stats.winsByDifficulty.NORMAL}회 · 어려움 ${stats.winsByDifficulty.HARD}회</p>
+    <p>쉬움 ${stats.winsByDifficulty.EASY}회 · 보통 ${stats.winsByDifficulty.NORMAL}회<br>어려움 ${stats.winsByDifficulty.HARD}회 · 매우 어려움 ${stats.winsByDifficulty.VERY_HARD ?? 0}회</p>
   `;
 
   const closeBtn = document.createElement("button");

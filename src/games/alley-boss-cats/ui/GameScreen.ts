@@ -1,6 +1,6 @@
 import type { AIAction, Difficulty } from "../ai";
 import { getAIMove } from "../ai";
-import { HardAIClient } from "../engine/aiWorkerClient";
+import { SearchAIClient } from "../engine/aiWorkerClient";
 import { applyMove, isLegalMove, isTerritoryCell, passTurn } from "../rules";
 import * as sound from "../sound";
 import { clearGame, recordResult, saveGame, type Mode } from "../storage";
@@ -34,7 +34,7 @@ export function mountGameScreen(
   let statsRecorded = false;
   let cancelled = false;
   let aiTimer: ReturnType<typeof setTimeout> | null = null;
-  const hardAI = new HardAIClient();
+  const searchAI = new SearchAIClient();
   const matchStartedAt = Date.now();
 
   const isAIMode = config.mode === "AI";
@@ -248,11 +248,11 @@ export function mountGameScreen(
   }
 
   async function decideAIAction(aiPlayer: Player): Promise<AIAction> {
-    if (config.difficulty !== "HARD") {
+    if (config.difficulty !== "HARD" && config.difficulty !== "VERY_HARD") {
       return getAIMove(state, aiPlayer, config.difficulty);
     }
     try {
-      return await hardAI.requestMove(state, aiPlayer);
+      return await searchAI.requestMove(state, aiPlayer, config.difficulty);
     } catch {
       // Worker unavailable or timed out — fall back rather than stall the game.
       return getAIMove(state, aiPlayer, "NORMAL");
@@ -297,6 +297,6 @@ export function mountGameScreen(
   return () => {
     cancelled = true;
     if (aiTimer) clearTimeout(aiTimer);
-    hardAI.terminate();
+    searchAI.terminate();
   };
 }

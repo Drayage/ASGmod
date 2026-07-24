@@ -3,7 +3,10 @@ import { applyMove, getLegalMoves, isGameOver, passTurn } from "./rules";
 import { opponent } from "./types";
 import type { Coord, GameState, Player } from "./types";
 
-export type Difficulty = "EASY" | "NORMAL" | "HARD";
+export type Difficulty = "EASY" | "NORMAL" | "HARD" | "VERY_HARD";
+
+/** Difficulties whose move is computed by the search engine in a worker. */
+export type SearchDifficulty = Extract<Difficulty, "HARD" | "VERY_HARD">;
 
 export type AIAction = { type: "PLACE"; row: number; col: number } | { type: "PASS" };
 
@@ -175,14 +178,14 @@ const NORMAL_TOP_N = 10;
 const NORMAL_REPLY_TOP_N = 8;
 
 /**
- * Handles EASY and NORMAL only. HARD runs the deeper iterative-deepening
- * search in engine/minimax.ts, normally off the main thread via aiWorker.ts
- * — callers must route HARD there instead of calling this function.
+ * Handles EASY and NORMAL only. HARD and VERY_HARD run the search in
+ * engine/minimax.ts, normally off the main thread via aiWorker.ts — callers
+ * must route those there instead of calling this function.
  */
 export function getAIMove(
   state: GameState,
   player: Player,
-  difficulty: Exclude<Difficulty, "HARD">,
+  difficulty: Exclude<Difficulty, SearchDifficulty>,
 ): AIAction {
   const { winningMove, pool } = getSafeActions(state, player);
   if (winningMove) return winningMove;

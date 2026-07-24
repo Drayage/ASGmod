@@ -76,6 +76,11 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
       difficulty = "HARD";
     }),
   );
+  difficultyGroup.appendChild(
+    radioButton("difficulty", "매우 어려움", false, () => {
+      difficulty = "VERY_HARD";
+    }),
+  );
   wrap.appendChild(difficultyGroup);
 
   const sideGroup = document.createElement("div");

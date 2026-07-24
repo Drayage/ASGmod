@@ -1,14 +1,19 @@
-import type { AIAction } from "../ai";
+import type { AIAction, SearchDifficulty } from "../ai";
 import type { GameState, Player } from "../types";
 import type { AIWorkerRequest } from "../aiWorker";
 
-const HARD_TIME_LIMIT_MS = 2500;
-const WATCHDOG_MARGIN_MS = 3000;
+const TIME_LIMIT_MS: Record<SearchDifficulty, number> = {
+  HARD: 2500,
+  // VERY_HARD splits its budget between the life-and-death reader and the
+  // positional search, so it needs a little more room than HARD.
+  VERY_HARD: 3000,
+};
+const WATCHDOG_MARGIN_MS = 4000;
 
-/** Thin wrapper around the HARD-difficulty Web Worker: one worker per
- * client, spun up lazily and reused across moves, with a watchdog timeout
- * in case the worker never replies. */
-export class HardAIClient {
+/** Thin wrapper around the search Web Worker: one worker per client, spun up
+ * lazily and reused across moves, with a watchdog timeout in case the worker
+ * never replies. */
+export class SearchAIClient {
   private worker: Worker | null = null;
 
   private ensureWorker(): Worker {
@@ -18,14 +23,15 @@ export class HardAIClient {
     return this.worker;
   }
 
-  requestMove(state: GameState, player: Player): Promise<AIAction> {
+  requestMove(state: GameState, player: Player, difficulty: SearchDifficulty): Promise<AIAction> {
     const worker = this.ensureWorker();
+    const timeLimitMs = TIME_LIMIT_MS[difficulty];
 
     return new Promise((resolve, reject) => {
       const timeout = window.setTimeout(() => {
         cleanup();
-        reject(new Error("HARD AI worker timed out"));
-      }, HARD_TIME_LIMIT_MS + WATCHDOG_MARGIN_MS);
+        reject(new Error(`${difficulty} AI worker timed out`));
+      }, timeLimitMs + WATCHDOG_MARGIN_MS);
 
       const handleMessage = (event: MessageEvent<AIAction>) => {
         cleanup();
@@ -33,7 +39,7 @@ export class HardAIClient {
       };
       const handleError = (event: ErrorEvent) => {
         cleanup();
-        reject(event.error instanceof Error ? event.error : new Error("HARD AI worker error"));
+        reject(event.error instanceof Error ? event.error : new Error(`${difficulty} AI worker error`));
       };
       const cleanup = () => {
         window.clearTimeout(timeout);
@@ -43,7 +49,7 @@ export class HardAIClient {
 
       worker.addEventListener("message", handleMessage);
       worker.addEventListener("error", handleError);
-      worker.postMessage({ state, player, timeLimitMs: HARD_TIME_LIMIT_MS } satisfies AIWorkerRequest);
+      worker.postMessage({ state, player, timeLimitMs, difficulty } satisfies AIWorkerRequest);
     });
   }
 

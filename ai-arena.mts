@@ -3,7 +3,7 @@
  * Openings are randomized so deterministic engines don't replay one game.
  */
 import { getAIMove, type AIAction, type Difficulty } from "./src/games/alley-boss-cats/ai";
-import { findBestMoveMinimax } from "./src/games/alley-boss-cats/engine/minimax";
+import { findBestMoveMinimax, findBestMoveVeryHard } from "./src/games/alley-boss-cats/engine/minimax";
 import {
   applyMove,
   calculateFinalResult,
@@ -16,6 +16,7 @@ import type { GameState, Player } from "./src/games/alley-boss-cats/types";
 type Engine = Difficulty | "RANDOM";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
+const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
 const MAX_PLIES = 160;
 const RANDOM_OPENING_PLIES = 4;
 
@@ -27,6 +28,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     return { type: "PLACE", row: pick.row, col: pick.col };
   }
   if (engine === "HARD") return findBestMoveMinimax(state, player, HARD_MS);
+  if (engine === "VERY_HARD") return findBestMoveVeryHard(state, player, VERY_HARD_MS);
   return getAIMove(state, player, engine);
 }
 
@@ -98,5 +100,7 @@ console.time("total");
 if (!only || only === "RANDOM") runMatch("HARD vs RANDOM", "HARD", "RANDOM", games);
 if (!only || only === "EASY") runMatch("HARD vs EASY  ", "HARD", "EASY", games);
 if (!only || only === "NORMAL") runMatch("HARD vs NORMAL", "HARD", "NORMAL", games);
+if (only === "VS_HARD") runMatch("VERY_HARD vs HARD  ", "VERY_HARD", "HARD", games);
+if (only === "VS_NORMAL") runMatch("VERY_HARD vs NORMAL", "VERY_HARD", "NORMAL", games);
 if (!only) runMatch("NORMAL vs EASY", "NORMAL", "EASY", games);
 console.timeEnd("total");

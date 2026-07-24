@@ -33,7 +33,7 @@ export interface Stats {
   losses: number;
   captureWins: number;
   territoryWins: number;
-  winsByDifficulty: Record<"EASY" | "NORMAL" | "HARD", number>;
+  winsByDifficulty: Record<Difficulty, number>;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -51,7 +51,7 @@ const DEFAULT_STATS: Stats = {
   losses: 0,
   captureWins: 0,
   territoryWins: 0,
-  winsByDifficulty: { EASY: 0, NORMAL: 0, HARD: 0 },
+  winsByDifficulty: { EASY: 0, NORMAL: 0, HARD: 0, VERY_HARD: 0 },
 };
 
 function readJson<T>(key: string): T | null {
