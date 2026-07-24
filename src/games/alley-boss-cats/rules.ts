@@ -3,6 +3,7 @@ import { calculateTerritories } from "./territory";
 import {
   BOARD_SIZE,
   CENTER,
+  DIRECTIONS,
   FIRST_PLAYER_MARGIN,
   STARTING_CATS,
   inBounds,
@@ -50,6 +51,16 @@ export function isLegalMove(state: GameState, row: number, col: number, player: 
   if (!inBounds(row, col)) return false;
   if (state.board[row][col] !== "EMPTY") return false;
   if (isTerritoryCell(state, row, col)) return false;
+
+  // Fast path: an orthogonally adjacent empty cell is a guaranteed liberty
+  // for the merged group, so the move cannot be a suicide and is always
+  // legal. This skips the board-clone simulation for the vast majority of
+  // cells — search calls this for every candidate at every node.
+  for (const [dr, dc] of DIRECTIONS) {
+    const r = row + dr;
+    const c = col + dc;
+    if (inBounds(r, c) && state.board[r][c] === "EMPTY") return true;
+  }
 
   const simBoard = cloneBoard(state.board);
   simBoard[row][col] = playerCell(player);

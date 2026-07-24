@@ -1,5 +1,6 @@
 import { getAllGroups, getGroupLiberties } from "./groups";
-import { applyMove, getLegalMoves, isGameOver, passTurn } from "./rules";
+import { applyMove, getLegalMoves, passTurn } from "./rules";
+import { coordKeySet } from "./territory";
 import { opponent } from "./types";
 import type { Coord, GameState, Player } from "./types";
 
@@ -53,6 +54,10 @@ interface ShapeStats {
   atari: number;
   /** Groups down to two escape routes — one move from atari. */
   nearAtari: number;
+  /** Groups with a liberty inside their owner's confirmed territory. Nobody
+   * may ever play there, so that breath is permanent and the group can never
+   * be captured — the local equivalent of an eye. */
+  immortal: number;
   connectedBonus: number;
   isolated: number;
 }
@@ -64,14 +69,27 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
     totalLiberties: 0,
     atari: 0,
     nearAtari: 0,
+    immortal: 0,
     connectedBonus: 0,
     isolated: 0,
   };
+  const ownTerritory = coordKeySet(state.territories[player]);
   for (const group of getAllGroups(state.board, player)) {
-    const liberties = getGroupLiberties(state.board, group).size;
-    stats.totalLiberties += liberties;
-    if (liberties === 1) stats.atari += 1;
-    else if (liberties === 2) stats.nearAtari += 1;
+    const liberties = getGroupLiberties(state.board, group);
+    stats.totalLiberties += liberties.size;
+    // Territory only forms with a single-colour border, so a liberty that is
+    // this player's territory can never be filled by anyone: the group is
+    // safe for the rest of the game, whatever its liberty count says.
+    let immortal = false;
+    for (const liberty of liberties) {
+      if (ownTerritory.has(liberty)) {
+        immortal = true;
+        break;
+      }
+    }
+    if (immortal) stats.immortal += 1;
+    else if (liberties.size === 1) stats.atari += 1;
+    else if (liberties.size === 2) stats.nearAtari += 1;
     stats.connectedBonus += group.length - 1;
     if (group.length === 1) stats.isolated += 1;
   }
@@ -109,6 +127,9 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
     // used to wander into happily.
     theirs.nearAtari * 16 -
     mine.nearAtari * 34 +
+    // A permanently alive group is a lasting asset, for either side.
+    mine.immortal * 30 -
+    theirs.immortal * 30 +
     mine.connectedBonus * 3 -
     mine.isolated * 5
   );
@@ -129,14 +150,35 @@ function immediateWin(state: GameState, player: Player, actions: AIAction[]): AI
   return null;
 }
 
-/** Does the opponent have a reply to `state` that wins immediately for them? */
-function opponentHasImmediateWin(state: GameState, aiPlayer: Player): boolean {
-  const opp = opponent(aiPlayer);
-  if (isGameOver(state)) return false;
-  for (const move of getLegalMoves(state, opp)) {
-    const next = applyMove(state, move.row, move.col);
-    if (next.winner === opp) return true;
+/**
+ * Does the opponent have a reply to `state` that wins immediately for them?
+ *
+ * Computed directly instead of simulating every opponent move (which cost
+ * ~460ms per getSafeActions call and was the single largest drain on every
+ * difficulty's budget). Only two immediate wins exist:
+ *  - capture: one of our groups has exactly one liberty, and the opponent may
+ *    legally fill it. Capture-priority makes that always legal unless the
+ *    liberty is our confirmed territory, where nobody may play — that group
+ *    is permanently alive, not in danger.
+ *  - pass-out: we just passed (consecutivePasses === 1), so the opponent can
+ *    pass back, end the game, and win the territory count.
+ */
+export function opponentHasImmediateWin(state: GameState, aiPlayer: Player): boolean {
+  if (state.winner) return false;
+
+  const ownTerritory = coordKeySet(state.territories[aiPlayer]);
+  for (const group of getAllGroups(state.board, aiPlayer)) {
+    const liberties = getGroupLiberties(state.board, group);
+    if (liberties.size !== 1) continue;
+    const [only] = liberties;
+    if (!ownTerritory.has(only)) return true;
   }
+
+  if (state.consecutivePasses === 1) {
+    const ended = passTurn(state);
+    if (ended.winner && ended.winner !== aiPlayer) return true;
+  }
+
   return false;
 }
 
@@ -160,9 +202,12 @@ export function getSafeActions(state: GameState, player: Player): SafeActions {
   const winningMove = immediateWin(state, player, actions);
   if (winningMove) return { winningMove, pool: actions };
 
-  const safe = actions.filter(
-    (action) => !opponentHasImmediateWin(applyAction(state, action), player),
-  );
+  const safe = actions.filter((action) => {
+    const next = applyAction(state, action);
+    // A pass that ends the game against us is a loss, not a "safe" move.
+    if (next.winner) return next.winner === player;
+    return !opponentHasImmediateWin(next, player);
+  });
   return { winningMove: null, pool: safe.length > 0 ? safe : actions };
 }
 
@@ -205,7 +250,7 @@ export function getAIMove(
 
   for (const action of ranked) {
     const afterMine = applyAction(state, action);
-    if (afterMine.winner || isGameOver(afterMine)) {
+    if (afterMine.winner) {
       const score = evaluateState(afterMine, player);
       if (score > bestScore) {
         bestScore = score;

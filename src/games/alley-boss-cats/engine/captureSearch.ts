@@ -1,6 +1,7 @@
 import type { AIAction } from "../ai";
 import { getAllGroups, getGroupLiberties } from "../groups";
 import { applyMove, isLegalMove } from "../rules";
+import { coordKeySet } from "../territory";
 import { DIRECTIONS, inBounds, opponent } from "../types";
 import type { Board, Coord, GameState, Player } from "../types";
 
@@ -74,6 +75,17 @@ function groupStillThere(board: Board, anchor: Coord, player: Player): boolean {
   return cell === (player === "A" ? "PLAYER_A" : "PLAYER_B");
 }
 
+/** A liberty inside `owner`'s confirmed territory can never be filled by
+ * either side, so a group holding one is permanently alive. */
+function hasTerritoryLiberty(state: GameState, owner: Player, liberties: Set<string>): boolean {
+  if (state.territories[owner].length === 0) return false;
+  const keys = coordKeySet(state.territories[owner]);
+  for (const liberty of liberties) {
+    if (keys.has(liberty)) return true;
+  }
+  return false;
+}
+
 interface ReadContext {
   attacker: Player;
   defender: Player;
@@ -93,7 +105,11 @@ function attackerCanForce(state: GameState, depth: number, ctx: ReadContext): bo
     g.some((c) => c.row === ctx.anchor.row && c.col === ctx.anchor.col),
   );
   if (!target) return false;
-  if (getGroupLiberties(state.board, target).size > MAX_TRACKED_LIBERTIES) return false;
+  const targetLiberties = getGroupLiberties(state.board, target);
+  if (targetLiberties.size > MAX_TRACKED_LIBERTIES) return false;
+  // Escaped into permanent life: a liberty inside the defender's own
+  // territory can never be filled by anyone.
+  if (hasTerritoryLiberty(state, ctx.defender, targetLiberties)) return false;
 
   for (const move of movesWithin(state, ctx.attacker, ctx.focus)) {
     const next = applyMove(state, move.row, move.col);
@@ -142,9 +158,12 @@ export function findForcedCapture(
   const deadline = Date.now() + timeBudgetMs;
 
   const targets = getAllGroups(state.board, defender)
-    .map((group) => ({ group, liberties: getGroupLiberties(state.board, group).size }))
-    .filter(({ liberties }) => liberties <= MAX_TRACKED_LIBERTIES)
-    .sort((a, b) => a.liberties - b.liberties);
+    .map((group) => ({ group, liberties: getGroupLiberties(state.board, group) }))
+    .filter(({ liberties }) => liberties.size <= MAX_TRACKED_LIBERTIES)
+    // A group breathing through its own territory is permanently alive —
+    // don't spend any of the read budget proving the impossible.
+    .filter(({ liberties }) => !hasTerritoryLiberty(state, defender, liberties))
+    .sort((a, b) => a.liberties.size - b.liberties.size);
 
   for (const { group } of targets) {
     if (Date.now() >= deadline) break;

@@ -88,6 +88,12 @@ export function calculateTerritories(board: Board): Record<Player, Coord[]> {
   return territories;
 }
 
+/** "row,col" keys for one coordinate list — the same key format
+ * getGroupLiberties uses, so liberty sets can be intersected with it. */
+export function coordKeySet(coords: Coord[]): Set<string> {
+  return new Set(coords.map(({ row, col }) => `${row},${col}`));
+}
+
 export function lockedCellKeys(territories: Record<Player, Coord[]>): Set<string> {
   const keys = new Set<string>();
   for (const player of ["A", "B"] as const) {
