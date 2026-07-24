@@ -2,14 +2,13 @@
  * game self-contained. Every effect is a short synthesized tone. */
 
 let audioContext: AudioContext | null = null;
-let enabled = true;
+let sfxEnabled = true;
 
 export function setSoundEnabled(value: boolean): void {
-  enabled = value;
+  sfxEnabled = value;
 }
 
 function getContext(): AudioContext | null {
-  if (!enabled) return null;
   if (!audioContext) {
     const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return null;
@@ -28,6 +27,7 @@ interface ToneStep {
 }
 
 function playTones(steps: ToneStep[]): void {
+  if (!sfxEnabled) return;
   const ctx = getContext();
   if (!ctx) return;
 
@@ -85,4 +85,45 @@ export function playResult(): void {
     { freq: 659, duration: 0.1, gain: 0.15 },
     { freq: 784, duration: 0.22, gain: 0.15 },
   ]);
+}
+
+/** Quiet, generative "lazy afternoon alley" loop — a handful of long soft
+ * sine pads at low volume, no external audio file. */
+const MUSIC_NOTES = [261.63, 293.66, 329.63, 392.0, 440.0]; // C D E G A, pentatonic
+const MUSIC_STEP_MS = 2600;
+const MUSIC_NOTE_DURATION_S = 3.2;
+const MUSIC_PEAK_GAIN = 0.035;
+
+let musicTimer: ReturnType<typeof setInterval> | null = null;
+let musicStep = 0;
+
+function playPad(freq: number): void {
+  const ctx = getContext();
+  if (!ctx) return;
+  const start = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(freq, start);
+  gainNode.gain.setValueAtTime(0.0001, start);
+  gainNode.gain.exponentialRampToValueAtTime(MUSIC_PEAK_GAIN, start + 1.2);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, start + MUSIC_NOTE_DURATION_S);
+  osc.connect(gainNode).connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + MUSIC_NOTE_DURATION_S + 0.05);
+}
+
+function playNextMusicStep(): void {
+  playPad(MUSIC_NOTES[musicStep % MUSIC_NOTES.length]);
+  musicStep += 1;
+}
+
+export function setMusicEnabled(value: boolean): void {
+  if (value && !musicTimer) {
+    playNextMusicStep();
+    musicTimer = setInterval(playNextMusicStep, MUSIC_STEP_MS);
+  } else if (!value && musicTimer) {
+    clearInterval(musicTimer);
+    musicTimer = null;
+  }
 }

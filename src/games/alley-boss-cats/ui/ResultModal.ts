@@ -1,14 +1,27 @@
+import { computeMatchStats } from "../matchStats";
 import { calculateFinalResult } from "../rules";
 import type { GameState, Player } from "../types";
+import { renderReplay } from "./Replay";
 
 const PLAYER_NAME: Record<Player, string> = { A: "치즈냥", B: "고등어냥" };
 
 export interface ResultModalOptions {
   state: GameState;
+  matchStartedAt: number;
   onNewGame: () => void;
 }
 
-export function renderResult(host: HTMLElement, { state, onNewGame }: ResultModalOptions): void {
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+}
+
+export function renderResult(
+  host: HTMLElement,
+  { state, matchStartedAt, onNewGame }: ResultModalOptions,
+): void {
   const overlay = document.createElement("div");
   overlay.className = "abc-overlay";
 
@@ -33,11 +46,36 @@ export function renderResult(host: HTMLElement, { state, onNewGame }: ResultModa
     `;
   }
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = "새 게임";
-  button.addEventListener("click", onNewGame);
-  card.appendChild(button);
+  if (state.winner) {
+    const stats = computeMatchStats(state, state.winner, matchStartedAt);
+    const statsBlock = document.createElement("div");
+    statsBlock.className = "abc-result-stats";
+    statsBlock.innerHTML = `
+      <p>총 착수 수: ${stats.totalPlacements}수</p>
+      <p>${winnerName}의 확보한 생활 구역: ${stats.winnerTerritory}칸</p>
+      <p>${winnerName}의 가장 큰 생활 구역: ${stats.largestTerritoryPatch}칸</p>
+      <p>포위 위협을 만든 횟수 — 치즈냥 ${stats.threatsCreated.A}회 / 고등어냥 ${stats.threatsCreated.B}회</p>
+      <p>대국 시간: ${formatDuration(stats.durationMs)}</p>
+    `;
+    card.appendChild(statsBlock);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "abc-result-actions";
+
+  const replayBtn = document.createElement("button");
+  replayBtn.type = "button";
+  replayBtn.textContent = "기보 보기";
+  replayBtn.addEventListener("click", () => renderReplay(document.body, state.moveHistory, () => {}));
+  actions.appendChild(replayBtn);
+
+  const newGameBtn = document.createElement("button");
+  newGameBtn.type = "button";
+  newGameBtn.textContent = "새 게임";
+  newGameBtn.addEventListener("click", onNewGame);
+  actions.appendChild(newGameBtn);
+
+  card.appendChild(actions);
 
   overlay.appendChild(card);
   host.appendChild(overlay);

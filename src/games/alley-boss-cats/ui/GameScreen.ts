@@ -1,5 +1,6 @@
-import type { Difficulty } from "../ai";
+import type { AIAction, Difficulty } from "../ai";
 import { getAIMove } from "../ai";
+import { HardAIClient } from "../engine/aiWorkerClient";
 import { applyMove, isLegalMove, isTerritoryCell, passTurn } from "../rules";
 import * as sound from "../sound";
 import { clearGame, recordResult, saveGame, type Mode } from "../storage";
@@ -8,6 +9,7 @@ import type { GameState, Player } from "../types";
 import { renderBoard } from "./BoardView";
 import { renderResult } from "./ResultModal";
 import { renderRulesModal } from "./RulesModal";
+import { renderSettingsPanel } from "./SettingsPanel";
 
 export interface GameScreenConfig {
   mode: Mode;
@@ -32,6 +34,8 @@ export function mountGameScreen(
   let statsRecorded = false;
   let cancelled = false;
   let aiTimer: ReturnType<typeof setTimeout> | null = null;
+  const hardAI = new HardAIClient();
+  const matchStartedAt = Date.now();
 
   const isAIMode = config.mode === "AI";
   const humanTurnNow = () => !isAIMode || state.currentPlayer === config.humanSide;
@@ -70,6 +74,12 @@ export function mountGameScreen(
 
     const header = document.createElement("div");
     header.className = "abc-header";
+    const settingsBtn = document.createElement("button");
+    settingsBtn.type = "button";
+    settingsBtn.className = "abc-link-btn";
+    settingsBtn.textContent = "설정";
+    settingsBtn.addEventListener("click", () => renderSettingsPanel(root));
+    header.appendChild(settingsBtn);
     const rulesBtn = document.createElement("button");
     rulesBtn.type = "button";
     rulesBtn.className = "abc-link-btn";
@@ -102,6 +112,7 @@ export function mountGameScreen(
     if (state.winner) {
       renderResult(root, {
         state,
+        matchStartedAt,
         onNewGame: () => onExit(),
       });
       if (!statsRecorded) {
@@ -230,39 +241,62 @@ export function mountGameScreen(
     maybeTriggerAI();
   }
 
-  function maybeTriggerAI() {
+  function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      aiTimer = setTimeout(resolve, ms);
+    });
+  }
+
+  async function decideAIAction(aiPlayer: Player): Promise<AIAction> {
+    if (config.difficulty !== "HARD") {
+      return getAIMove(state, aiPlayer, config.difficulty);
+    }
+    try {
+      return await hardAI.requestMove(state, aiPlayer);
+    } catch {
+      // Worker unavailable or timed out — fall back rather than stall the game.
+      return getAIMove(state, aiPlayer, "NORMAL");
+    }
+  }
+
+  async function maybeTriggerAI() {
     if (!isAIMode || state.winner) return;
     if (state.currentPlayer === config.humanSide) return;
 
     aiThinking = true;
     render();
-    aiTimer = setTimeout(() => {
-      if (cancelled) return;
-      const aiPlayer = opponent(config.humanSide);
-      const action = getAIMove(state, aiPlayer, config.difficulty);
-      const territoryBefore = state.territories[aiPlayer].length;
-      const next = action.type === "PASS" ? passTurn(state) : applyMove(state, action.row, action.col);
 
-      if (action.type === "PASS") {
-        sound.playPass();
-      } else {
-        sound.playPlace();
-        if (next.winner === aiPlayer && next.winReason === "CAPTURE") sound.playCaptureWin();
-        else if (next.territories[aiPlayer].length > territoryBefore) sound.playTerritoryComplete();
-      }
+    const aiPlayer = opponent(config.humanSide);
+    const startedAt = Date.now();
+    const action = await decideAIAction(aiPlayer);
+    if (cancelled) return;
 
-      aiThinking = false;
-      pushState(next);
-      render();
-      maybeTriggerAI();
-    }, AI_THINK_DELAY_MS);
+    await delay(Math.max(0, AI_THINK_DELAY_MS - (Date.now() - startedAt)));
+    if (cancelled) return;
+
+    const territoryBefore = state.territories[aiPlayer].length;
+    const next = action.type === "PASS" ? passTurn(state) : applyMove(state, action.row, action.col);
+
+    if (action.type === "PASS") {
+      sound.playPass();
+    } else {
+      sound.playPlace();
+      if (next.winner === aiPlayer && next.winReason === "CAPTURE") sound.playCaptureWin();
+      else if (next.territories[aiPlayer].length > territoryBefore) sound.playTerritoryComplete();
+    }
+
+    aiThinking = false;
+    pushState(next);
+    render();
+    void maybeTriggerAI();
   }
 
   render();
-  maybeTriggerAI();
+  void maybeTriggerAI();
 
   return () => {
     cancelled = true;
     if (aiTimer) clearTimeout(aiTimer);
+    hardAI.terminate();
   };
 }

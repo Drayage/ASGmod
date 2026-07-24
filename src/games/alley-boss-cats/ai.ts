@@ -4,11 +4,11 @@ import { lockedCellKeys } from "./territory";
 import { opponent } from "./types";
 import type { Coord, GameState, Player } from "./types";
 
-export type Difficulty = "EASY" | "NORMAL";
+export type Difficulty = "EASY" | "NORMAL" | "HARD";
 
 export type AIAction = { type: "PLACE"; row: number; col: number } | { type: "PASS" };
 
-function applyAction(state: GameState, action: AIAction): GameState {
+export function applyAction(state: GameState, action: AIAction): GameState {
   return action.type === "PASS" ? passTurn(state) : applyMove(state, action.row, action.col);
 }
 
@@ -89,7 +89,7 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
   );
 }
 
-function candidateActions(state: GameState, player: Player): AIAction[] {
+export function candidateActions(state: GameState, player: Player): AIAction[] {
   const placements: AIAction[] = getLegalMoves(state, player).map(
     (coord: Coord): AIAction => ({ type: "PLACE", row: coord.row, col: coord.col }),
   );
@@ -115,7 +115,7 @@ function opponentHasImmediateWin(state: GameState, aiPlayer: Player): boolean {
   return false;
 }
 
-function rankByStaticEval(state: GameState, player: Player, actions: AIAction[]): AIAction[] {
+export function rankByStaticEval(state: GameState, player: Player, actions: AIAction[]): AIAction[] {
   return [...actions]
     .map((action) => ({ action, score: evaluateState(applyAction(state, action), player) }))
     .sort((a, b) => b.score - a.score)
@@ -126,7 +126,16 @@ const EASY_TOP_N = 5;
 const NORMAL_TOP_N = 10;
 const NORMAL_REPLY_TOP_N = 8;
 
-export function getAIMove(state: GameState, player: Player, difficulty: Difficulty): AIAction {
+/**
+ * Handles EASY and NORMAL only. HARD runs the deeper iterative-deepening
+ * search in engine/minimax.ts, normally off the main thread via aiWorker.ts
+ * — callers must route HARD there instead of calling this function.
+ */
+export function getAIMove(
+  state: GameState,
+  player: Player,
+  difficulty: Exclude<Difficulty, "HARD">,
+): AIAction {
   const actions = candidateActions(state, player);
 
   const winningMove = immediateWin(state, player, actions);

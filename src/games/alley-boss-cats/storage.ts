@@ -21,6 +21,7 @@ export interface SavedGame {
 export interface Settings {
   version: number;
   soundEnabled: boolean;
+  musicEnabled: boolean;
   moveConfirmation: boolean;
   showHints: boolean;
   tutorialCompleted: boolean;
@@ -38,6 +39,7 @@ export interface Stats {
 const DEFAULT_SETTINGS: Settings = {
   version: SAVE_VERSION,
   soundEnabled: true,
+  musicEnabled: false,
   moveConfirmation: false,
   showHints: false,
   tutorialCompleted: false,

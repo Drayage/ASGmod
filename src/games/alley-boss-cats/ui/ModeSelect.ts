@@ -2,6 +2,8 @@ import type { Difficulty } from "../ai";
 import { createInitialState } from "../rules";
 import { loadGame, type Mode } from "../storage";
 import type { GameState, Player } from "../types";
+import { renderSettingsPanel } from "./SettingsPanel";
+import { renderStats } from "./StatsScreen";
 
 export interface StartConfig {
   mode: Mode;
@@ -69,6 +71,11 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
       difficulty = "NORMAL";
     }),
   );
+  difficultyGroup.appendChild(
+    radioButton("difficulty", "어려움", false, () => {
+      difficulty = "HARD";
+    }),
+  );
   wrap.appendChild(difficultyGroup);
 
   const sideGroup = document.createElement("div");
@@ -101,6 +108,25 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
     onStart({ mode, difficulty, humanSide, initialState: createInitialState() });
   });
   wrap.appendChild(startBtn);
+
+  const linkRow = document.createElement("div");
+  linkRow.className = "abc-mode-select-links";
+
+  const statsBtn = document.createElement("button");
+  statsBtn.type = "button";
+  statsBtn.className = "abc-link-btn";
+  statsBtn.textContent = "통계 보기";
+  statsBtn.addEventListener("click", () => renderStats(wrap));
+  linkRow.appendChild(statsBtn);
+
+  const settingsBtn = document.createElement("button");
+  settingsBtn.type = "button";
+  settingsBtn.className = "abc-link-btn";
+  settingsBtn.textContent = "설정";
+  settingsBtn.addEventListener("click", () => renderSettingsPanel(wrap));
+  linkRow.appendChild(settingsBtn);
+
+  wrap.appendChild(linkRow);
 
   host.appendChild(wrap);
 }

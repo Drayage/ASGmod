@@ -104,6 +104,16 @@
   cursor: default;
 }
 
+/* Board cells are <button>s too, so when a board is rendered inside a
+ * .abc-modal (the replay screen), the generic ".abc-modal button" rule
+ * below would otherwise override each grid cell's stretch sizing. This
+ * has higher specificity (two classes) and wins regardless of source order. */
+.abc-board .abc-cell {
+  align-self: stretch;
+  justify-self: stretch;
+  margin-top: 0;
+}
+
 .abc-cell:not(:disabled):hover {
   background: #efe4c0;
 }
@@ -313,6 +323,86 @@
   font-weight: 700;
   color: var(--accent);
   margin-top: 0.5rem !important;
+}
+
+.abc-result-stats {
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.abc-result-stats p {
+  text-align: center;
+  margin: 0.15rem 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.abc-result-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.abc-result-actions button {
+  margin-top: 0;
+}
+
+.abc-replay-counter {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.abc-replay-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.abc-replay-controls button {
+  margin-top: 0;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.abc-stats h2 {
+  text-align: center;
+  margin-top: 0;
+}
+
+.abc-stats p {
+  text-align: center;
+  margin: 0.2rem 0;
+}
+
+.abc-stats-subhead {
+  margin-top: 0.75rem !important;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.abc-mode-select-links {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.25rem;
+}
+
+.abc-settings h2 {
+  text-align: center;
+  margin-top: 0;
+}
+
+.abc-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.25rem 0;
 }
 
 .abc-tutorial-step {
