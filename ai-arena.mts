@@ -92,9 +92,11 @@ function runMatch(label: string, engineX: Engine, engineY: Engine, games: number
 const games = Number(process.env.GAMES ?? 12);
 console.log(`HARD 탐색시간 ${HARD_MS}ms, 게임당 최대 ${MAX_PLIES}수, 매치당 ${games}판\n`);
 
+const only = process.env.ONLY;
+
 console.time("total");
-runMatch("HARD vs RANDOM", "HARD", "RANDOM", games);
-runMatch("HARD vs EASY  ", "HARD", "EASY", games);
-runMatch("HARD vs NORMAL", "HARD", "NORMAL", games);
-runMatch("NORMAL vs EASY", "NORMAL", "EASY", games);
+if (!only || only === "RANDOM") runMatch("HARD vs RANDOM", "HARD", "RANDOM", games);
+if (!only || only === "EASY") runMatch("HARD vs EASY  ", "HARD", "EASY", games);
+if (!only || only === "NORMAL") runMatch("HARD vs NORMAL", "HARD", "NORMAL", games);
+if (!only) runMatch("NORMAL vs EASY", "NORMAL", "EASY", games);
 console.timeEnd("total");
