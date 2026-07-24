@@ -4,7 +4,7 @@
  * breaks, rather than at an incidental implementation detail.
  */
 import { describe, expect, it } from "vitest";
-import { getConnectedGroup, getGroupLiberties } from "./groups";
+import { findCapturedGroups, getConnectedGroup, getGroupLiberties } from "./groups";
 import { applyMove, calculateFinalResult, createInitialState, getLegalMoves, isLegalMove, passTurn } from "./rules";
 import { calculateTerritories } from "./territory";
 import { BOARD_SIZE, CENTER } from "./types";
@@ -187,15 +187,94 @@ describe("규칙 3: 공성", () => {
 
   it("상대를 잡지 못하면서 자기 성만 고립되는 수는 둘 수 없다", () => {
     const board = emptyBoard();
-    // (1,0)의 세 이웃이 모두 B이고, (0,0)은 비어 있어 잡히는 B 무리가 없다
-    board[2][0] = "PLAYER_B";
-    board[1][1] = "PLAYER_B";
-    board[0][0] = "PLAYER_B";
-    board[0][1] = "PLAYER_B";
+    // 놓을 칸 (6,3)은 A와 B 양쪽에 접해 있어 어느 쪽 영토도 아니다.
+    // (영토로 판정되면 "영토엔 못 놓는다"는 다른 규칙에 막혀서
+    //  정작 자살수 판정은 검증되지 않는다.)
+    // A(5,3)은 도망길이 (6,3) 하나뿐이라, 거기에 이어 놓으면
+    // 무리 {(5,3),(6,3)}의 도망길이 0이 되는데 잡히는 B 무리는 없다.
+    board[5][3] = "PLAYER_A";
+    board[4][3] = "PLAYER_B";
+    board[5][2] = "PLAYER_B";
+    board[5][4] = "PLAYER_B";
+    board[6][2] = "PLAYER_B";
+    board[6][4] = "PLAYER_B";
+    board[7][3] = "PLAYER_B";
     const state = stateFrom(board, { currentPlayer: "A" });
-    // B(0,0)-(0,1) 무리는 (0,2) 등으로 숨을 쉬고 있으므로 잡히지 않는다
-    expect(isLegalMove(state, 1, 0, "A")).toBe(false);
-    expect(getLegalMoves(state, "A")).not.toContainEqual({ row: 1, col: 0 });
+
+    // 전제 확인: (6,3)은 누구의 영토도 아니고, A는 도망길이 하나뿐이다
+    expect(state.territories.A).toHaveLength(0);
+    expect(state.territories.B).toHaveLength(0);
+    expect(getGroupLiberties(board, getConnectedGroup(board, 5, 3))).toEqual(new Set(["6,3"]));
+    // 둘러싼 B 무리들은 모두 살아 있으므로 이 수로 잡히지 않는다
+    for (const [r, c] of [[4, 3], [5, 2], [7, 3]]) {
+      expect(getGroupLiberties(board, getConnectedGroup(board, r, c)).size).toBeGreaterThan(0);
+    }
+
+    expect(isLegalMove(state, 6, 3, "A")).toBe(false);
+    expect(getLegalMoves(state, "A")).not.toContainEqual({ row: 6, col: 3 });
+  });
+});
+
+describe("규칙 2/3 경계 사례", () => {
+  it("세로 벽으로 판이 둘로 갈리면 양쪽 다 그 색의 영토가 된다", () => {
+    const board = emptyBoard();
+    for (let row = 0; row < BOARD_SIZE; row++) board[row][3] = "PLAYER_A";
+
+    const territories = calculateTerritories(board);
+    // 왼쪽(27칸)은 위·아래·왼쪽 3개 변에, 오른쪽(급식소 제외 44칸)은
+    // 위·아래·오른쪽 3개 변에 닿는다. 규칙이 배제하는 것은 "네 변 모두"뿐이라
+    // 두 영역 모두 영토로 인정된다.
+    expect(territories.A).toHaveLength(71);
+    expect(territories.B).toHaveLength(0);
+    expect(territories.A).toContainEqual({ row: 0, col: 0 });
+    expect(territories.A).toContainEqual({ row: 8, col: 8 });
+    // 급식소 자체는 빈칸이 아니므로 누구의 영토도 아니다
+    expect(territories.A).not.toContainEqual({ row: CENTER, col: CENTER });
+  });
+
+  it("가로 벽으로 판이 둘로 갈려도 마찬가지다", () => {
+    const board = emptyBoard();
+    for (let col = 0; col < BOARD_SIZE; col++) board[3][col] = "PLAYER_B";
+
+    const territories = calculateTerritories(board);
+    expect(territories.B).toHaveLength(71);
+    expect(territories.A).toHaveLength(0);
+  });
+
+  it("3개 변과 함께 둘러싼 외곽 공간은 영토지만, 네 변 모두면 아니다", () => {
+    // 3개 변: 위·아래를 잇는 벽의 왼쪽 공간은 위/아래/왼쪽에만 닿는다
+    const threeSides = emptyBoard();
+    for (let row = 0; row < BOARD_SIZE; row++) threeSides[row][2] = "PLAYER_A";
+    const left = calculateTerritories(threeSides).A.filter((c) => c.col < 2);
+    expect(left).toHaveLength(18);
+
+    // 네 변: 성 하나로는 바깥 공간이 네 변에 모두 닿아 영토가 되지 않는다
+    const fourSides = emptyBoard();
+    fourSides[4][0] = "PLAYER_A";
+    expect(calculateTerritories(fourSides).A).toHaveLength(0);
+  });
+
+  it("확정된 영토에 접한 성은 그 영토 때문에 포위되지 않는다", () => {
+    const board = emptyBoard();
+    // A가 (0,0) 모서리를 막아 영토로 만든다
+    board[0][1] = "PLAYER_A";
+    board[1][0] = "PLAYER_A";
+    // B가 A(0,1)의 바깥쪽 도망길을 전부 메운다
+    board[0][2] = "PLAYER_B";
+    board[1][1] = "PLAYER_B";
+
+    const territories = calculateTerritories(board);
+    expect(territories.A).toContainEqual({ row: 0, col: 0 });
+
+    // 남은 도망길은 자기 영토 (0,0) 하나뿐이지만, 빈칸인 이상 포위가 아니다
+    const group = getConnectedGroup(board, 0, 1);
+    expect(getGroupLiberties(board, group)).toEqual(new Set(["0,0"]));
+    expect(findCapturedGroups(board, "A")).toHaveLength(0);
+
+    // 그리고 그 칸에는 아무도 놓을 수 없으므로 이 성은 잡히지 않는다
+    const state = stateFrom(board, { currentPlayer: "B" });
+    expect(isLegalMove(state, 0, 0, "B")).toBe(false);
+    expect(isLegalMove(state, 0, 0, "A")).toBe(false);
   });
 });
 

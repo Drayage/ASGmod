@@ -22,11 +22,11 @@ export function renderResult(
   host: HTMLElement,
   { state, matchStartedAt, onNewGame }: ResultModalOptions,
 ): void {
-  const overlay = document.createElement("div");
-  overlay.className = "abc-overlay";
-
-  const card = document.createElement("div");
-  card.className = "abc-modal abc-result";
+  // Deliberately not an overlay: the moment a game ends is exactly when the
+  // player wants to study the final position, and a centred dialog covers the
+  // board it is reporting on. This sits below the board instead.
+  const card = document.createElement("section");
+  card.className = "abc-result-panel";
 
   const winnerName = state.winner ? PLAYER_NAME[state.winner] : "";
 
@@ -76,7 +76,8 @@ export function renderResult(
   actions.appendChild(newGameBtn);
 
   card.appendChild(actions);
+  host.appendChild(card);
 
-  overlay.appendChild(card);
-  host.appendChild(overlay);
+  // Nudge it into view on small screens without yanking the board off-screen.
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }

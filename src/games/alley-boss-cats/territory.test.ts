@@ -60,15 +60,28 @@ describe("calculateTerritories", () => {
     expect(territories.B).toHaveLength(0);
   });
 
-  it("lets the communal feeding spot serve as a border for either player", () => {
+  it("lets the communal feeding spot serve as a border, forming real territory", () => {
     const board = emptyBoard();
     board[4][4] = "NEUTRAL";
+    // (3,4) is walled by three A castles plus the feeding spot below it, so
+    // the neutral cell has to count as a boundary for this to be territory.
+    board[2][4] = "PLAYER_A";
     board[3][3] = "PLAYER_A";
-    board[3][4] = "PLAYER_A";
-    board[4][3] = "PLAYER_A";
+    board[3][5] = "PLAYER_A";
     const territories = calculateTerritories(board);
-    // (3,3)-(3,4)-(4,3) border pocket cell would need full enclosure; just assert neutral doesn't break ownership
+    expect(territories.A).toEqual([{ row: 3, col: 4 }]);
     expect(territories.B).toHaveLength(0);
+  });
+
+  it("does not award the feeding spot itself to anyone", () => {
+    const board = emptyBoard();
+    board[4][4] = "NEUTRAL";
+    board[2][4] = "PLAYER_A";
+    board[3][3] = "PLAYER_A";
+    board[3][5] = "PLAYER_A";
+    const territories = calculateTerritories(board);
+    expect(territories.A).not.toContainEqual({ row: 4, col: 4 });
+    expect(territories.B).not.toContainEqual({ row: 4, col: 4 });
   });
 
   it("excludes the whole-board outer region touching all four edges", () => {
