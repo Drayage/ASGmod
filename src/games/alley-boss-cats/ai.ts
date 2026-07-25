@@ -16,8 +16,20 @@ export function applyAction(state: GameState, action: AIAction): GameState {
   return action.type === "PASS" ? passTurn(state) : applyMove(state, action.row, action.col);
 }
 
-/** Open ground counts for less than settled ground — it still has to be won. */
-const INFLUENCE_TO_TERRITORY = 0.12;
+/**
+ * What a cell of open ground is worth next to a cell already settled — it still
+ * has to be won, so it counts for less, but not for nothing.
+ *
+ * Calibrated in the arena rather than guessed. The previous 0.12 was far too
+ * timid to see the game being lost: on a position where 고등어냥 trailed by 22
+ * cells of open ground, that deficit priced at 2.64 — less than the three cells
+ * 치즈냥 owes — so it read itself as *ahead* and played quietly while a whole
+ * side of the board was mapped out against it. Sweeping 0.12 / 0.30 / 0.50 over
+ * 12-game matches, VERY_HARD vs HARD scored 92% / 100% / 75%: too low and it
+ * cannot see the loss coming, too high and it chases open ground at the cost of
+ * shape.
+ */
+const INFLUENCE_TO_TERRITORY = 0.3;
 
 /**
  * How far ahead `player` is *on the actual win condition*, in cells.
