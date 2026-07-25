@@ -2,7 +2,7 @@ import { getAllGroups, getGroupLiberties } from "./groups";
 import { applyMove, getLegalMoves, passTurn } from "./rules";
 import { influenceCount } from "./engine/territoryPlanner";
 import { coordKeySet } from "./territory";
-import { opponent } from "./types";
+import { FIRST_PLAYER_MARGIN, opponent } from "./types";
 import type { Coord, GameState, Player } from "./types";
 
 export type Difficulty = "EASY" | "NORMAL" | "HARD" | "VERY_HARD";
@@ -16,8 +16,28 @@ export function applyAction(state: GameState, action: AIAction): GameState {
   return action.type === "PASS" ? passTurn(state) : applyMove(state, action.row, action.col);
 }
 
-function territoryCount(state: GameState, player: Player): number {
-  return state.territories[player].length;
+/** Open ground counts for less than settled ground — it still has to be won. */
+const INFLUENCE_TO_TERRITORY = 0.12;
+
+/**
+ * How far ahead `player` is *on the actual win condition*, in cells.
+ * Positive means they currently take the territory count.
+ *
+ * The evaluation used to score both sides' territory symmetrically and never
+ * mention the first-player margin at all, so the engine had no idea whether it
+ * was winning: as 고등어냥 it did not know a tie goes to it, and as 치즈냥 it
+ * did not know three cells were owed. Without that, "am I ahead, and should I
+ * be consolidating or forcing matters?" is a question it could not even ask.
+ */
+export function projectedMargin(state: GameState, player: Player): number {
+  const influence = influenceCount(state.board);
+  const projected = (side: Player) =>
+    state.territories[side].length + influence[side] * INFLUENCE_TO_TERRITORY;
+
+  const lead = projected("A") - projected("B");
+  // 치즈냥 (A) moves first and must finish at least FIRST_PLAYER_MARGIN ahead;
+  // anything short of that is a win for 고등어냥 (B).
+  return player === "A" ? lead - FIRST_PLAYER_MARGIN : FIRST_PLAYER_MARGIN - lead;
 }
 
 
@@ -80,7 +100,6 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
   const opp = opponent(aiPlayer);
   const mine = shapeStats(state, aiPlayer);
   const theirs = shapeStats(state, opp);
-  const influence = influenceCount(state.board);
 
   // Destroying one castle wins outright, so a group left in atari with the
   // opponent to move is effectively already lost. Encoding that here gives
@@ -89,14 +108,10 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
   if (theirs.atari > 0 && state.currentPlayer === aiPlayer) return NEAR_DECISIVE;
 
   return (
-    territoryCount(state, aiPlayer) * 100 -
-    territoryCount(state, opp) * 100 +
-    // Ground each side is heading towards owning. Settled territory alone is
-    // far too late a signal: an opponent building a wide framework settles
-    // nothing for many moves, and an engine watching only confirmed territory
-    // sees no reason to contest it.
-    influence[aiPlayer] * 12 -
-    influence[opp] * 12 +
+    // One number for the whole territory question: settled ground, ground each
+    // side is heading towards, and the first-player margin that decides who
+    // the count actually favours.
+    projectedMargin(state, aiPlayer) * 100 +
     mine.totalLiberties * 5 -
     theirs.totalLiberties * 6 +
     theirs.atari * 45 -

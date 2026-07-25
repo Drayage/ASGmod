@@ -165,11 +165,17 @@ export function findBestMoveVeryHard(
   //    out the bigger share of the board. When the opponent is about to settle
   //    a large area, answering it outranks whatever the general evaluation
   //    would have drifted towards.
-  const territorial = territorialCandidates(rootState, aiPlayer, finalPool, refuted, remaining);
+  const territorial = territorialCandidates(rootState, aiPlayer, finalPool, remaining);
   if (territorial.length > 0) {
     return searchWithin(rootState, aiPlayer, territorial, remaining);
   }
 
+  // 4. Otherwise the pool is already the right one to hand over: it holds all
+  //    but a handful of the legal moves, every contesting move among them.
+  //    Whether this plays greedily or quietly is settled by the evaluation, not
+  //    by which moves are on offer — measured on a real position, the safe pool
+  //    held 67 of 68 legal moves and every move the territory planner wanted,
+  //    so adding "contesting" candidates to it changed nothing at all.
   return searchWithin(rootState, aiPlayer, finalPool, remaining);
 }
 
@@ -187,7 +193,6 @@ function territorialCandidates(
   rootState: GameState,
   aiPlayer: Player,
   pool: AIAction[],
-  refuted: ReadonlySet<AIAction>,
   budgetMs: number,
 ): AIAction[] {
   const plan = planTerritory(rootState, aiPlayer);
@@ -203,6 +208,8 @@ function territorialCandidates(
   const wanted = [...plan.blockingMoves, ...plan.expansionMoves];
   if (wanted.length === 0) return [];
 
+  // `pool` has already had the refuted moves removed, so membership in it is
+  // itself the "survived screening" test.
   const poolKeys = new Set(
     pool.filter((a) => a.type === "PLACE").map((a) => `${a.row},${a.col}`),
   );
@@ -212,7 +219,6 @@ function territorialCandidates(
   for (const action of wanted) {
     if (chosen.length >= MAX_TERRITORIAL_CANDIDATES || Date.now() >= deadline) break;
     if (action.type !== "PLACE") continue;
-    // Must already have survived the immediate-loss screening.
     if (!poolKeys.has(`${action.row},${action.col}`)) continue;
 
     const next = applyAction(rootState, action);
@@ -223,7 +229,7 @@ function territorialCandidates(
     chosen.push(action);
   }
 
-  return chosen.filter((action) => !refuted.has(action));
+  return chosen;
 }
 
 /** Iterative-deepening alpha-beta search, time-boxed to `timeLimitMs`.

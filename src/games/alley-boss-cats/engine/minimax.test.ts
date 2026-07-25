@@ -5,7 +5,8 @@ import { applyMove, createInitialState } from "../rules";
 import { calculateTerritories } from "../territory";
 import { BOARD_SIZE, CENTER } from "../types";
 import type { Board, GameState, Player } from "../types";
-import { findBestMoveMinimax } from "./minimax";
+import { findBestMoveMinimax, findBestMoveVeryHard } from "./minimax";
+import { influenceCount } from "./territoryPlanner";
 
 function minGroupLiberties(board: Board, player: Player): number {
   const counts = getAllGroups(board, player).map((g) => getGroupLiberties(board, g).size);
@@ -112,5 +113,61 @@ describe("findBestMoveMinimax", () => {
     const elapsed = Date.now() - start;
     expect(action.type === "PLACE" || action.type === "PASS").toBe(true);
     expect(elapsed).toBeLessThan(3000);
+  });
+});
+
+/**
+ * The shape a human beat this AI with repeatedly: a loose diagonal ladder down
+ * one side, claiming the whole right half without ever committing to a fight.
+ * The AI answered by tidying its own corner and lost the count every time.
+ */
+function wideFrameworkPosition(): GameState {
+  const board = boardWithNeutral();
+  for (const [r, c] of [
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 7],
+    [5, 7],
+    [6, 6],
+    [7, 5],
+    [8, 4],
+  ]) {
+    board[r][c] = "PLAYER_A";
+  }
+  for (const [r, c] of [
+    [6, 1],
+    [7, 1],
+    [7, 2],
+    [6, 2],
+  ]) {
+    board[r][c] = "PLAYER_B";
+  }
+  return stateFrom(board, "B");
+}
+
+describe("findBestMoveVeryHard", () => {
+  it("contests a framework claiming a whole side instead of settling at home", () => {
+    const state = wideFrameworkPosition();
+    const influence = influenceCount(state.board);
+    expect(influence.A - influence.B).toBeGreaterThan(15); // A really is running away with it
+
+    const action = findBestMoveVeryHard(state, "B", 600);
+
+    // Passing here concedes the count outright, and so does another castle
+    // tucked into the bottom-left. The move has to argue about A's side.
+    expect(action.type).toBe("PLACE");
+    expect((action as { col: number }).col).toBeGreaterThanOrEqual(4);
+  });
+
+  it("does not throw the contesting castle away to get there", () => {
+    const state = wideFrameworkPosition();
+    const action = findBestMoveVeryHard(state, "B", 600);
+    const next = applyAction(state, action);
+
+    expect(next.winner).not.toBe("A");
+    // A castle placed with a single liberty is captured on A's next move, which
+    // ends the game — invading has to leave somewhere to breathe.
+    expect(minGroupLiberties(next.board, "B")).toBeGreaterThanOrEqual(2);
   });
 });
