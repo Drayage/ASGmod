@@ -240,6 +240,12 @@ export interface SafeActions {
  * so a shallow search can never drop below NORMAL's tactical standard.
  */
 export function getSafeActions(state: GameState, player: Player): SafeActions {
+  // Candidates are simulated with applyMove, which always plays as
+  // state.currentPlayer. Asking about the other side therefore mixes one
+  // player's legal moves with the other's board, and throws as soon as the two
+  // disagree — which is exactly what it did when an arena metric sampled both
+  // sides at once. Normalising here makes the question answerable for either.
+  if (state.currentPlayer !== player) state = { ...state, currentPlayer: player };
   const actions = candidateActions(state, player);
   const winningMove = immediateWin(state, player, actions);
   if (winningMove) return { winningMove, pool: actions };

@@ -149,8 +149,12 @@ function playGame(engineA: Engine, engineB: Engine): GameResult {
     }
     const player = state.currentPlayer;
     if (ply + RANDOM_OPENING_PLIES === PRESSURE_PLY) {
-      safeMovesAt.A = getSafeActions(state, "A").pool.length;
-      safeMovesAt.B = getSafeActions(state, "B").pool.length;
+      // getSafeActions simulates each candidate with applyMove, which plays as
+      // state.currentPlayer — so asking about the side that is *not* to move
+      // throws the moment their legal moves differ. Sample each side in a state
+      // where it is their turn.
+      safeMovesAt.A = getSafeActions({ ...state, currentPlayer: "A" }, "A").pool.length;
+      safeMovesAt.B = getSafeActions({ ...state, currentPlayer: "B" }, "B").pool.length;
     }
     const engine = player === "A" ? engineA : engineB;
     state = act(state, decide(state, player, engine));
