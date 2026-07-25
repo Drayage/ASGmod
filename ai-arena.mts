@@ -2,7 +2,7 @@
  * Plays the AI difficulties against each other and reports win rates.
  * Openings are randomized so deterministic engines don't replay one game.
  */
-import { getAIMove, tuning, type AIAction, type Difficulty } from "./src/games/alley-boss-cats/ai";
+import { getAIMove, getSafeActions, tuning, type AIAction, type Difficulty } from "./src/games/alley-boss-cats/ai";
 import { findBestMoveMinimax, findBestMoveVeryHard } from "./src/games/alley-boss-cats/engine/minimax";
 import { wideAreaBotMove } from "./src/games/alley-boss-cats/engine/wideAreaBot";
 import { sealingBotMove } from "./src/games/alley-boss-cats/engine/sealingBot";
@@ -26,7 +26,13 @@ const FRAME_W = Number(process.env.FRAME_W ?? 60);
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
 const MAX_PLIES = 160;
-const RANDOM_OPENING_PLIES = 4;
+/**
+ * Random plies played before the engines take over, so deterministic engines do
+ * not replay one game. Configurable because it is a confounder as much as a
+ * convenience: random cats land scattered and weak, which seeds exactly the
+ * capture races that then decide every game.
+ */
+const RANDOM_OPENING_PLIES = Number(process.env.OPENING_PLIES ?? 4);
 
 function decide(state: GameState, player: Player, engine: Engine): AIAction {
   // Set before every decision, so the two engines keep their own weight even
@@ -61,11 +67,28 @@ interface GameResult {
    * noisy to steer on; this moves the moment something changes. */
   firstTerritory: Record<Player, number | null>;
   finalTerritory: Record<Player, number>;
+  /**
+   * Safe moves each side still had at a fixed point in the middlegame.
+   *
+   * This is the quantity the game actually turns on. Capture ends almost every
+   * game, but a capture is what happens when a player runs out of moves that do
+   * not lose something — and what takes those moves away is the opponent's
+   * territory, which nobody may play into, and their living walls. Squeezing
+   * that number is the pressure; the capture is the symptom. Two engines that
+   * apply no pressure to each other simply shuffle safely until one of them
+   * runs out late, which is what every measurement here had been picking up.
+   */
+  safeMovesAt: Record<Player, number | null>;
 }
+
+/** Ply at which the squeeze is sampled — deep enough to be past the opening,
+ * early enough that most games are still running. */
+const PRESSURE_PLY = 20;
 
 function playGame(engineA: Engine, engineB: Engine): GameResult {
   let state = createInitialState();
   const firstTerritory: Record<Player, number | null> = { A: null, B: null };
+  const safeMovesAt: Record<Player, number | null> = { A: null, B: null };
 
   const noteTerritory = (ply: number) => {
     for (const side of ["A", "B"] as Player[]) {
@@ -92,9 +115,14 @@ function playGame(engineA: Engine, engineB: Engine): GameResult {
         plies: ply,
         firstTerritory,
         finalTerritory: { A: state.territories.A.length, B: state.territories.B.length },
+        safeMovesAt,
       };
     }
     const player = state.currentPlayer;
+    if (ply + RANDOM_OPENING_PLIES === PRESSURE_PLY) {
+      safeMovesAt.A = getSafeActions(state, "A").pool.length;
+      safeMovesAt.B = getSafeActions(state, "B").pool.length;
+    }
     const engine = player === "A" ? engineA : engineB;
     state = act(state, decide(state, player, engine));
     noteTerritory(ply + 1 + RANDOM_OPENING_PLIES);
@@ -106,6 +134,7 @@ function playGame(engineA: Engine, engineB: Engine): GameResult {
     plies: MAX_PLIES,
     firstTerritory,
     finalTerritory: { A: state.territories.A.length, B: state.territories.B.length },
+    safeMovesAt,
   };
 }
 
@@ -117,6 +146,8 @@ function runMatch(label: string, engineX: Engine, engineY: Engine, games: number
   const yFirst: number[] = [];
   let xTerritory = 0;
   let yTerritory = 0;
+  const xSafe: number[] = [];
+  const ySafe: number[] = [];
 
   for (let i = 0; i < games; i++) {
     // Alternate colors so the first-player advantage cancels out.
@@ -133,6 +164,8 @@ function runMatch(label: string, engineX: Engine, engineY: Engine, games: number
     if (result.firstTerritory[ySide] !== null) yFirst.push(result.firstTerritory[ySide]!);
     xTerritory += result.finalTerritory[xSide];
     yTerritory += result.finalTerritory[ySide];
+    if (result.safeMovesAt[xSide] !== null) xSafe.push(result.safeMovesAt[xSide]!);
+    if (result.safeMovesAt[ySide] !== null) ySafe.push(result.safeMovesAt[ySide]!);
   }
 
   const mean = (xs: number[]) => (xs.length === 0 ? "-" : (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(1));
@@ -141,7 +174,8 @@ function runMatch(label: string, engineX: Engine, engineY: Engine, games: number
   console.log(
     `${label}: ${xWins}/${games} (${pct}%)  | 종료사유 ${JSON.stringify(reasons)} | 평균 ${Math.round(totalPlies / games)}수\n` +
       `${" ".repeat(label.length)}  첫 확정 ${mean(xFirst)}수 (${xFirst.length}판) vs ${mean(yFirst)}수 (${yFirst.length}판)` +
-      ` | 평균 최종영토 ${(xTerritory / games).toFixed(1)} : ${(yTerritory / games).toFixed(1)}`,
+      ` | 평균 최종영토 ${(xTerritory / games).toFixed(1)} : ${(yTerritory / games).toFixed(1)}\n` +
+      `${" ".repeat(label.length)}  ${PRESSURE_PLY}수째 상대에게 남은 안전한 수 ${mean(ySafe)} (내가 압박) vs ${mean(xSafe)} (상대가 압박)`,
   );
   return xWins;
 }
