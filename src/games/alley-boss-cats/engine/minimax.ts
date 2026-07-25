@@ -4,6 +4,7 @@ import { opponent } from "../types";
 import type { Board, GameState, Player } from "../types";
 import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
 import { localMoveScore, orderedCandidates } from "./moveOrdering";
+import { planTerritory } from "./territoryPlanner";
 import { TranspositionTable } from "./transpositionTable";
 
 const WIN_SCORE = 1_000_000;
@@ -159,7 +160,65 @@ export function findBestMoveVeryHard(
   const finalPool = survivors.length > 0 ? survivors : ranked;
 
   const remaining = Math.max(300, deadline - Date.now());
+
+  // 3. Nothing is forced either way, so the game is being decided by who maps
+  //    out the bigger share of the board. When the opponent is about to settle
+  //    a large area, answering it outranks whatever the general evaluation
+  //    would have drifted towards.
+  const territorial = territorialCandidates(rootState, aiPlayer, finalPool, refuted, remaining);
+  if (territorial.length > 0) {
+    return searchWithin(rootState, aiPlayer, territorial, remaining);
+  }
+
   return searchWithin(rootState, aiPlayer, finalPool, remaining);
+}
+
+/** Share of the remaining budget spent proving invasions are not suicidal. */
+const INVASION_CHECK_MS = 60;
+const MAX_TERRITORIAL_CANDIDATES = 12;
+
+/**
+ * Blocking and expanding moves drawn from the whole-board plan, filtered down
+ * to those that are actually playable and don't walk into a forced capture.
+ * Returns an empty list when nothing territorial is pressing, letting the
+ * ordinary search decide.
+ */
+function territorialCandidates(
+  rootState: GameState,
+  aiPlayer: Player,
+  pool: AIAction[],
+  refuted: ReadonlySet<AIAction>,
+  budgetMs: number,
+): AIAction[] {
+  const plan = planTerritory(rootState, aiPlayer);
+  if (!plan.urgent) return [];
+
+  // Blocking their area comes before finishing mine: their gain is settled
+  // ground I can never take back, whereas my own area usually keeps.
+  const wanted = [...plan.blockingMoves, ...plan.expansionMoves];
+  if (wanted.length === 0) return [];
+
+  const poolKeys = new Set(
+    pool.filter((a) => a.type === "PLACE").map((a) => `${a.row},${a.col}`),
+  );
+
+  const deadline = Date.now() + Math.min(budgetMs / 2, INVASION_CHECK_MS * MAX_TERRITORIAL_CANDIDATES);
+  const chosen: AIAction[] = [];
+  for (const action of wanted) {
+    if (chosen.length >= MAX_TERRITORIAL_CANDIDATES || Date.now() >= deadline) break;
+    if (action.type !== "PLACE") continue;
+    // Must already have survived the immediate-loss screening.
+    if (!poolKeys.has(`${action.row},${action.col}`)) continue;
+
+    const next = applyAction(rootState, action);
+    if (next.winner === aiPlayer) return [action];
+    if (next.winner) continue;
+    // An invasion that just gets surrounded is worse than not invading.
+    if (opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, INVASION_CHECK_MS)) continue;
+    chosen.push(action);
+  }
+
+  return chosen.filter((action) => !refuted.has(action));
 }
 
 /** Iterative-deepening alpha-beta search, time-boxed to `timeLimitMs`.
