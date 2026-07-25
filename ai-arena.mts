@@ -2,7 +2,7 @@
  * Plays the AI difficulties against each other and reports win rates.
  * Openings are randomized so deterministic engines don't replay one game.
  */
-import { getAIMove, type AIAction, type Difficulty } from "./src/games/alley-boss-cats/ai";
+import { getAIMove, tuning, type AIAction, type Difficulty } from "./src/games/alley-boss-cats/ai";
 import { findBestMoveMinimax, findBestMoveVeryHard } from "./src/games/alley-boss-cats/engine/minimax";
 import { wideAreaBotMove } from "./src/games/alley-boss-cats/engine/wideAreaBot";
 import { sealingBotMove } from "./src/games/alley-boss-cats/engine/sealingBot";
@@ -15,7 +15,13 @@ import {
 } from "./src/games/alley-boss-cats/rules";
 import type { GameState, Player } from "./src/games/alley-boss-cats/types";
 
-type Engine = Difficulty | "RANDOM" | "WIDE" | "SEAL";
+type Engine = Difficulty | "RANDOM" | "WIDE" | "SEAL" | "VH_FRAME";
+
+/** Framework weight given to the VH_FRAME variant. Everything else about it is
+ * identical to VERY_HARD, so a head-to-head measures that one term and nothing
+ * else — the scripted bots lose on tactics long before area decides anything,
+ * which makes them useless for this question. */
+const FRAME_W = Number(process.env.FRAME_W ?? 60);
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -23,6 +29,10 @@ const MAX_PLIES = 160;
 const RANDOM_OPENING_PLIES = 4;
 
 function decide(state: GameState, player: Player, engine: Engine): AIAction {
+  // Set before every decision, so the two engines keep their own weight even
+  // though they share the module. Search is synchronous, so this is safe.
+  tuning.frameworkWeight = engine === "VH_FRAME" ? FRAME_W : 0;
+
   if (engine === "RANDOM") {
     const moves = getLegalMoves(state, player);
     if (moves.length === 0) return { type: "PASS" };
@@ -32,7 +42,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (engine === "WIDE") return wideAreaBotMove(state, player);
   if (engine === "SEAL") return sealingBotMove(state, player);
   if (engine === "HARD") return findBestMoveMinimax(state, player, HARD_MS);
-  if (engine === "VERY_HARD") return findBestMoveVeryHard(state, player, VERY_HARD_MS);
+  if (engine === "VERY_HARD" || engine === "VH_FRAME") return findBestMoveVeryHard(state, player, VERY_HARD_MS);
   return getAIMove(state, player, engine);
 }
 
@@ -151,6 +161,7 @@ if (only === "WIDE") {
   runMatch("HARD      vs WIDE  ", "HARD", "WIDE", games);
   runMatch("NORMAL    vs WIDE  ", "NORMAL", "WIDE", games);
 }
+if (only === "AB") runMatch(`VH+프레임(${FRAME_W}) vs VERY_HARD`, "VH_FRAME", "VERY_HARD", games);
 if (only === "VS_SEAL") runMatch("VERY_HARD vs SEAL  ", "VERY_HARD", "SEAL", games);
 if (only === "SEAL") {
   runMatch("VERY_HARD vs SEAL  ", "VERY_HARD", "SEAL", games);

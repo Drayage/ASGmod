@@ -1,6 +1,7 @@
 import { getAllGroups, getGroupLiberties } from "./groups";
 import { applyMove, getLegalMoves, passTurn } from "./rules";
 import { influenceCount } from "./engine/territoryPlanner";
+import { frameworkPotential } from "./engine/frameworks";
 import { coordKeySet } from "./territory";
 import { FIRST_PLAYER_MARGIN, opponent } from "./types";
 import type { Coord, GameState, Player } from "./types";
@@ -106,9 +107,33 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
   return stats;
 }
 
+/**
+ * Evaluation weights the arena can vary so one engine can be played against
+ * another that differs in exactly one term. The app never touches these — it
+ * always plays the shipped defaults — but tuning by win rate against a scripted
+ * bot has repeatedly proved unreliable here, because those games are decided by
+ * a capture race long before the territory count matters. A head-to-head
+ * between two otherwise identical engines is the only clean way to ask whether
+ * a term is worth anything.
+ *
+ * A weight of zero must cost nothing, so each term guards on it.
+ */
+export const tuning = { frameworkWeight: 0 };
+
 /** Just short of a decided game — used for positions that are lost/won barring
  * a miracle, so search still prefers a real win over a merely winning shape. */
 const NEAR_DECISIVE = 400_000;
+
+/** Credit for a wall that is nearly built. Settled ground arrives far too late
+ * to steer on: in the games this engine lost to a human, the opponent was
+ * converting by move 10 and it had nothing until move 22-29. */
+function frameworkTerm(state: GameState, aiPlayer: Player, opp: Player): number {
+  if (tuning.frameworkWeight === 0) return 0;
+  return (
+    (frameworkPotential(state.board, aiPlayer) - frameworkPotential(state.board, opp)) *
+    tuning.frameworkWeight
+  );
+}
 
 export function evaluateState(state: GameState, aiPlayer: Player): number {
   if (state.winner === aiPlayer) return 1_000_000;
@@ -129,6 +154,7 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
     // side is heading towards, and the first-player margin that decides who
     // the count actually favours.
     projectedMargin(state, aiPlayer) * 100 +
+    frameworkTerm(state, aiPlayer, opp) +
     mine.totalLiberties * 5 -
     theirs.totalLiberties * 6 +
     theirs.atari * 45 -
