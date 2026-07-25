@@ -8,6 +8,18 @@ import { planTerritory } from "./territoryPlanner";
 import type { TerritoryPlan } from "./territoryPlanner";
 import { TranspositionTable } from "./transpositionTable";
 
+/**
+ * Deepest ply the last search completed.
+ *
+ * Recorded because "the engine used its whole budget" does not distinguish a
+ * search that thought hard from one that barely got started — iterative
+ * deepening always spends the budget by design, so elapsed time alone says
+ * nothing. Depth does. A module variable rather than a return value because
+ * every caller wants the move and only the worker wants this; the search is
+ * synchronous and single-threaded, so reading it straight afterwards is sound.
+ */
+export let lastSearchDepth = 0;
+
 const WIN_SCORE = 1_000_000;
 const MAX_DEPTH = 8;
 
@@ -305,6 +317,7 @@ function searchWithin(
   });
 
   let bestAction: AIAction = rootActions[0];
+  lastSearchDepth = 0;
 
   for (let depth = 1; depth <= MAX_DEPTH; depth++) {
     if (Date.now() >= deadline) break;
@@ -343,6 +356,7 @@ function searchWithin(
     if (!completed) break;
 
     bestAction = bestAtThisDepth;
+    lastSearchDepth = depth;
     if (bestScore >= WIN_SCORE) break; // forced win found, no need to search deeper
   }
 

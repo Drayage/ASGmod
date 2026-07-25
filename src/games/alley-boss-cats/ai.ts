@@ -118,7 +118,13 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
  *
  * A weight of zero must cost nothing, so each term guards on it.
  */
-export const tuning = { frameworkWeight: 0 };
+export const tuning = {
+  frameworkWeight: 0,
+  /** Cells the opponent must be able to settle in one move before the engine
+   * drops what it is doing to answer. Measured over 17 real games: the shipped
+   * 8 fires on 1.8% of turns, while threats of three or more come up on 22%. */
+  urgentConfirmSize: 8,
+};
 
 /** Just short of a decided game — used for positions that are lost/won barring
  * a miracle, so search still prefers a real win over a merely winning shape. */

@@ -271,8 +271,8 @@ export function mountGameScreen(
   async function decideAIAction(aiPlayer: Player): Promise<AIAction> {
     const turn = state.moveHistory.length + 1;
     const startedAt = Date.now();
-    const note = (budgetMs: number, fallback?: boolean) => {
-      aiTimings.push({ turn, elapsedMs: Date.now() - startedAt, budgetMs, ...(fallback ? { fallback } : {}) });
+    const note = (budgetMs: number, extra: { depth?: number; fallback?: true } = {}) => {
+      aiTimings.push({ turn, elapsedMs: Date.now() - startedAt, budgetMs, ...extra });
     };
 
     if (config.difficulty !== "HARD" && config.difficulty !== "VERY_HARD") {
@@ -283,13 +283,13 @@ export function mountGameScreen(
 
     const budgetMs = TIME_LIMIT_MS[config.difficulty];
     try {
-      const action = await searchAI.requestMove(state, aiPlayer, config.difficulty);
-      note(budgetMs);
+      const { action, depth } = await searchAI.requestMove(state, aiPlayer, config.difficulty);
+      note(budgetMs, { depth });
       return action;
     } catch {
       // Worker unavailable or timed out — fall back rather than stall the game.
       const action = getAIMove(state, aiPlayer, "NORMAL");
-      note(budgetMs, true);
+      note(budgetMs, { fallback: true });
       return action;
     }
   }

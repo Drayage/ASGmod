@@ -51,6 +51,9 @@ export interface AITiming {
   /** Budget it was given. A phone that never gets near this is being starved,
    * which looks exactly like a bad move unless the record says otherwise. */
   budgetMs: number;
+  /** Deepest ply the search finished. Together with the elapsed time this is
+   * what separates "thought hard and chose this" from "never got going". */
+  depth?: number;
   /** True when the search failed or timed out and a weaker fallback played. */
   fallback?: boolean;
 }

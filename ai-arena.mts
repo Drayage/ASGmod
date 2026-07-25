@@ -23,6 +23,8 @@ type Engine = Difficulty | "RANDOM" | "WIDE" | "SEAL" | "VH_FRAME";
  * else — the scripted bots lose on tactics long before area decides anything,
  * which makes them useless for this question. */
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
+/** Threat size the VH_FRAME variant answers at, when URGENT is set instead. */
+const URGENT = process.env.URGENT ? Number(process.env.URGENT) : null;
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -57,7 +59,13 @@ const OPENING_POINTS: ReadonlyArray<[number, number]> = [
 function decide(state: GameState, player: Player, engine: Engine): AIAction {
   // Set before every decision, so the two engines keep their own weight even
   // though they share the module. Search is synchronous, so this is safe.
-  tuning.frameworkWeight = engine === "VH_FRAME" ? FRAME_W : 0;
+  if (URGENT !== null) {
+    tuning.frameworkWeight = 0;
+    tuning.urgentConfirmSize = engine === "VH_FRAME" ? URGENT : 8;
+  } else {
+    tuning.frameworkWeight = engine === "VH_FRAME" ? FRAME_W : 0;
+    tuning.urgentConfirmSize = 8;
+  }
 
   if (engine === "RANDOM") {
     const moves = getLegalMoves(state, player);

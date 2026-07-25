@@ -50,6 +50,11 @@ function describeEngine(record: MatchRecord): string {
   if (timed.length > 0) {
     const avg = Math.round(timed.reduce((n, t) => n + t.elapsedMs, 0) / timed.length);
     parts.push(`평균 사고 ${avg}ms / ${timed[0].budgetMs}ms`);
+    const depths = timed.map((t) => t.depth).filter((d): d is number => typeof d === "number");
+    if (depths.length > 0) {
+      const avgDepth = (depths.reduce((n, d) => n + d, 0) / depths.length).toFixed(1);
+      parts.push(`평균 깊이 ${avgDepth}수`);
+    }
     const fallbacks = record.aiTimings.filter((t) => t.fallback).length;
     if (fallbacks > 0) parts.push(`대체수 ${fallbacks}회`);
   }

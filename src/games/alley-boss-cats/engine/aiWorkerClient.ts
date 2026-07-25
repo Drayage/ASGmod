@@ -1,6 +1,6 @@
-import type { AIAction, SearchDifficulty } from "../ai";
+import type { SearchDifficulty } from "../ai";
 import type { GameState, Player } from "../types";
-import type { AIWorkerRequest } from "../aiWorker";
+import type { AIWorkerRequest, AIWorkerResponse } from "../aiWorker";
 
 export const TIME_LIMIT_MS: Record<SearchDifficulty, number> = {
   HARD: 2500,
@@ -23,7 +23,7 @@ export class SearchAIClient {
     return this.worker;
   }
 
-  requestMove(state: GameState, player: Player, difficulty: SearchDifficulty): Promise<AIAction> {
+  requestMove(state: GameState, player: Player, difficulty: SearchDifficulty): Promise<AIWorkerResponse> {
     const worker = this.ensureWorker();
     const timeLimitMs = TIME_LIMIT_MS[difficulty];
 
@@ -33,7 +33,7 @@ export class SearchAIClient {
         reject(new Error(`${difficulty} AI worker timed out`));
       }, timeLimitMs + WATCHDOG_MARGIN_MS);
 
-      const handleMessage = (event: MessageEvent<AIAction>) => {
+      const handleMessage = (event: MessageEvent<AIWorkerResponse>) => {
         cleanup();
         resolve(event.data);
       };
