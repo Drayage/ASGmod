@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { findBestMoveVeryHard } from "./minimax";
-import { findSealingMoves, planTerritory } from "./territoryPlanner";
-import { createInitialState } from "../rules";
+import { findSealingMoves, invasionIsViable, planTerritory } from "./territoryPlanner";
+import { createInitialState, getLegalMoves } from "../rules";
 import { calculateTerritories } from "../territory";
 import { BOARD_SIZE, CENTER } from "../types";
 import type { Board, GameState, Player } from "../types";
@@ -96,6 +96,56 @@ describe("planTerritory", () => {
     const state = stateFrom(board, "B");
 
     expect(planTerritory(state, "B").urgent).toBe(false);
+  });
+});
+
+describe("invasionIsViable", () => {
+  /**
+   * Taken from a lost game: 치즈냥 was expanding down the right edge and
+   * 고등어냥 dived in at (4,8) to stop it. The point had two escape routes, so
+   * the one-move safety check passed it — but on the edge, hemmed in by 치즈냥's
+   * wall, neither route could be held and the cat was surrounded two moves
+   * later, losing the game outright.
+   */
+  function rightEdgeInvasion(): GameState {
+    const board = boardWithNeutral();
+    for (const [r, c] of [[1, 7], [2, 8], [2, 7], [4, 7], [5, 8]]) board[r][c] = "PLAYER_A";
+    for (const [r, c] of [[6, 2], [7, 4]]) board[r][c] = "PLAYER_B";
+    return stateFrom(board, "B");
+  }
+
+  it("rejects an invasion that lands with only two escape routes", () => {
+    const state = rightEdgeInvasion();
+    const move = { row: 3, col: 8 };
+
+    // Perfectly legal, and it survives the one-move safety check too — nothing
+    // dies next turn. That is exactly why a shape test is needed on top of one:
+    // 치즈냥 answers by taking one route, and the cat is dead the move after.
+    expect(getLegalMoves(state, "B")).toContainEqual(move);
+    expect(invasionIsViable(state, "B", move)).toBe(false);
+  });
+
+  it("does not veto invasions that have somewhere to live", () => {
+    const state = rightEdgeInvasion();
+    const legal = getLegalMoves(state, "B");
+    const viable = legal.filter((m) => invasionIsViable(state, "B", m));
+    // The rule has to be a filter, not a blanket ban — open ground still passes.
+    expect(viable.length).toBeGreaterThan(legal.length / 2);
+    expect(viable).toContainEqual({ row: 4, col: 2 });
+  });
+
+  it("allows a tight point when it joins up with cats already there", () => {
+    const board = boardWithNeutral();
+    // B has a wall on the third line; extending it stays connected, so the new
+    // cat inherits the group's room even though its own corner is cramped.
+    board[6][5] = "PLAYER_B";
+    board[6][6] = "PLAYER_B";
+    board[5][6] = "PLAYER_A";
+    board[5][5] = "PLAYER_A";
+    board[7][4] = "PLAYER_A";
+    const state = stateFrom(board, "B");
+
+    expect(invasionIsViable(state, "B", { row: 6, col: 4 })).toBe(true);
   });
 });
 

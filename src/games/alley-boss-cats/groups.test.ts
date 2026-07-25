@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { BOARD_SIZE } from "./types";
-import type { Board } from "./types";
-import { getAllGroups, getConnectedGroup, getGroupLiberties } from "./groups";
+import type { Board, GameState } from "./types";
+import { findEndangeredGroups, getAllGroups, getConnectedGroup, getGroupLiberties } from "./groups";
+import { createInitialState } from "./rules";
 import { calculateTerritories } from "./territory";
 
 function emptyBoard(): Board {
@@ -111,5 +112,55 @@ describe("getGroupLiberties", () => {
 
     const group = getConnectedGroup(board, 0, 1);
     expect(getGroupLiberties(board, group)).toContain("0,0");
+  });
+});
+
+describe("findEndangeredGroups", () => {
+  function stateFrom(board: Board, currentPlayer: "A" | "B"): GameState {
+    return { ...createInitialState(), board, territories: calculateTerritories(board), currentPlayer };
+  }
+
+  it("flags a group the opponent can surround with one more cat", () => {
+    const board = emptyBoard();
+    board[4][4] = "NEUTRAL";
+    // B's lone cat at (5,2) is down to a single escape route at (6,2).
+    board[5][2] = "PLAYER_B";
+    board[4][2] = "PLAYER_A";
+    board[5][1] = "PLAYER_A";
+    board[5][3] = "PLAYER_A";
+    const state = stateFrom(board, "A");
+
+    expect(findEndangeredGroups(state, "B")).toEqual([[{ row: 5, col: 2 }]]);
+    expect(findEndangeredGroups(state, "A")).toEqual([]);
+  });
+
+  it("leaves comfortable groups alone", () => {
+    const board = emptyBoard();
+    board[4][4] = "NEUTRAL";
+    board[5][2] = "PLAYER_B";
+    board[4][2] = "PLAYER_A";
+    const state = stateFrom(board, "A");
+
+    expect(findEndangeredGroups(state, "B")).toEqual([]);
+  });
+
+  it("does not flag a group whose last breath is its own living area", () => {
+    const board = emptyBoard();
+    board[4][4] = "NEUTRAL";
+    // A walls off the top-left 3x3 corner, then sits a cat in the doorway at
+    // (2,2) whose only empty neighbour is inside that settled area. Nobody may
+    // ever play there, so the cat is permanently safe — warning about it would
+    // be telling the player to defend something that cannot be attacked.
+    for (const [r, c] of [[0, 3], [1, 3], [2, 3], [3, 3], [3, 2], [3, 1], [3, 0]]) {
+      board[r][c] = "PLAYER_A";
+    }
+    board[2][1] = "PLAYER_A";
+    board[1][2] = "PLAYER_A";
+    board[2][2] = "PLAYER_A";
+    const state = stateFrom(board, "B");
+
+    const endangered = findEndangeredGroups(state, "A");
+    const cells = endangered.flat();
+    expect(cells).not.toContainEqual({ row: 2, col: 2 });
   });
 });

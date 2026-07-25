@@ -1,4 +1,5 @@
 import type { AIAction } from "../ai";
+import { getConnectedGroup, getGroupLiberties } from "../groups";
 import { getLegalMoves, isLegalMove } from "../rules";
 import { calculateTerritories, coordKeySet } from "../territory";
 import { DIRECTIONS, inBounds, opponent, playerCell } from "../types";
@@ -219,21 +220,62 @@ function toAction({ row, col }: Coord): AIAction {
 }
 
 /**
- * Cells inside the area they are about to enclose, where a castle of mine
- * would sit with room to breathe. Taking the sealing point itself is the
- * obvious answer; living inside is the one that kills the area outright.
+ * The fewest escape routes an invading cat may land with.
+ *
+ * Two is not enough, however tempting the point looks. The opponent answers by
+ * taking one, and a cat down to a single route is captured next move — the
+ * whole game, lost for one greedy castle. At three, their best single answer
+ * still leaves somewhere to run.
+ */
+const MIN_INVASION_LIBERTIES = 3;
+
+/**
+ * Can a cat played at `move` actually live there?
+ *
+ * Deciding to invade is the easy half; surviving it is the half this checks.
+ * A cat sent into ground the opponent controls has to do one of two things —
+ * join up with cats that are already out there, or land with enough room to
+ * build a home before it is attacked. Anything else is a gift.
+ *
+ * This is a shape test, not a search: the life-and-death reader that runs
+ * afterwards is time-boxed, and under a real move budget it is easily starved
+ * into missing exactly this. A structural rule costs almost nothing and never
+ * runs out of time.
+ */
+export function invasionIsViable(state: GameState, player: Player, move: Coord): boolean {
+  if (!isLegalMove(state, move.row, move.col, player)) return false;
+
+  const board: Board = state.board.map((row) => [...row]);
+  board[move.row][move.col] = playerCell(player);
+
+  const group = getConnectedGroup(board, move.row, move.col);
+  const liberties = getGroupLiberties(board, group);
+  if (liberties.size < MIN_INVASION_LIBERTIES) return false;
+
+  // Joined up with friendly cats already in the area: an extension, not a lone
+  // castle dropped behind enemy lines.
+  if (group.length > 1) return true;
+
+  // Standing alone, it needs somewhere to grow into — an escape route that
+  // itself opens onto more empty ground, rather than three separate dead ends.
+  return [...liberties].some((liberty) => {
+    const [r, c] = liberty.split(",").map(Number);
+    for (const [dr, dc] of DIRECTIONS) {
+      const nr = r + dr;
+      const nc = c + dc;
+      if (inBounds(nr, nc) && board[nr][nc] === "EMPTY") return true;
+    }
+    return false;
+  });
+}
+
+/**
+ * Cells inside the area they are about to enclose where a castle of mine could
+ * live. Taking the sealing point itself is the obvious answer; living inside is
+ * the one that kills the area outright — but only if it survives the attempt.
  */
 function invasionPoints(state: GameState, player: Player, area: Coord[]): Coord[] {
-  return area.filter(({ row, col }) => {
-    if (!isLegalMove(state, row, col, player)) return false;
-    let open = 0;
-    for (const [dr, dc] of DIRECTIONS) {
-      const r = row + dr;
-      const c = col + dc;
-      if (inBounds(r, c) && state.board[r][c] === "EMPTY") open += 1;
-    }
-    return open >= 2; // somewhere to run once they answer
-  });
+  return area.filter((cell) => invasionIsViable(state, player, cell));
 }
 
 /**
@@ -251,7 +293,10 @@ function contestingMoves(state: GameState, player: Player): Coord[] {
     for (let col = 0; col < state.board.length; col++) {
       if (state.board[row][col] !== "EMPTY") continue;
       if (!(distTheirs[row][col] < distMine[row][col])) continue;
-      if (!isLegalMove(state, row, col, player)) continue;
+      // Pushing into ground they lead is an invasion like any other, and has to
+      // clear the same survival test — arguing about the board is only worth
+      // anything if the cat making the argument is still there next turn.
+      if (!invasionIsViable(state, player, { row, col })) continue;
 
       let room = 0;
       for (const [dr, dc] of DIRECTIONS) {
@@ -259,7 +304,7 @@ function contestingMoves(state: GameState, player: Player): Coord[] {
         const c = col + dc;
         if (inBounds(r, c) && state.board[r][c] === "EMPTY") room += 1;
       }
-      if (room >= 2) contested.push({ move: { row, col }, room });
+      contested.push({ move: { row, col }, room });
     }
   }
 

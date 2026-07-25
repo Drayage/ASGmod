@@ -20,16 +20,21 @@ export function applyAction(state: GameState, action: AIAction): GameState {
  * What a cell of open ground is worth next to a cell already settled — it still
  * has to be won, so it counts for less, but not for nothing.
  *
- * Calibrated in the arena rather than guessed. The previous 0.12 was far too
- * timid to see the game being lost: on a position where 고등어냥 trailed by 22
- * cells of open ground, that deficit priced at 2.64 — less than the three cells
- * 치즈냥 owes — so it read itself as *ahead* and played quietly while a whole
- * side of the board was mapped out against it. Sweeping 0.12 / 0.30 / 0.50 over
- * 12-game matches, VERY_HARD vs HARD scored 92% / 100% / 75%: too low and it
- * cannot see the loss coming, too high and it chases open ground at the cost of
- * shape.
+ * Swept in the arena at 0.12 / 0.30 / 0.50. Over 12-game matches 0.30 looked
+ * like a clear win (VERY_HARD vs HARD scoring 92% / 100% / 75%), but re-running
+ * the top two over 24 games put them at 67% and 63% — that gap was sampling
+ * noise, not strength, so the original value stands. 0.50 was genuinely worse:
+ * that far up, open ground outweighs shape and the search walks into captures
+ * chasing it.
+ *
+ * Worth knowing before tuning this again: the term is deliberately timid, and it
+ * can be too timid to see a loss coming. On a position where 고등어냥 trailed by
+ * 22 cells of open ground, the deficit priced at 2.64 — less than the three
+ * cells 치즈냥 owes — so the count read as *ahead* while a whole side of the
+ * board was being mapped out against it. Raising the weight does not fix that;
+ * it just trades the error for a worse one.
  */
-const INFLUENCE_TO_TERRITORY = 0.3;
+const INFLUENCE_TO_TERRITORY = 0.12;
 
 /**
  * How far ahead `player` is *on the actual win condition*, in cells.

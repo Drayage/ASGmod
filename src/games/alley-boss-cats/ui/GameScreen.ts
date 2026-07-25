@@ -3,7 +3,7 @@ import { getAIMove } from "../ai";
 import { SearchAIClient } from "../engine/aiWorkerClient";
 import { applyMove, isLegalMove, isTerritoryCell, passTurn } from "../rules";
 import * as sound from "../sound";
-import { clearGame, recordResult, saveGame, type Mode } from "../storage";
+import { clearGame, recordResult, saveGame, saveRecord, type Mode } from "../storage";
 import { opponent } from "../types";
 import type { GameState, Player } from "../types";
 import { renderBoard } from "./BoardView";
@@ -97,6 +97,7 @@ export function mountGameScreen(
       state,
       interactive: !state.winner && !aiThinking && humanTurnNow(),
       shakeCell,
+      showDanger: true,
       onCellClick: handleCellClick,
     });
 
@@ -117,13 +118,27 @@ export function mountGameScreen(
       });
       if (!statsRecorded) {
         statsRecorded = true;
+        const reason = state.winReason === "CAPTURE" ? "CAPTURE" : "TERRITORY";
         if (isAIMode) {
           recordResult({
             won: state.winner === config.humanSide,
-            reason: state.winReason === "CAPTURE" ? "CAPTURE" : "TERRITORY",
+            reason,
             difficulty: config.difficulty,
           });
         }
+        // Every finished game is kept, local matches included — the record is
+        // what makes a game reviewable afterwards, and which side was human
+        // does not change that.
+        saveRecord({
+          mode: config.mode,
+          difficulty: config.difficulty,
+          playerSide: config.humanSide,
+          winner: state.winner,
+          winReason: reason,
+          territoryA: state.territories.A.length,
+          territoryB: state.territories.B.length,
+          moveHistory: state.moveHistory,
+        });
       }
     }
   }

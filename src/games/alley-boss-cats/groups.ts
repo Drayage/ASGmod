@@ -1,5 +1,5 @@
 import { BOARD_SIZE, DIRECTIONS, inBounds, playerCell } from "./types";
-import type { Board, Coord, Player } from "./types";
+import type { Board, Coord, GameState, Player } from "./types";
 
 function key(row: number, col: number): string {
   return `${row},${col}`;
@@ -74,6 +74,25 @@ export function getAllGroups(board: Board, player: Player): Coord[][] {
   }
 
   return groups;
+}
+
+/**
+ * Groups that lose the game if the opponent plays one more cat: exactly one
+ * escape route left, and one the opponent may actually take.
+ *
+ * A group whose last breath sits inside its owner's own confirmed living area
+ * is deliberately excluded. Nobody may ever play there, so that group can never
+ * be surrounded however the count looks — flagging it as endangered would be
+ * telling the player to defend something that is already permanently safe.
+ */
+export function findEndangeredGroups(state: GameState, player: Player): Coord[][] {
+  const ownTerritory = new Set(state.territories[player].map((c) => key(c.row, c.col)));
+  return getAllGroups(state.board, player).filter((group) => {
+    const liberties = getGroupLiberties(state.board, group);
+    if (liberties.size !== 1) return false;
+    const [only] = liberties;
+    return !ownTerritory.has(only);
+  });
 }
 
 /** Any group of `player` that has zero liberties, i.e. is captured. */

@@ -30,6 +30,13 @@ export interface GameState {
   winner: Player | null;
   winReason: WinReason;
   moveHistory: Move[];
+  /**
+   * The cats whose escape routes were all blocked, when `winReason` is
+   * "CAPTURE". Kept on the state so the board can show exactly which group
+   * ended the game — otherwise the losing player is left staring at a full
+   * board wondering what happened.
+   */
+  capturedGroup?: Coord[];
 }
 
 export function playerCell(player: Player): Cell {

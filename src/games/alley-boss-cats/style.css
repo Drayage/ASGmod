@@ -7,11 +7,15 @@
   --cat-b: #5b6b7c;
   --cat-b-soft: rgba(91, 107, 124, 0.28);
   --neutral: #f2e9d8;
+  --marker-last: #f2b705;
+  --marker-danger: #d94f4f;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --neutral: #4a4433;
+    --marker-last: #ffc93c;
+    --marker-danger: #ff6b6b;
   }
 }
 
@@ -177,17 +181,47 @@
   right: 26%;
 }
 
-.abc-cell--last-move::before {
-  content: "";
-  position: absolute;
-  bottom: 10%;
-  left: 50%;
-  width: 16%;
-  aspect-ratio: 1;
-  background: #fff;
-  border-radius: 50%;
-  transform: translateX(-50%);
-  opacity: 0.85;
+/* Three board markings, deliberately given different shapes as well as
+ * different colours so they stay readable side by side and for players who
+ * cannot separate red from yellow:
+ *   last move      — solid yellow ring
+ *   one move left  — dashed red ring
+ *   game-ending    — filled red cell
+ * Drawn with outline rather than border so the grid geometry never shifts. */
+.abc-cell--last-move {
+  outline: 3px solid var(--marker-last);
+  outline-offset: -3px;
+  z-index: 2;
+}
+
+.abc-cell--danger {
+  outline: 3px dashed var(--marker-danger);
+  outline-offset: -3px;
+  z-index: 1;
+}
+
+.abc-cell--captured {
+  background: var(--marker-danger) !important;
+  outline: 3px solid var(--marker-danger);
+  outline-offset: -3px;
+  animation: abc-captured-pulse 1.1s ease-in-out 3;
+  z-index: 3;
+}
+
+@keyframes abc-captured-pulse {
+  0%,
+  100% {
+    filter: none;
+  }
+  50% {
+    filter: brightness(1.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .abc-cell--captured {
+    animation: none;
+  }
 }
 
 .abc-cell--shake {
@@ -468,4 +502,103 @@
   justify-content: space-between;
   align-items: center;
   margin-top: 1rem;
+}
+
+/* --- 최근 대국 기록 ------------------------------------------------------ */
+
+.abc-records {
+  max-width: 34rem;
+  text-align: left;
+}
+
+.abc-records-empty,
+.abc-records-notice {
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+}
+
+.abc-records-notice {
+  color: var(--cat-a);
+}
+
+.abc-records-empty {
+  color: var(--muted);
+}
+
+.abc-records-list {
+  list-style: none;
+  margin: 0.75rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  /* Fifty games would run off the bottom of the dialog; scroll the list rather
+   * than the page so the action buttons stay reachable. */
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.abc-records-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid rgba(128, 128, 128, 0.28);
+  border-radius: 8px;
+}
+
+.abc-records-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.abc-records-outcome {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.abc-records-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.abc-records-row-actions,
+.abc-records-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.abc-records-actions {
+  margin-top: 0.75rem;
+}
+
+.abc-records-row-actions button,
+.abc-records-actions button,
+.abc-records-import {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+  margin-top: 0;
+}
+
+/* The file picker is driven by a styled label so it matches the buttons beside
+ * it; the input itself stays in the DOM (and focusable) but out of the way. */
+.abc-records-import {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.abc-records-import input {
+  width: 0;
+  height: 0;
+  opacity: 0;
+  position: absolute;
 }

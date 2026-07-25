@@ -116,6 +116,7 @@ export function applyMove(state: GameState, row: number, col: number): GameState
       winner: player,
       winReason: "CAPTURE",
       moveHistory: [...state.moveHistory, move],
+      capturedGroup: capturedOpponent.flat(),
     };
   }
 
