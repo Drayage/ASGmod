@@ -155,7 +155,7 @@ const TWO_MOVE_BRANCH = 14;
 /** The most cells `player` could settle within two of their own moves, and the
  * move that starts it. Assumes the opponent does not interfere, which is what
  * makes it a *threat* rather than a promise. */
-function bestTwoMovePlan(state: GameState, player: Player): SealingMove | null {
+export function bestTwoMovePlan(state: GameState, player: Player): SealingMove | null {
   let best: SealingMove | null = null;
 
   for (const first of nearbyMoves(state, player, TWO_MOVE_BRANCH)) {

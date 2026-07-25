@@ -5,6 +5,7 @@
 import { getAIMove, type AIAction, type Difficulty } from "./src/games/alley-boss-cats/ai";
 import { findBestMoveMinimax, findBestMoveVeryHard } from "./src/games/alley-boss-cats/engine/minimax";
 import { wideAreaBotMove } from "./src/games/alley-boss-cats/engine/wideAreaBot";
+import { sealingBotMove } from "./src/games/alley-boss-cats/engine/sealingBot";
 import {
   applyMove,
   calculateFinalResult,
@@ -14,7 +15,7 @@ import {
 } from "./src/games/alley-boss-cats/rules";
 import type { GameState, Player } from "./src/games/alley-boss-cats/types";
 
-type Engine = Difficulty | "RANDOM" | "WIDE";
+type Engine = Difficulty | "RANDOM" | "WIDE" | "SEAL";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -29,6 +30,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     return { type: "PLACE", row: pick.row, col: pick.col };
   }
   if (engine === "WIDE") return wideAreaBotMove(state, player);
+  if (engine === "SEAL") return sealingBotMove(state, player);
   if (engine === "HARD") return findBestMoveMinimax(state, player, HARD_MS);
   if (engine === "VERY_HARD") return findBestMoveVeryHard(state, player, VERY_HARD_MS);
   return getAIMove(state, player, engine);
@@ -107,6 +109,11 @@ if (only === "WIDE") {
   runMatch("VERY_HARD vs WIDE  ", "VERY_HARD", "WIDE", games);
   runMatch("HARD      vs WIDE  ", "HARD", "WIDE", games);
   runMatch("NORMAL    vs WIDE  ", "NORMAL", "WIDE", games);
+}
+if (only === "SEAL") {
+  runMatch("VERY_HARD vs SEAL  ", "VERY_HARD", "SEAL", games);
+  runMatch("HARD      vs SEAL  ", "HARD", "SEAL", games);
+  runMatch("NORMAL    vs SEAL  ", "NORMAL", "SEAL", games);
 }
 if (only === "VS_NORMAL") runMatch("VERY_HARD vs NORMAL", "VERY_HARD", "NORMAL", games);
 if (!only) runMatch("NORMAL vs EASY", "NORMAL", "EASY", games);
