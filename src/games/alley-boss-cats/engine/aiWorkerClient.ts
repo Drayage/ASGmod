@@ -2,7 +2,7 @@ import type { AIAction, SearchDifficulty } from "../ai";
 import type { GameState, Player } from "../types";
 import type { AIWorkerRequest } from "../aiWorker";
 
-const TIME_LIMIT_MS: Record<SearchDifficulty, number> = {
+export const TIME_LIMIT_MS: Record<SearchDifficulty, number> = {
   HARD: 2500,
   // VERY_HARD splits its budget between the life-and-death reader and the
   // positional search, so it needs a little more room than HARD.

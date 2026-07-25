@@ -1,5 +1,6 @@
 import type { Difficulty } from "./ai";
 import type { GameState, Move, Player, WinReason } from "./types";
+import { APP_VERSION, BUILD_TIME } from "./version";
 
 const PREFIX = "abstract-games:alley-boss-cats";
 const GAME_KEY = `${PREFIX}:current-game`;
@@ -42,9 +43,24 @@ export interface Settings {
  * devices. The move list is the whole game — every position is derived by
  * replaying it — so this stays small enough to store dozens of.
  */
+/** What one AI decision cost, against what it was allowed. */
+export interface AITiming {
+  turn: number;
+  /** Wall-clock time the engine actually took to answer. */
+  elapsedMs: number;
+  /** Budget it was given. A phone that never gets near this is being starved,
+   * which looks exactly like a bad move unless the record says otherwise. */
+  budgetMs: number;
+  /** True when the search failed or timed out and a weaker fallback played. */
+  fallback?: boolean;
+}
+
 export interface MatchRecord {
   id: string;
   finishedAt: number;
+  /** Build that played the game — a commit, or "dev" outside a real build. */
+  appVersion: string;
+  buildTime: string;
   mode: Mode;
   difficulty: Difficulty;
   playerSide: Player;
@@ -53,6 +69,8 @@ export interface MatchRecord {
   territoryA: number;
   territoryB: number;
   moveHistory: Move[];
+  /** One entry per AI decision. Empty for local two-player games. */
+  aiTimings: AITiming[];
 }
 
 /** Shape of an exported file. Versioned so a future format can be recognised
@@ -139,7 +157,7 @@ export function saveSettings(settings: Settings): void {
 export function loadRecords(): MatchRecord[] {
   const records = readJson<MatchRecord[]>(RECORDS_KEY);
   if (!Array.isArray(records)) return [];
-  return records.filter(isRecord).sort((a, b) => b.finishedAt - a.finishedAt);
+  return records.filter(isRecord).map(normalise).sort((a, b) => b.finishedAt - a.finishedAt);
 }
 
 /** Rejects anything that would break the replay screen — an imported file is
@@ -163,9 +181,29 @@ function isRecord(value: unknown): value is MatchRecord {
   );
 }
 
-export function saveRecord(record: Omit<MatchRecord, "id" | "finishedAt">): MatchRecord {
+/** Fills in fields added after a record was written. Files exported before the
+ * build stamp existed are still worth keeping — they just cannot say which
+ * build played them, which is exactly what "알 수 없음" records. */
+function normalise(record: MatchRecord): MatchRecord {
+  return {
+    ...record,
+    appVersion: record.appVersion ?? "알 수 없음",
+    buildTime: record.buildTime ?? "",
+    aiTimings: Array.isArray(record.aiTimings) ? record.aiTimings : [],
+  };
+}
+
+export function saveRecord(
+  record: Omit<MatchRecord, "id" | "finishedAt" | "appVersion" | "buildTime">,
+): MatchRecord {
   const finishedAt = Date.now();
-  const full: MatchRecord = { ...record, id: `${finishedAt}-${Math.random().toString(36).slice(2, 8)}`, finishedAt };
+  const full: MatchRecord = {
+    ...record,
+    id: `${finishedAt}-${Math.random().toString(36).slice(2, 8)}`,
+    finishedAt,
+    appVersion: APP_VERSION,
+    buildTime: BUILD_TIME,
+  };
   writeJson(RECORDS_KEY, [full, ...loadRecords()].slice(0, MAX_RECORDS));
   return full;
 }

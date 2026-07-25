@@ -34,6 +34,7 @@ function sampleRecord(overrides: Partial<Parameters<typeof saveRecord>[0]> = {})
     territoryA: 12,
     territoryB: 7,
     moveHistory: MOVES,
+    aiTimings: [{ turn: 2, elapsedMs: 1840, budgetMs: 3000 }],
     ...overrides,
   });
 }

@@ -1,9 +1,9 @@
 import type { AIAction, Difficulty } from "../ai";
 import { getAIMove } from "../ai";
-import { SearchAIClient } from "../engine/aiWorkerClient";
+import { SearchAIClient, TIME_LIMIT_MS } from "../engine/aiWorkerClient";
 import { applyMove, isLegalMove, isTerritoryCell, passTurn } from "../rules";
 import * as sound from "../sound";
-import { clearGame, recordResult, saveGame, saveRecord, type Mode } from "../storage";
+import { clearGame, recordResult, saveGame, saveRecord, type AITiming, type Mode } from "../storage";
 import { opponent } from "../types";
 import type { GameState, Player } from "../types";
 import { renderBoard } from "./BoardView";
@@ -36,6 +36,11 @@ export function mountGameScreen(
   let aiTimer: ReturnType<typeof setTimeout> | null = null;
   const searchAI = new SearchAIClient();
   const matchStartedAt = Date.now();
+  // What each AI decision actually cost, against what it was allowed. Recorded
+  // because a move that looks like a blunder and a move the engine never had
+  // time to find are indistinguishable from the move list alone — a distinction
+  // that took a long detour to work out the one time it mattered.
+  const aiTimings: AITiming[] = [];
 
   const isAIMode = config.mode === "AI";
   const humanTurnNow = () => !isAIMode || state.currentPlayer === config.humanSide;
@@ -138,6 +143,7 @@ export function mountGameScreen(
           territoryA: state.territories.A.length,
           territoryB: state.territories.B.length,
           moveHistory: state.moveHistory,
+          aiTimings,
         });
       }
     }
@@ -263,14 +269,28 @@ export function mountGameScreen(
   }
 
   async function decideAIAction(aiPlayer: Player): Promise<AIAction> {
+    const turn = state.moveHistory.length + 1;
+    const startedAt = Date.now();
+    const note = (budgetMs: number, fallback?: boolean) => {
+      aiTimings.push({ turn, elapsedMs: Date.now() - startedAt, budgetMs, ...(fallback ? { fallback } : {}) });
+    };
+
     if (config.difficulty !== "HARD" && config.difficulty !== "VERY_HARD") {
-      return getAIMove(state, aiPlayer, config.difficulty);
+      const action = getAIMove(state, aiPlayer, config.difficulty);
+      note(0);
+      return action;
     }
+
+    const budgetMs = TIME_LIMIT_MS[config.difficulty];
     try {
-      return await searchAI.requestMove(state, aiPlayer, config.difficulty);
+      const action = await searchAI.requestMove(state, aiPlayer, config.difficulty);
+      note(budgetMs);
+      return action;
     } catch {
       // Worker unavailable or timed out — fall back rather than stall the game.
-      return getAIMove(state, aiPlayer, "NORMAL");
+      const action = getAIMove(state, aiPlayer, "NORMAL");
+      note(budgetMs, true);
+      return action;
     }
   }
 

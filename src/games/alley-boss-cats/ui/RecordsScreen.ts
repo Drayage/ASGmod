@@ -38,6 +38,24 @@ function describeSetup(record: MatchRecord): string {
   return `${DIFFICULTY_NAME[record.difficulty] ?? record.difficulty} · 내 무리 ${PLAYER_NAME[record.playerSide]}`;
 }
 
+/**
+ * Build and thinking time, shown because they are what tells a bad move apart
+ * from a move the engine never had time to find. An average far below the
+ * budget means the search is finishing early; one pinned at the budget on a
+ * slow device means it is being cut off mid-thought.
+ */
+function describeEngine(record: MatchRecord): string {
+  const parts = [`빌드 ${record.appVersion || "알 수 없음"}`];
+  const timed = record.aiTimings.filter((t) => t.budgetMs > 0);
+  if (timed.length > 0) {
+    const avg = Math.round(timed.reduce((n, t) => n + t.elapsedMs, 0) / timed.length);
+    parts.push(`평균 사고 ${avg}ms / ${timed[0].budgetMs}ms`);
+    const fallbacks = record.aiTimings.filter((t) => t.fallback).length;
+    if (fallbacks > 0) parts.push(`대체수 ${fallbacks}회`);
+  }
+  return parts.join(" · ");
+}
+
 function downloadJson(filename: string, json: string): void {
   const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
   const link = document.createElement("a");
@@ -115,6 +133,7 @@ export function renderRecords(host: HTMLElement): void {
       <span class="abc-records-outcome">${describeOutcome(record)}</span>
       <span class="abc-records-meta">${formatDate(record.finishedAt)} · ${describeSetup(record)}</span>
       <span class="abc-records-meta">${placements}수 · 생활 구역 ${record.territoryA} : ${record.territoryB}</span>
+      <span class="abc-records-meta">${describeEngine(record)}</span>
     `;
     row.appendChild(info);
 
