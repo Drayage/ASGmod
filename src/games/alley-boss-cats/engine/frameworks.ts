@@ -46,6 +46,8 @@ const MIN_CUT = 3;
 const MAX_CUT = 7;
 
 export interface Framework {
+  /** Which corner this cut walls off. */
+  corner: Coord;
   /** Cells that must all be mine for the corner to be sealed. */
   wall: Coord[];
   /** Ground it would enclose. */
@@ -96,11 +98,46 @@ export function candidateFrameworks(board: Board, player: Player): Framework[] {
       // Ignore cuts we have not started: every corner would otherwise qualify.
       if (!wall.some(({ row, col }) => board[row][col] === own)) continue;
 
-      frames.push({ wall, enclosed, missing, intruders });
+      frames.push({ corner: { row: corner.row, col: corner.col }, wall, enclosed, missing, intruders });
     }
   }
 
   return frames;
+}
+
+/**
+ * A cheap, search-free reading of how much ground each side has nearly walled
+ * off — enumeration only, so it is safe to call at every leaf of the search.
+ *
+ * The security judgement below is the honest test, but it runs capture reads
+ * and costs far too much for an evaluation. This keeps the part that matters
+ * for steering: ground enclosed, discounted by how many cats it would still
+ * take to close, and abandoned entirely once the opponent is inside it.
+ *
+ * Only the best frame per corner counts. Summing every offset would pay the
+ * same corner four times over, and the engine would learn to pile cats into
+ * one corner rather than take four.
+ */
+export function frameworkPotential(board: Board, player: Player): number {
+  const bestPerCorner = new Map<string, number>();
+
+  for (const frame of candidateFrameworks(board, player)) {
+    if (frame.intruders.length > 0) continue;
+    // A closed frame is territory, and the territory term already pays for it.
+    // Counting it here as well would make corner ground worth twice what the
+    // same ground is worth anywhere else.
+    if (frame.missing.length === 0) continue;
+    const corner = `${frame.corner.row},${frame.corner.col}`;
+    // Ground already settled is counted by the territory term; what this adds
+    // is credit for a wall that is nearly built. One cat from closing is worth
+    // most of the prize, five cats from closing is worth very little.
+    const value = frame.enclosed.length / (frame.missing.length + 1);
+    bestPerCorner.set(corner, Math.max(bestPerCorner.get(corner) ?? 0, value));
+  }
+
+  let total = 0;
+  for (const value of bestPerCorner.values()) total += value;
+  return total;
 }
 
 export interface FrameworkVerdict {

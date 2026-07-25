@@ -44,10 +44,26 @@ interface GameResult {
   winner: Player;
   reason: "CAPTURE" | "TERRITORY" | "PLY_CAP";
   plies: number;
+  /** Ply on which each side first held any settled ground. The engine's real
+   * weakness is here rather than in the win rate: against a human it settled
+   * nothing until move 22-29 while they were converting by move 10, and lost
+   * both long games because of it. Win rate over a dozen games is far too
+   * noisy to steer on; this moves the moment something changes. */
+  firstTerritory: Record<Player, number | null>;
+  finalTerritory: Record<Player, number>;
 }
 
 function playGame(engineA: Engine, engineB: Engine): GameResult {
   let state = createInitialState();
+  const firstTerritory: Record<Player, number | null> = { A: null, B: null };
+
+  const noteTerritory = (ply: number) => {
+    for (const side of ["A", "B"] as Player[]) {
+      if (firstTerritory[side] === null && state.territories[side].length > 0) {
+        firstTerritory[side] = ply;
+      }
+    }
+  };
 
   // Randomized opening so deterministic engines produce distinct games.
   for (let i = 0; i < RANDOM_OPENING_PLIES; i++) {
@@ -55,6 +71,7 @@ function playGame(engineA: Engine, engineB: Engine): GameResult {
     if (moves.length === 0) break;
     const pick = moves[Math.floor(Math.random() * moves.length)];
     state = applyMove(state, pick.row, pick.col);
+    noteTerritory(i + 1);
   }
 
   for (let ply = 0; ply < MAX_PLIES; ply++) {
@@ -63,20 +80,33 @@ function playGame(engineA: Engine, engineB: Engine): GameResult {
         winner: state.winner,
         reason: state.winReason === "CAPTURE" ? "CAPTURE" : "TERRITORY",
         plies: ply,
+        firstTerritory,
+        finalTerritory: { A: state.territories.A.length, B: state.territories.B.length },
       };
     }
     const player = state.currentPlayer;
     const engine = player === "A" ? engineA : engineB;
     state = act(state, decide(state, player, engine));
+    noteTerritory(ply + 1 + RANDOM_OPENING_PLIES);
   }
 
-  return { winner: calculateFinalResult(state).winner, reason: "PLY_CAP", plies: MAX_PLIES };
+  return {
+    winner: calculateFinalResult(state).winner,
+    reason: "PLY_CAP",
+    plies: MAX_PLIES,
+    firstTerritory,
+    finalTerritory: { A: state.territories.A.length, B: state.territories.B.length },
+  };
 }
 
 function runMatch(label: string, engineX: Engine, engineY: Engine, games: number) {
   let xWins = 0;
   const reasons: Record<string, number> = {};
   let totalPlies = 0;
+  const xFirst: number[] = [];
+  const yFirst: number[] = [];
+  let xTerritory = 0;
+  let yTerritory = 0;
 
   for (let i = 0; i < games; i++) {
     // Alternate colors so the first-player advantage cancels out.
@@ -86,11 +116,22 @@ function runMatch(label: string, engineX: Engine, engineY: Engine, games: number
     if (xWon) xWins += 1;
     reasons[result.reason] = (reasons[result.reason] ?? 0) + 1;
     totalPlies += result.plies;
+
+    const xSide: Player = xIsA ? "A" : "B";
+    const ySide: Player = xIsA ? "B" : "A";
+    if (result.firstTerritory[xSide] !== null) xFirst.push(result.firstTerritory[xSide]!);
+    if (result.firstTerritory[ySide] !== null) yFirst.push(result.firstTerritory[ySide]!);
+    xTerritory += result.finalTerritory[xSide];
+    yTerritory += result.finalTerritory[ySide];
   }
+
+  const mean = (xs: number[]) => (xs.length === 0 ? "-" : (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(1));
 
   const pct = Math.round((xWins / games) * 100);
   console.log(
-    `${label}: ${xWins}/${games} (${pct}%)  | 종료사유 ${JSON.stringify(reasons)} | 평균 ${Math.round(totalPlies / games)}수`,
+    `${label}: ${xWins}/${games} (${pct}%)  | 종료사유 ${JSON.stringify(reasons)} | 평균 ${Math.round(totalPlies / games)}수\n` +
+      `${" ".repeat(label.length)}  첫 확정 ${mean(xFirst)}수 (${xFirst.length}판) vs ${mean(yFirst)}수 (${yFirst.length}판)` +
+      ` | 평균 최종영토 ${(xTerritory / games).toFixed(1)} : ${(yTerritory / games).toFixed(1)}`,
   );
   return xWins;
 }
@@ -110,6 +151,7 @@ if (only === "WIDE") {
   runMatch("HARD      vs WIDE  ", "HARD", "WIDE", games);
   runMatch("NORMAL    vs WIDE  ", "NORMAL", "WIDE", games);
 }
+if (only === "VS_SEAL") runMatch("VERY_HARD vs SEAL  ", "VERY_HARD", "SEAL", games);
 if (only === "SEAL") {
   runMatch("VERY_HARD vs SEAL  ", "VERY_HARD", "SEAL", games);
   runMatch("HARD      vs SEAL  ", "HARD", "SEAL", games);
