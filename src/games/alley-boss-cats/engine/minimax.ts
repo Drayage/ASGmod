@@ -191,7 +191,12 @@ function territorialCandidates(
   budgetMs: number,
 ): AIAction[] {
   const plan = planTerritory(rootState, aiPlayer);
-  if (!plan.urgent) return [];
+  // Only a concrete, imminent enclosure justifies narrowing the search to
+  // territorial answers. Merely trailing on open ground is already priced into
+  // the evaluation, and forcing the search to pick from a shortlist in that
+  // case cost far more than it gained — VERY_HARD dropped from 75% to 42%
+  // against HARD when this fired on nearly half of all moves.
+  if (!plan.imminent) return [];
 
   // Blocking their area comes before finishing mine: their gain is settled
   // ground I can never take back, whereas my own area usually keeps.

@@ -20,6 +20,80 @@ import type { Board, Coord, GameState, Player } from "../types";
  * closing real cells off.
  */
 
+/**
+ * How far a castle's pull reaches when judging who is *heading towards* owning
+ * open ground. Only used for the running comparison of the two sides — never
+ * to put a value on an area, which was a mistake an earlier version made.
+ */
+const INFLUENCE_REACH = 3;
+
+/** Breadth-first distance from `player`'s castles through open ground. */
+function distanceField(board: Board, player: Player): number[][] {
+  const size = board.length;
+  const dist: number[][] = Array.from({ length: size }, () =>
+    Array<number>(size).fill(Number.POSITIVE_INFINITY),
+  );
+  const own = playerCell(player);
+  const queue: Coord[] = [];
+
+  const open = (r: number, c: number) => inBounds(r, c) && board[r][c] === "EMPTY";
+
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      if (board[row][col] !== own) continue;
+      for (const [dr, dc] of DIRECTIONS) {
+        const r = row + dr;
+        const c = col + dc;
+        if (!open(r, c) || dist[r][c] <= 1) continue;
+        dist[r][c] = 1;
+        queue.push({ row: r, col: c });
+      }
+    }
+  }
+
+  for (let head = 0; head < queue.length; head++) {
+    const { row, col } = queue[head];
+    if (dist[row][col] >= INFLUENCE_REACH) continue;
+    for (const [dr, dc] of DIRECTIONS) {
+      const r = row + dr;
+      const c = col + dc;
+      if (!open(r, c) || dist[r][c] <= dist[row][col] + 1) continue;
+      dist[r][c] = dist[row][col] + 1;
+      queue.push({ row: r, col: c });
+    }
+  }
+
+  return dist;
+}
+
+/**
+ * Open cells this side is strictly closer to — the ground it is heading
+ * towards owning. Counted plainly, one point per cell: a lead here is a
+ * reason to act, not a number to multiply up.
+ *
+ * This exists because settled territory alone is far too late a signal. An
+ * opponent mapping out a large framework settles nothing for many moves, so an
+ * engine watching only confirmed territory sees no reason to interfere and
+ * quietly tidies its own position while the board is given away.
+ */
+export function influenceCount(board: Board): Record<Player, number> {
+  const distA = distanceField(board, "A");
+  const distB = distanceField(board, "B");
+  const counts: Record<Player, number> = { A: 0, B: 0 };
+
+  for (let row = 0; row < board.length; row++) {
+    for (let col = 0; col < board.length; col++) {
+      if (board[row][col] !== "EMPTY") continue;
+      const a = distA[row][col];
+      const b = distB[row][col];
+      if (a === b) continue; // contested middle belongs to nobody yet
+      if (a < b) counts.A += 1;
+      else counts.B += 1;
+    }
+  }
+  return counts;
+}
+
 /** A single move that would settle a worthwhile number of cells. */
 export interface SealingMove {
   move: Coord;
@@ -120,8 +194,15 @@ export interface TerritoryPlan {
   /** Moves that settle ground for me. */
   expansionMoves: AIAction[];
   /**
-   * The opponent is about to settle enough ground that answering it should
-   * outrank whatever the general evaluation would otherwise drift towards.
+   * The opponent is about to settle a large area within a move or two. This is
+   * concrete enough to override the search's own judgement.
+   */
+  imminent: boolean;
+  /**
+   * Either an imminent seal, or simply falling behind on the ground each side
+   * is heading towards. The second is a soft signal: it is worth *offering*
+   * contesting moves, but not worth overriding the search, which already
+   * weighs the same influence in its evaluation.
    */
   urgent: boolean;
 }
@@ -130,6 +211,8 @@ export interface TerritoryPlan {
 const URGENT_CONFIRM_SIZE = 8;
 /** Big areas are worth contesting even when they take a little longer to seal. */
 const LARGE_AREA = 10;
+/** Trailing by this much open ground means the board is being given away. */
+const INFLUENCE_DEFICIT = 6;
 
 function toAction({ row, col }: Coord): AIAction {
   return { type: "PLACE", row, col };
@@ -153,6 +236,39 @@ function invasionPoints(state: GameState, player: Player, area: Coord[]): Coord[
   });
 }
 
+/**
+ * Legal points sitting in ground the opponent currently leads, preferring
+ * those with room to live. These are the moves that argue about the board
+ * instead of conceding it.
+ */
+function contestingMoves(state: GameState, player: Player): Coord[] {
+  const foe = opponent(player);
+  const distMine = distanceField(state.board, player);
+  const distTheirs = distanceField(state.board, foe);
+
+  const contested: Array<{ move: Coord; room: number }> = [];
+  for (let row = 0; row < state.board.length; row++) {
+    for (let col = 0; col < state.board.length; col++) {
+      if (state.board[row][col] !== "EMPTY") continue;
+      if (!(distTheirs[row][col] < distMine[row][col])) continue;
+      if (!isLegalMove(state, row, col, player)) continue;
+
+      let room = 0;
+      for (const [dr, dc] of DIRECTIONS) {
+        const r = row + dr;
+        const c = col + dc;
+        if (inBounds(r, c) && state.board[r][c] === "EMPTY") room += 1;
+      }
+      if (room >= 2) contested.push({ move: { row, col }, room });
+    }
+  }
+
+  return contested
+    .sort((a, b) => b.room - a.room)
+    .slice(0, 10)
+    .map((c) => c.move);
+}
+
 export function planTerritory(state: GameState, player: Player): TerritoryPlan {
   const foe = opponent(player);
 
@@ -166,9 +282,19 @@ export function planTerritory(state: GameState, player: Player): TerritoryPlan {
     oneMoveThreat >= URGENT_CONFIRM_SIZE ? null : bestTwoMovePlan(state, foe);
   const twoMoveThreat = theirTwoMovePlan?.gained.length ?? 0;
 
-  const urgent =
+  // An imminent seal is the loud case, but it is not the common one. A player
+  // mapping out the board with loose diagonals settles nothing for many moves,
+  // so gating purely on "they are about to confirm eight cells" left this
+  // stage dormant for entire games — measured at 0 firings across 135 moves.
+  // Falling behind on the ground each side is heading towards is the signal
+  // that actually shows up while there is still time to do something.
+  const influence = influenceCount(state.board);
+  const behindOnInfluence = influence[foe] - influence[player] >= INFLUENCE_DEFICIT;
+
+  const imminent =
     oneMoveThreat >= URGENT_CONFIRM_SIZE ||
     twoMoveThreat >= Math.max(URGENT_CONFIRM_SIZE, LARGE_AREA);
+  const urgent = imminent || behindOnInfluence;
 
   const blocking: Coord[] = [];
   if (theirBestSeal) {
@@ -183,6 +309,12 @@ export function planTerritory(state: GameState, player: Player): TerritoryPlan {
   }
 
   const expansion = mySeals.slice(0, 6).map((s) => s.move);
+
+  // Falling behind with nothing concrete to block: push into the ground they
+  // are heading towards rather than tidying our own position.
+  if (behindOnInfluence && blocking.length === 0) {
+    blocking.push(...contestingMoves(state, player));
+  }
 
   const dedupe = (cells: Coord[]): AIAction[] => {
     const seen = new Set<string>();
@@ -200,6 +332,7 @@ export function planTerritory(state: GameState, player: Player): TerritoryPlan {
     theirBestSeal,
     theirTwoMovePlan,
     myBestSeal,
+    imminent,
     blockingMoves: dedupe(blocking),
     expansionMoves: dedupe(expansion),
     urgent,

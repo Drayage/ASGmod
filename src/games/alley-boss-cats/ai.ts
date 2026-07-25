@@ -1,5 +1,6 @@
 import { getAllGroups, getGroupLiberties } from "./groups";
 import { applyMove, getLegalMoves, passTurn } from "./rules";
+import { influenceCount } from "./engine/territoryPlanner";
 import { coordKeySet } from "./territory";
 import { opponent } from "./types";
 import type { Coord, GameState, Player } from "./types";
@@ -19,34 +20,6 @@ function territoryCount(state: GameState, player: Player): number {
   return state.territories[player].length;
 }
 
-/** Loose (non-enclosure) estimate of "leaning your way" empty cells, used
- * only to steer the AI's evaluation — not the authoritative scoring rule. */
-function potentialTerritory(state: GameState, player: Player): number {
-  const opp = opponent(player);
-  let count = 0;
-  for (let row = 0; row < state.board.length; row++) {
-    for (let col = 0; col < state.board[row].length; col++) {
-      if (state.board[row][col] !== "EMPTY") continue;
-      let bordersPlayer = false;
-      let bordersOpponent = false;
-      for (const [dr, dc] of [
-        [-1, 0],
-        [1, 0],
-        [0, -1],
-        [0, 1],
-      ]) {
-        const r = row + dr;
-        const c = col + dc;
-        if (r < 0 || r >= state.board.length || c < 0 || c >= state.board.length) continue;
-        const value = state.board[r][c];
-        if (value === (player === "A" ? "PLAYER_A" : "PLAYER_B")) bordersPlayer = true;
-        if (value === (opp === "A" ? "PLAYER_A" : "PLAYER_B")) bordersOpponent = true;
-      }
-      if (bordersPlayer && !bordersOpponent) count++;
-    }
-  }
-  return count;
-}
 
 interface ShapeStats {
   totalLiberties: number;
@@ -107,6 +80,7 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
   const opp = opponent(aiPlayer);
   const mine = shapeStats(state, aiPlayer);
   const theirs = shapeStats(state, opp);
+  const influence = influenceCount(state.board);
 
   // Destroying one castle wins outright, so a group left in atari with the
   // opponent to move is effectively already lost. Encoding that here gives
@@ -117,8 +91,12 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
   return (
     territoryCount(state, aiPlayer) * 100 -
     territoryCount(state, opp) * 100 +
-    potentialTerritory(state, aiPlayer) * 8 -
-    potentialTerritory(state, opp) * 8 +
+    // Ground each side is heading towards owning. Settled territory alone is
+    // far too late a signal: an opponent building a wide framework settles
+    // nothing for many moves, and an engine watching only confirmed territory
+    // sees no reason to contest it.
+    influence[aiPlayer] * 12 -
+    influence[opp] * 12 +
     mine.totalLiberties * 5 -
     theirs.totalLiberties * 6 +
     theirs.atari * 45 -
