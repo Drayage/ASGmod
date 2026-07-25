@@ -11,6 +11,7 @@ import {
   calculateFinalResult,
   createInitialState,
   getLegalMoves,
+  isLegalMove,
   passTurn,
 } from "./src/games/alley-boss-cats/rules";
 import type { GameState, Player } from "./src/games/alley-boss-cats/types";
@@ -27,12 +28,31 @@ const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
 const MAX_PLIES = 160;
 /**
- * Random plies played before the engines take over, so deterministic engines do
- * not replay one game. Configurable because it is a confounder as much as a
- * convenience: random cats land scattered and weak, which seeds exactly the
- * capture races that then decide every game.
+ * Opening plies played before the engines take over, so deterministic engines
+ * do not replay one game.
+ *
+ * These are drawn from a short list of sensible opening points rather than from
+ * anywhere on the board, and that distinction turned out to matter more than
+ * anything else being measured. Picking uniformly at random dropped scattered,
+ * weak cats that seeded capture races: games ran 19-22 moves and 72 of 72
+ * finished in a capture with not one decided on territory. Removing the random
+ * opening entirely fixed that — 41-move games, territory decisions appearing —
+ * but left the engines deterministic, so twenty "games" were two games replayed
+ * ten times each.
+ *
+ * Sensible points give both: real variety, and openings that do not hand either
+ * side a weakness before the engines have played a move.
  */
 const RANDOM_OPENING_PLIES = Number(process.env.OPENING_PLIES ?? 4);
+
+/** Third-line and star points — where a player opens when staking out corners
+ * rather than dropping cats at random. */
+const OPENING_POINTS: ReadonlyArray<[number, number]> = [
+  [2, 2], [2, 6], [6, 2], [6, 6],
+  [2, 4], [4, 2], [4, 6], [6, 4],
+  [3, 3], [3, 5], [5, 3], [5, 5],
+  [2, 3], [3, 2], [5, 6], [6, 5],
+];
 
 function decide(state: GameState, player: Player, engine: Engine): AIAction {
   // Set before every decision, so the two engines keep their own weight even
@@ -99,12 +119,13 @@ function playGame(engineA: Engine, engineB: Engine): GameResult {
   };
 
   // Randomized opening so deterministic engines produce distinct games.
-  for (let i = 0; i < RANDOM_OPENING_PLIES; i++) {
-    const moves = getLegalMoves(state, state.currentPlayer);
-    if (moves.length === 0) break;
-    const pick = moves[Math.floor(Math.random() * moves.length)];
-    state = applyMove(state, pick.row, pick.col);
-    noteTerritory(i + 1);
+  const openings = [...OPENING_POINTS].sort(() => Math.random() - 0.5);
+  for (let i = 0, taken = 0; i < openings.length && taken < RANDOM_OPENING_PLIES; i++) {
+    const [row, col] = openings[i];
+    if (!isLegalMove(state, row, col, state.currentPlayer)) continue;
+    state = applyMove(state, row, col);
+    taken += 1;
+    noteTerritory(taken);
   }
 
   for (let ply = 0; ply < MAX_PLIES; ply++) {
