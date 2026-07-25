@@ -1,22 +1,23 @@
 import { describe, expect, it } from "vitest";
 import games from "./testdata/humanGames.json";
 import { applyMove, createInitialState, isLegalMove, passTurn } from "./rules";
-import { findSealingMoves } from "./engine/territoryPlanner";
+import { findSealingMoves, planTerritory } from "./engine/territoryPlanner";
+import { findBestMoveVeryHard } from "./engine/minimax";
 import type { GameState, Move, Player } from "./types";
 
 /**
- * Seven real games a human played against VERY_HARD, exported from the app.
+ * Real games a human played against VERY_HARD, exported from the app.
  *
  * They serve two purposes. First they are the only end-to-end check the rules
  * engine has against games it did not generate itself: every move was accepted
  * by the deployed build, so any of them turning illegal, or ending with a
  * different winner or a different count, is a regression the unit tests missed.
  *
- * Second, they are the record of where the engine actually loses. Its four wins
- * finish in 16-27 moves by capture; both long territory games — 50 and 53 moves
- * — it lost. Measured below: the human settles ground around move 10, the
- * engine not until move 22-29. That gap, not tactics, is what decides these
- * games, so it is worth pinning down before anything tries to close it.
+ * Second, they are the record of where the engine actually loses. It wins the
+ * short capture races; the long games decided on area are the ones it dropped.
+ * Measured below: in those, the human settles ground around move 10 and the
+ * engine not until move 22 or later. That gap, not tactics, is what decides
+ * them, which is why the last group here pins one exact position.
  */
 
 interface Record {
@@ -51,8 +52,9 @@ function firstTerritoryTurn(states: GameState[], player: Player): number | null 
 
 describe("real games against VERY_HARD", () => {
   it("has the fixtures it claims to", () => {
-    expect(RECORDS).toHaveLength(7);
+    expect(RECORDS.length).toBeGreaterThanOrEqual(15);
     expect(RECORDS.every((r) => r.moveHistory.length > 0)).toBe(true);
+    expect(new Set(RECORDS.map((r) => r.id)).size).toBe(RECORDS.length);
   });
 
   it.each(RECORDS.map((r, i) => [i, r.id, r] as const))(
@@ -89,11 +91,14 @@ describe("real games against VERY_HARD", () => {
 });
 
 describe("where the engine loses these games", () => {
-  /** The two games decided by area rather than by a capture race. */
-  const LONG_GAMES = RECORDS.filter((r) => r.moveHistory.length >= 50);
+  /** Long games the human won — the ones area decided, rather than a capture
+   * race the engine was always going to win. */
+  const LONG_GAMES = RECORDS.filter(
+    (r) => r.moveHistory.length >= 49 && r.winner === r.playerSide,
+  );
 
   it("pins the opening gap: the human settles ground long before the engine", () => {
-    expect(LONG_GAMES).toHaveLength(2);
+    expect(LONG_GAMES.length).toBeGreaterThanOrEqual(2);
 
     for (const record of LONG_GAMES) {
       const states = replay(record);
@@ -105,11 +110,15 @@ describe("where the engine loses these games", () => {
 
       expect(humanFirst).not.toBeNull();
       expect(aiFirst).not.toBeNull();
-      // This is the defect, recorded rather than asserted away: the human is
-      // ten-plus moves ahead on converting. Tighten these numbers as the
-      // opening improves — the test should start failing when it gets better.
-      expect(humanFirst!).toBeLessThanOrEqual(11);
-      expect(aiFirst!).toBeGreaterThanOrEqual(22);
+      // The human converts by move 12 in every one of these, and the engine
+      // always later — 15, 22, 29. Deliberately stated as loosely as the data
+      // supports: a tighter bound fitted to the first two games broke as soon
+      // as a third arrived, in which the engine converted on move 15 and lost
+      // anyway, for the quite separate reason pinned in the group below. There
+      // is more than one way to lose these, and this assertion only claims the
+      // part that holds across all of them.
+      expect(humanFirst!).toBeLessThanOrEqual(12);
+      expect(aiFirst!).toBeGreaterThan(humanFirst!);
       expect(record.winner).toBe(human);
     }
   });
@@ -119,15 +128,61 @@ describe("where the engine loses these games", () => {
       const states = replay(record);
       const ai: Player = record.playerSide === "A" ? "B" : "A";
 
-      // Through its first eight turns the engine has no move anywhere on the
-      // board that would settle even one cell — its cats are too far apart to
-      // wall anything in.
+      // Through almost all of its first eight turns the engine has no move
+      // anywhere on the board that would settle even one cell — its cats are
+      // too far apart to wall anything in.
+      let turns = 0;
       let turnsWithNoSealAvailable = 0;
       for (let i = 0; i < Math.min(16, states.length - 1); i++) {
         if (states[i].currentPlayer !== ai) continue;
+        turns += 1;
         if (findSealingMoves(states[i], ai).length === 0) turnsWithNoSealAvailable += 1;
       }
-      expect(turnsWithNoSealAvailable).toBeGreaterThanOrEqual(7);
+      expect(turnsWithNoSealAvailable).toBeGreaterThanOrEqual(turns - 2);
     }
+  });
+});
+
+describe("answering a large enclosure", () => {
+  /**
+   * The position that cost a game 11-22, and the narrowest test in this file.
+   *
+   * 고등어냥 had spread a diagonal down the left side and could settle ten cells
+   * with one cat at (4,0). The engine could see it — the planner reported the
+   * threat and put every answer to it on the shortlist — and then played an
+   * expanding move from the same shortlist, worth one cell, on the far side of
+   * the board. Sixteen moves in, the count was 3-13 and it never recovered.
+   */
+  const DECIDED_GAME = "1784982918951-4u5evc";
+  const PLY = 14; // 치즈냥 to play its fifteenth move
+
+  function decisivePosition(): GameState {
+    const record = RECORDS.find((r) => r.id === DECIDED_GAME)!;
+    return replay(record)[PLY];
+  }
+
+  it("sees the threat", () => {
+    const state = decisivePosition();
+    expect(state.currentPlayer).toBe("A");
+
+    const plan = planTerritory(state, "A");
+    expect(plan.imminent).toBe(true);
+    expect(plan.theirBestSeal?.gained).toHaveLength(10);
+    expect(plan.theirBestSeal?.move).toEqual({ row: 4, col: 0 });
+  });
+
+  it.each([300, 600, 800, 1200, 2500])("answers it on a %ims budget", (budget) => {
+    // Budget matters because the engine runs on a phone: the same three seconds
+    // buys far less search there, and the failure only showed up under that
+    // pressure. Every one of these used to be able to wander off instead.
+    const action = findBestMoveVeryHard(decisivePosition(), "A", budget);
+    expect(action.type).toBe("PLACE");
+
+    const move = action as { row: number; col: number };
+    const answers = planTerritory(decisivePosition(), "A").blockingMoves;
+    expect(
+      answers.some((a) => a.type === "PLACE" && a.row === move.row && a.col === move.col),
+      `played (${move.row},${move.col}), which does not answer the enclosure`,
+    ).toBe(true);
   });
 });

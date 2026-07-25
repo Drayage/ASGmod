@@ -5,6 +5,7 @@ import type { Board, GameState, Player } from "../types";
 import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
 import { localMoveScore, orderedCandidates } from "./moveOrdering";
 import { planTerritory } from "./territoryPlanner";
+import type { TerritoryPlan } from "./territoryPlanner";
 import { TranspositionTable } from "./transpositionTable";
 
 const WIN_SCORE = 1_000_000;
@@ -117,7 +118,18 @@ export function findBestMoveVeryHard(
   if (winningMove) return winningMove;
   if (pool.length <= 1) return pool[0] ?? { type: "PASS" };
 
-  // 1. Can we kill something outright?
+  // Work out whether a large enclosure is about to happen *before* spending any
+  // of the budget on reading fights. The plan is pure enumeration and costs
+  // 5-45ms against a budget of seconds, so asking early is nearly free — and
+  // asking late turned out to lose games. On a phone the reading stages below
+  // consume the whole budget before the territorial answer is ever considered:
+  // in a game lost 11-22, the opponent had a move settling ten cells, this
+  // engine could see it, and it played on the far side of the board instead.
+  // Reproduced at a small budget, fixed by not letting the reads go first.
+  const plan = planTerritory(rootState, aiPlayer);
+
+  // 1. Can we kill something outright? A forced capture wins the game there and
+  //    then, so it still outranks any amount of ground.
   const kill = findForcedCapture(
     rootState,
     aiPlayer,
@@ -165,7 +177,7 @@ export function findBestMoveVeryHard(
   //    out the bigger share of the board. When the opponent is about to settle
   //    a large area, answering it outranks whatever the general evaluation
   //    would have drifted towards.
-  const territorial = territorialCandidates(rootState, aiPlayer, finalPool, remaining);
+  const territorial = territorialCandidates(rootState, aiPlayer, plan, finalPool, remaining);
   if (territorial.length > 0) {
     return searchWithin(rootState, aiPlayer, territorial, remaining);
   }
@@ -192,10 +204,10 @@ const MAX_TERRITORIAL_CANDIDATES = 12;
 function territorialCandidates(
   rootState: GameState,
   aiPlayer: Player,
+  plan: TerritoryPlan,
   pool: AIAction[],
   budgetMs: number,
 ): AIAction[] {
-  const plan = planTerritory(rootState, aiPlayer);
   // Only a concrete, imminent enclosure justifies narrowing the search to
   // territorial answers. Merely trailing on open ground is already priced into
   // the evaluation, and forcing the search to pick from a shortlist in that
@@ -205,7 +217,19 @@ function territorialCandidates(
 
   // Blocking their area comes before finishing mine: their gain is settled
   // ground I can never take back, whereas my own area usually keeps.
-  const wanted = [...plan.blockingMoves, ...plan.expansionMoves];
+  //
+  // That ordering used to be expressed by listing the blocking moves first and
+  // handing the lot to the search, which is not an ordering at all — the search
+  // picks by evaluation, and at shallow depth it happily takes a move settling
+  // one cell of its own over one denying ten. That is not hypothetical: in a
+  // game lost 11-22, the opponent had a move settling ten cells, this list
+  // contained the answer to it, and the engine played an expanding move from
+  // the same list instead. So when their threat is the bigger one, it is the
+  // only thing on offer.
+  const theirGain = plan.theirBestSeal?.gained.length ?? 0;
+  const myGain = plan.myBestSeal?.gained.length ?? 0;
+  const wanted =
+    theirGain > myGain ? plan.blockingMoves : [...plan.blockingMoves, ...plan.expansionMoves];
   if (wanted.length === 0) return [];
 
   // `pool` has already had the refuted moves removed, so membership in it is
@@ -216,10 +240,23 @@ function territorialCandidates(
 
   const deadline = Date.now() + Math.min(budgetMs / 2, INVASION_CHECK_MS * MAX_TERRITORIAL_CANDIDATES);
   const chosen: AIAction[] = [];
+
+  // Occupying the point they need is not an invasion — it is a normal move on a
+  // normal empty cell, already vetted by the shared safety check. Requiring it
+  // to clear a time-boxed capture read as well meant that on a tight budget the
+  // list came back empty and the whole stage was skipped, which is how a
+  // ten-cell enclosure went unanswered in a real game.
+  const sealPoint = plan.theirBestSeal?.move;
+  if (sealPoint && poolKeys.has(`${sealPoint.row},${sealPoint.col}`)) {
+    chosen.push({ type: "PLACE", row: sealPoint.row, col: sealPoint.col });
+  }
+
   for (const action of wanted) {
     if (chosen.length >= MAX_TERRITORIAL_CANDIDATES || Date.now() >= deadline) break;
     if (action.type !== "PLACE") continue;
     if (!poolKeys.has(`${action.row},${action.col}`)) continue;
+    if (sealPoint && action.row === sealPoint.row && action.col === sealPoint.col) continue;
+    if (sealPoint && action.row === sealPoint.row && action.col === sealPoint.col) continue;
 
     const next = applyAction(rootState, action);
     if (next.winner === aiPlayer) return [action];
