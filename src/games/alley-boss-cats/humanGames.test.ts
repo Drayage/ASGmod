@@ -3,6 +3,7 @@ import games from "./testdata/humanGames.json";
 import { applyMove, createInitialState, isLegalMove, passTurn } from "./rules";
 import { findSealingMoves, planTerritory } from "./engine/territoryPlanner";
 import { findBestMoveVeryHard } from "./engine/minimax";
+import { opponentCanForceCapture } from "./engine/captureSearch";
 import type { GameState, Move, Player } from "./types";
 
 /**
@@ -184,5 +185,55 @@ describe("answering a large enclosure", () => {
       answers.some((a) => a.type === "PLACE" && a.row === move.row && a.col === move.col),
       `played (${move.row},${move.col}), which does not answer the enclosure`,
     ).toBe(true);
+  });
+});
+
+describe("walking a lone cat into a dead corner", () => {
+  /**
+   * The position that cost a game 6-1 by CAPTURE, exported straight from the
+   * app. 치즈냥 (A) played (4,8) — a single cat, edge column, three liberties —
+   * squeezed into the pocket between 고등어냥's column-7 wall and its stone at
+   * (2,8). The engine's own forced-capture reader can already see the kill the
+   * instant that stone lands, and 고등어냥 needed only three unhurried moves
+   * (18, 20, 22) to actually take it, since 치즈냥 spent turns 19 and 21
+   * elsewhere. The stone was never savable once placed: every legal extension
+   * from it re-lands on exactly one liberty, because the surrounding cells
+   * were already 고등어냥's.
+   *
+   * Playing (4,8) survived here because it scored nothing by local move
+   * order (45th of 60 legal moves) and so never got the forced-capture check
+   * every top-ranked candidate gets — the deeper positional search picked it
+   * anyway, for the open ground it looked like it was grabbing, and nothing
+   * downstream ever asked whether that specific choice was safe.
+   */
+  const DECIDED_GAME = "1784994937163-cj5fkb";
+  const PLY = 16; // 치즈냥 to play its seventeenth move
+
+  function positionBeforeTheBlunder(): GameState {
+    const record = RECORDS.find((r) => r.id === DECIDED_GAME)!;
+    return replay(record)[PLY];
+  }
+
+  it("confirms (4,8) is already a proven forced capture the moment it's played", () => {
+    const state = positionBeforeTheBlunder();
+    expect(state.currentPlayer).toBe("A");
+
+    const afterBlunder = applyMove(state, 4, 8);
+    expect(opponentCanForceCapture(afterBlunder, "A", 9, 5000)).toBe(true);
+  });
+
+  // A generous, fixed-budget check of "is this move forceable at all" turns
+  // out to be far too blunt an invariant for this position to hold in
+  // general: mapping every legal reply here found 53 of 60 read as a proven
+  // forced capture at the engine's own search depth, most of them isolated
+  // stones nowhere near 고등어냥's wall — a lone stone dropped onto a board
+  // that already has sixteen others scattered across it can often be laddered
+  // into one of them, whatever the shape. That is a real property of the
+  // position, not a bug, so the test pins the one thing that actually is a
+  // bug: replaying the exact historical blunder.
+  it.each([2000, 3000])("never plays (4,8) again on a %ims budget", (budget) => {
+    const state = positionBeforeTheBlunder();
+    const action = findBestMoveVeryHard(state, "A", budget);
+    expect(action).not.toEqual({ type: "PLACE", row: 4, col: 8 });
   });
 });

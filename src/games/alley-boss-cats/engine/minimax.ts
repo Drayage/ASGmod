@@ -113,6 +113,81 @@ const DEFEND_READ_SHARE = 0.4;
  * search with nothing. */
 const DEFEND_SCREEN_LIMIT = 18;
 
+/** Share of the remaining budget set aside to double-check the *search's own
+ * answer* against the forced-capture reader, once it has one.
+ *
+ * The screen above only ever examines the moves ranked highest by local
+ * score — cheap, but blind to a move that scores nothing locally and still
+ * gets chosen by the deeper positional search for other reasons (an open
+ * pocket looked like influence worth having). That gap is exactly how the
+ * engine once walked a lone cat onto an edge column and lost it three moves
+ * later: the move ranked 45th of 60 by local score, so the screen never
+ * looked at it, and nothing checked the search's actual answer until the
+ * opponent already had. Verifying every candidate up front to close that
+ * would flood the budget with false alarms instead — nearly any lightly
+ * supported edge placement reads as "forceable" in an otherwise open
+ * position, the same way a lone stone in a Go corner dies to a ladder with
+ * no help nearby. Checking only what the search actually wants to play
+ * avoids that: it is asked about one move, not a shortlist of suspects. */
+const VERIFY_SHARE = 0.2;
+const VERIFY_BUDGET_CAP_MS = 400;
+const VERIFY_BUDGET_FLOOR_MS = 150;
+/** A whole neighbourhood can be equally bad — on the real game this fixes,
+ * both the move actually played and the next thing the search reached for
+ * instead were provable forced captures, because the opponent's wall there
+ * was simply too strong for anything nearby to survive. One retry only
+ * catches the first of those; a few catches the rest without letting a
+ * pathological position spend the whole budget re-searching from scratch. */
+const MAX_VERIFY_ATTEMPTS = 6;
+
+/** Runs the positional search, then confirms its answer isn't a move the
+ * opponent can force-capture — the same tactical floor the pre-screen above
+ * gives the moves it actually examines. If the search's favourite fails that
+ * check, it's dropped and the search runs again on what's left, up to
+ * MAX_VERIFY_ATTEMPTS times; each attempt gets whatever time remains before
+ * `budgetMs` runs out, so a pathological position degrades to less search
+ * depth rather than blowing the deadline.
+ *
+ * `widenTo`, if given, is a broader pool to fall back to once `pool` itself
+ * is exhausted. A territorial shortlist can be as small as one or two moves
+ * — if every one of those is refuted, retrying within that same tiny list
+ * has nothing left to offer, even though the wider legal pool still has
+ * genuinely safe moves the shortlist never included. */
+function searchVerified(
+  rootState: GameState,
+  aiPlayer: Player,
+  pool: AIAction[],
+  budgetMs: number,
+  widenTo?: AIAction[],
+): AIAction {
+  const deadline = Date.now() + budgetMs;
+  let candidates = pool;
+  let hasWidened = false;
+  let choice: AIAction = pool[0];
+
+  for (let attempt = 0; attempt < MAX_VERIFY_ATTEMPTS; attempt++) {
+    if (candidates.length === 0) {
+      if (hasWidened || !widenTo || widenTo.length === 0) break;
+      candidates = widenTo;
+      hasWidened = true;
+    }
+
+    const timeLeft = Math.max(150, deadline - Date.now());
+    const verifyBudget = Math.min(VERIFY_BUDGET_CAP_MS, Math.max(VERIFY_BUDGET_FLOOR_MS, timeLeft * VERIFY_SHARE));
+    const searchBudget = Math.max(150, timeLeft - verifyBudget);
+
+    choice = searchWithin(rootState, aiPlayer, candidates, searchBudget);
+    const next = applyAction(rootState, choice);
+    if (next.winner || !opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, verifyBudget)) {
+      return choice;
+    }
+    candidates = candidates.filter((action) => action !== choice);
+  }
+
+  // Every attempt was refuted — nothing left to offer but the last one tried.
+  return choice;
+}
+
 /**
  * VERY_HARD. Adds a life-and-death reader on top of the general search:
  * it first tries to prove a forced capture, and otherwise discards every
@@ -191,7 +266,7 @@ export function findBestMoveVeryHard(
   //    would have drifted towards.
   const territorial = territorialCandidates(rootState, aiPlayer, plan, finalPool, remaining);
   if (territorial.length > 0) {
-    return searchWithin(rootState, aiPlayer, territorial, remaining);
+    return searchVerified(rootState, aiPlayer, territorial, remaining, finalPool);
   }
 
   // 4. Otherwise the pool is already the right one to hand over: it holds all
@@ -200,12 +275,17 @@ export function findBestMoveVeryHard(
   //    by which moves are on offer — measured on a real position, the safe pool
   //    held 67 of 68 legal moves and every move the territory planner wanted,
   //    so adding "contesting" candidates to it changed nothing at all.
-  return searchWithin(rootState, aiPlayer, finalPool, remaining);
+  return searchVerified(rootState, aiPlayer, finalPool, remaining);
 }
 
 /** Share of the remaining budget spent proving invasions are not suicidal. */
 const INVASION_CHECK_MS = 60;
 const MAX_TERRITORIAL_CANDIDATES = 12;
+/** Budget for checking the seal point itself. Only one such check ever runs
+ * per call, so it can afford more than the per-candidate budget above —
+ * which matters, because a read that thin missed a real forced capture on a
+ * real lost game (67ms said safe, 100ms said forced, same position). */
+const SEAL_POINT_CHECK_MS = 150;
 
 /**
  * Blocking and expanding moves drawn from the whole-board plan, filtered down
@@ -254,20 +334,30 @@ function territorialCandidates(
   const chosen: AIAction[] = [];
 
   // Occupying the point they need is not an invasion — it is a normal move on a
-  // normal empty cell, already vetted by the shared safety check. Requiring it
-  // to clear a time-boxed capture read as well meant that on a tight budget the
-  // list came back empty and the whole stage was skipped, which is how a
-  // ten-cell enclosure went unanswered in a real game.
+  // normal empty cell, already vetted by the shared safety check — except that
+  // check only ever catches a capture the opponent can finish in one move.
+  // Sealing a big enclosure often means planting a stone right where the
+  // opponent's wall is thickest, and that is exactly the shape a multi-move
+  // forced capture preys on: a real lost game played the seal point straight
+  // into one. So it still gets the same tactical read every other candidate
+  // here does, just on its own more generous budget, since there is only ever
+  // one of it to check and it is the single most important candidate on offer.
   const sealPoint = plan.theirBestSeal?.move;
   if (sealPoint && poolKeys.has(`${sealPoint.row},${sealPoint.col}`)) {
-    chosen.push({ type: "PLACE", row: sealPoint.row, col: sealPoint.col });
+    const sealAction: AIAction = { type: "PLACE", row: sealPoint.row, col: sealPoint.col };
+    const next = applyAction(rootState, sealAction);
+    if (next.winner === aiPlayer) return [sealAction];
+    if (next.winner) {
+      // loses on the spot — fall through to whatever else is on offer
+    } else if (!opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, SEAL_POINT_CHECK_MS)) {
+      chosen.push(sealAction);
+    }
   }
 
   for (const action of wanted) {
     if (chosen.length >= MAX_TERRITORIAL_CANDIDATES || Date.now() >= deadline) break;
     if (action.type !== "PLACE") continue;
     if (!poolKeys.has(`${action.row},${action.col}`)) continue;
-    if (sealPoint && action.row === sealPoint.row && action.col === sealPoint.col) continue;
     if (sealPoint && action.row === sealPoint.row && action.col === sealPoint.col) continue;
 
     const next = applyAction(rootState, action);
