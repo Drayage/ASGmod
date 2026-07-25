@@ -128,10 +128,15 @@ export function frameworkPotential(board: Board, player: Player): number {
     // same ground is worth anywhere else.
     if (frame.missing.length === 0) continue;
     const corner = `${frame.corner.row},${frame.corner.col}`;
-    // Ground already settled is counted by the territory term; what this adds
-    // is credit for a wall that is nearly built. One cat from closing is worth
-    // most of the prize, five cats from closing is worth very little.
-    const value = frame.enclosed.length / (frame.missing.length + 1);
+    // Credit for a wall that is nearly built — and the falloff has to be steep.
+    // Dividing by the gaps once put a 28-cell corner with seven gaps (3.5) on
+    // level terms with a 10-cell corner one cat from closing (5.0), so the
+    // engine was paid almost as well for sketching out half the board as for
+    // finishing something. That is backwards: the bigger the region, the more
+    // room an invading cat has to live in it, so a sprawling claim is worth
+    // less than a small holding, not the same. Squaring separates them —
+    // 0.44 against 2.5.
+    const value = frame.enclosed.length / (frame.missing.length + 1) ** 2;
     bestPerCorner.set(corner, Math.max(bestPerCorner.get(corner) ?? 0, value));
   }
 
