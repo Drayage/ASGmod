@@ -1,8 +1,8 @@
 import { applyAction, candidateActions, evaluateState, getSafeActions } from "../ai";
 import type { AIAction } from "../ai";
-import { getConnectedGroup, getGroupLiberties } from "../groups";
-import { isLegalMove } from "../rules";
-import { opponent } from "../types";
+import { getAllGroups, getConnectedGroup, getGroupLiberties } from "../groups";
+import { applyMove, isLegalMove } from "../rules";
+import { DIRECTIONS, inBounds, opponent, playerCell } from "../types";
 import type { Board, GameState, Player } from "../types";
 import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
 import { localMoveScore, orderedCandidates } from "./moveOrdering";
@@ -21,6 +21,28 @@ import { TranspositionTable } from "./transpositionTable";
  * synchronous and single-threaded, so reading it straight afterwards is sound.
  */
 export let lastSearchDepth = 0;
+
+/** Testing-only escape hatch for avoidSelfInflictedThin below, so the arena
+ * can play the guarded and unguarded engine head-to-head. Always on in the
+ * shipped app. */
+export let selfInflictedThinGuardEnabled = true;
+export function setSelfInflictedThinGuardEnabled(enabled: boolean): void {
+  selfInflictedThinGuardEnabled = enabled;
+}
+
+/** Same, for avoidOneMoveTraps — kept independent of the flag above so the
+ * two screens can be A/B tested apart before either one's default is
+ * trusted. Always on in the shipped app. */
+export let oneMoveTrapGuardEnabled = true;
+export function setOneMoveTrapGuardEnabled(enabled: boolean): void {
+  oneMoveTrapGuardEnabled = enabled;
+}
+
+/** Same, for avoidDominatedPockets. Always on in the shipped app. */
+export let dominatedPocketGuardEnabled = true;
+export function setDominatedPocketGuardEnabled(enabled: boolean): void {
+  dominatedPocketGuardEnabled = enabled;
+}
 
 const WIN_SCORE = 1_000_000;
 const MAX_DEPTH = 8;
@@ -160,6 +182,83 @@ function existingGroupDanger(rootState: GameState, aiPlayer: Player, budgetMs: n
   return candidates;
 }
 
+/** Liberty count a thin group is allowed to sit at before this check starts
+ * looking for reinforcement. Kept equal to captureSearch's own tracked
+ * ceiling: below this, findForcedCapture is already the tool for the job. */
+const THIN_GROUP_LIBERTY_THRESHOLD = 3;
+
+/**
+ * A cheaper, earlier net than existingGroupDanger above. That check only
+ * fires once the forced-capture reader can *prove* a kill, which needs a
+ * group already down to a handful of liberties before the proof search even
+ * starts working — and on a busy board the AND/OR read itself gets
+ * unreliable well before that (traced on a real position: only 1 of 63
+ * candidates cleared the check at all). This asks a much simpler question
+ * instead, of any of the mover's own groups sitting at three liberties or
+ * fewer with an opponent stone already bordering one of those liberties: is
+ * there a legal move right here that actually *raises* this group's liberty
+ * count? "Raises" is checked directly on the resulting board, not assumed —
+ * a traced real loss extended a two-liberty group onto one of its own
+ * liberties and came out with two liberties again, because the new stone's
+ * only new liberty just replaced the one it was built on. A move that
+ * doesn't clear that bar isn't reinforcement, whatever it looks like, and is
+ * left out rather than returned as a false sense of safety.
+ *
+ * Deliberately does not try to stop a group from *becoming* thin in the
+ * first place — that is the evaluation's job (see the `thin` shape term) —
+ * only to notice one that already is and find whatever real escape exists
+ * before the general search, which never asks this question until a capture
+ * is provable, wanders past it.
+ */
+function thinGroupDanger(rootState: GameState, aiPlayer: Player): AIAction[] {
+  const opponentPlayer = opponent(aiPlayer);
+  const opponentCell = playerCell(opponentPlayer);
+  const ownTerritory = new Set(rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`));
+
+  const moves: AIAction[] = [];
+  const seen = new Set<string>();
+
+  for (const group of getAllGroups(rootState.board, aiPlayer)) {
+    const liberties = getGroupLiberties(rootState.board, group);
+    if (liberties.size === 0 || liberties.size > THIN_GROUP_LIBERTY_THRESHOLD) continue;
+    // A liberty inside the mover's own confirmed territory can never be
+    // filled by anyone — this group is permanently safe, not thin.
+    if ([...liberties].some((l) => ownTerritory.has(l))) continue;
+
+    const underPressure = [...liberties].some((libertyKey) => {
+      const [row, col] = libertyKey.split(",").map(Number);
+      return DIRECTIONS.some(([dr, dc]) => {
+        const r = row + dr;
+        const c = col + dc;
+        return inBounds(r, c) && rootState.board[r][c] === opponentCell;
+      });
+    });
+    if (!underPressure) continue;
+
+    const currentCount = liberties.size;
+    for (const libertyKey of liberties) {
+      if (seen.has(libertyKey)) continue;
+      seen.add(libertyKey);
+      const [row, col] = libertyKey.split(",").map(Number);
+      if (!isLegalMove(rootState, row, col, aiPlayer)) continue;
+
+      const action: AIAction = { type: "PLACE", row, col };
+      const next = applyAction(rootState, action);
+      if (next.winner === aiPlayer) {
+        moves.push(action);
+        continue;
+      }
+      if (next.winner) continue;
+
+      const newGroup = getConnectedGroup(next.board, row, col);
+      const newLiberties = getGroupLiberties(next.board, newGroup);
+      if (newLiberties.size > currentCount) moves.push(action);
+    }
+  }
+
+  return moves;
+}
+
 /** Share of the remaining budget set aside to double-check the *search's own
  * answer* against the forced-capture reader, once it has one.
  *
@@ -272,6 +371,264 @@ function openingMove(rootState: GameState, aiPlayer: Player): AIAction | null {
 }
 
 /**
+ * Would `action` take one of the mover's own currently-safe groups and turn
+ * it thin and opponent-pressured, for no compensating reason? "Currently
+ * safe" is the point: this only fires when the group(s) the new stone joins
+ * had *more* than three liberties before the move — a group that was
+ * already this thin isn't made worse by extending it, that's
+ * thinGroupDanger's territory. A traced real loss extended a lone cat with
+ * four liberties one square deeper into a pocket the opponent had already
+ * half-ringed, dropping it to three on a move that wasn't forced by
+ * anything — nothing upstream of the search ever asked "does this specific
+ * placement make one of my own groups worse than leaving it alone would
+ * have," only "how does the resulting position score," and a three-liberty
+ * group two moves deep into a search tree scores close enough to a safe one
+ * that the drop never stood out.
+ */
+function createsVoluntaryThinGroup(rootState: GameState, aiPlayer: Player, action: AIAction): boolean {
+  if (action.type !== "PLACE") return false;
+  const { row, col } = action;
+
+  const touchedLiberties: number[] = [];
+  for (const [dr, dc] of DIRECTIONS) {
+    const r = row + dr;
+    const c = col + dc;
+    if (!inBounds(r, c)) continue;
+    if (rootState.board[r][c] !== playerCell(aiPlayer)) continue;
+    const group = getConnectedGroup(rootState.board, r, c);
+    touchedLiberties.push(getGroupLiberties(rootState.board, group).size);
+  }
+  // A fresh stone joining nothing of the mover's own isn't "extending into"
+  // anything worse — whatever liberties it has are just what that empty
+  // cell offered to begin with.
+  if (touchedLiberties.length === 0) return false;
+  const bestBefore = Math.max(...touchedLiberties);
+  if (bestBefore <= THIN_GROUP_LIBERTY_THRESHOLD) return false;
+
+  const next = applyAction(rootState, action);
+  if (next.winner) return false;
+  const mergedGroup = getConnectedGroup(next.board, row, col);
+  const afterLiberties = getGroupLiberties(next.board, mergedGroup);
+  if (afterLiberties.size === 0 || afterLiberties.size > THIN_GROUP_LIBERTY_THRESHOLD) return false;
+
+  const ownTerritory = new Set(rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`));
+  if ([...afterLiberties].some((l) => ownTerritory.has(l))) return false;
+
+  const opponentCell = playerCell(opponent(aiPlayer));
+  return [...afterLiberties].some((libertyKey) => {
+    const [r2, c2] = libertyKey.split(",").map(Number);
+    return DIRECTIONS.some(([dr, dc]) => {
+      const rr = r2 + dr;
+      const cc = c2 + dc;
+      return inBounds(rr, cc) && next.board[rr][cc] === opponentCell;
+    });
+  });
+}
+
+/**
+ * Drops candidates that would voluntarily thin one of the mover's own safe
+ * groups (see createsVoluntaryThinGroup) from the pool everything downstream
+ * draws from. Like every other screen in this file, it only ever narrows —
+ * if it would remove everything, the original pool survives untouched
+ * rather than handing the rest of the search an empty list to choose from.
+ */
+function avoidSelfInflictedThin(rootState: GameState, aiPlayer: Player, pool: AIAction[]): AIAction[] {
+  const safe = pool.filter((action) => !createsVoluntaryThinGroup(rootState, aiPlayer, action));
+  return safe.length > 0 ? safe : pool;
+}
+
+/** Worst-case liberty count, one opponent reply deep, that counts as "this
+ * extension was a trap." Not an atari test — the point is to catch a group
+ * heading for real trouble before it gets there, the same way a human
+ * player reads "if they just answer here, I'm in real trouble" without
+ * needing the full forced-capture proof captureSearch.ts insists on. */
+const LOOKAHEAD_TRAP_LIBERTIES = 2;
+/** Only worth the extra opponent-reply read when the group this move
+ * produces is already in the range where one more squeeze could matter —
+ * a group with room to spare isn't worth reading this deep for. */
+const LOOKAHEAD_LIBERTY_CEILING = 4;
+
+/**
+ * Would `action` extend one of the mover's own groups into a shape that
+ * still *looks* fine right now — plenty of liberties, nothing thin, nothing
+ * createsVoluntaryThinGroup would flag — but where the single most
+ * damaging opponent reply already drops it to near-atari or worse?
+ *
+ * This is the gap createsVoluntaryThinGroup can't close on its own: a real
+ * loss extended a group that read as 4 liberties after the move (safe by
+ * every check that only looks at the position the move produces), and the
+ * opponent's very next move at one of those four liberties took it straight
+ * to 2 — because every remaining liberty bordered the opponent already, so
+ * none of the four were ever independent escape routes, just four ways to
+ * reach the same dead end one ply later. Reading one more ply on the
+ * group's own liberties is cheap (at most a handful of replies to try) and
+ * catches exactly that shape without needing a real forced-capture proof.
+ */
+function createsOneMoveTrap(rootState: GameState, aiPlayer: Player, action: AIAction): boolean {
+  if (action.type !== "PLACE") return false;
+  const { row, col } = action;
+
+  let touchesOwnGroup = false;
+  for (const [dr, dc] of DIRECTIONS) {
+    const r = row + dr;
+    const c = col + dc;
+    if (inBounds(r, c) && rootState.board[r][c] === playerCell(aiPlayer)) touchesOwnGroup = true;
+  }
+  if (!touchesOwnGroup) return false;
+
+  const afterMove = applyAction(rootState, action);
+  if (afterMove.winner) return false;
+
+  const group = getConnectedGroup(afterMove.board, row, col);
+  const liberties = getGroupLiberties(afterMove.board, group);
+  if (liberties.size === 0 || liberties.size > LOOKAHEAD_LIBERTY_CEILING) return false;
+
+  const ownTerritory = new Set(rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`));
+  if ([...liberties].some((l) => ownTerritory.has(l))) return false;
+
+  const opponentPlayer = opponent(aiPlayer);
+  const anchor = group[0];
+
+  for (const libertyKey of liberties) {
+    const [r, c] = libertyKey.split(",").map(Number);
+    if (!isLegalMove(afterMove, r, c, opponentPlayer)) continue;
+    const afterReply = applyMove(afterMove, r, c);
+    if (afterReply.winner === opponentPlayer) return true;
+    if (afterReply.winner) continue;
+    if (afterReply.board[anchor.row][anchor.col] !== playerCell(aiPlayer)) continue;
+
+    const groupAfter = getConnectedGroup(afterReply.board, anchor.row, anchor.col);
+    const libsAfter = getGroupLiberties(afterReply.board, groupAfter);
+    if (libsAfter.size <= LOOKAHEAD_TRAP_LIBERTIES) return true;
+  }
+  return false;
+}
+
+/** Same graceful-narrowing pattern as avoidSelfInflictedThin, for
+ * createsOneMoveTrap. */
+function avoidOneMoveTraps(rootState: GameState, aiPlayer: Player, pool: AIAction[]): AIAction[] {
+  const safe = pool.filter((action) => !createsOneMoveTrap(rootState, aiPlayer, action));
+  return safe.length > 0 ? safe : pool;
+}
+
+/** How many empty cells the flood-fill below is willing to explore before
+ * giving up and calling the space open. A group backed by this much room
+ * has somewhere to go regardless of how the border stones split. */
+const POCKET_BFS_CAP = 20;
+/** A reachable region at or under this size, once the fill has actually
+ * terminated (not just hit the cap), is small enough that who owns its
+ * border matters. */
+const SMALL_POCKET_MAX_CELLS = 8;
+/** How much the opponent's border stones must outnumber the mover's own for
+ * a small pocket to count as theirs rather than genuinely contested. */
+const POCKET_DOMINANCE_MARGIN = 2;
+
+/**
+ * Floods the empty cells reachable from `starts` (a group's liberties,
+ * typically), stopping at any stone of either colour, up to `cap` cells.
+ * Reports the region size, whether the fill was cut off by the cap rather
+ * than running out of room on its own, and how many distinct stones of each
+ * colour border what it found.
+ */
+function pocketRoom(
+  board: Board,
+  starts: Iterable<string>,
+  aiPlayer: Player,
+  cap: number,
+): { size: number; capped: boolean; mineBorder: number; theirsBorder: number } {
+  const mineCell = playerCell(aiPlayer);
+  const theirsCell = playerCell(opponent(aiPlayer));
+  const seen = new Set<string>();
+  const queue: Array<[number, number]> = [];
+  for (const s of starts) {
+    const [row, col] = s.split(",").map(Number);
+    const key = `${row},${col}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      queue.push([row, col]);
+    }
+  }
+
+  let regionSize = 0;
+  let mineBorder = 0;
+  let theirsBorder = 0;
+  const borderSeen = new Set<string>();
+
+  while (queue.length > 0 && regionSize < cap) {
+    const [row, col] = queue.shift()!;
+    if (board[row][col] !== "EMPTY") continue;
+    regionSize += 1;
+    for (const [dr, dc] of DIRECTIONS) {
+      const r = row + dr;
+      const c = col + dc;
+      if (!inBounds(r, c)) continue;
+      const key = `${r},${c}`;
+      if (board[r][c] === "EMPTY") {
+        if (!seen.has(key)) {
+          seen.add(key);
+          queue.push([r, c]);
+        }
+      } else if (!borderSeen.has(key)) {
+        borderSeen.add(key);
+        if (board[r][c] === mineCell) mineBorder += 1;
+        else if (board[r][c] === theirsCell) theirsBorder += 1;
+      }
+    }
+  }
+
+  return { size: regionSize, capped: queue.length > 0, mineBorder, theirsBorder };
+}
+
+/**
+ * Would `action` extend one of the mover's own groups so its only room to
+ * grow is a small pocket the opponent's stones already dominate the border
+ * of? Neither createsVoluntaryThinGroup nor createsOneMoveTrap catch this:
+ * both only read liberty *counts*, and a group can hold a perfectly
+ * respectable four liberties while every one of them opens onto the same
+ * four-cell dead end. A traced real loss extended into exactly that shape —
+ * the position right after the move looked fine by every count-based
+ * measure, and it took several more plies of actual play before the
+ * liberties themselves started dropping, by which point nothing left to
+ * read could undo it. Measured on that exact position: the reachable region
+ * was 4 cells, bordered by five of the opponent's stones and two of the
+ * mover's own — a pocket already lost before the last stone in it was even
+ * placed.
+ */
+function extendsIntoDominatedPocket(rootState: GameState, aiPlayer: Player, action: AIAction): boolean {
+  if (action.type !== "PLACE") return false;
+  const { row, col } = action;
+
+  let touchesOwnGroup = false;
+  for (const [dr, dc] of DIRECTIONS) {
+    const r = row + dr;
+    const c = col + dc;
+    if (inBounds(r, c) && rootState.board[r][c] === playerCell(aiPlayer)) touchesOwnGroup = true;
+  }
+  if (!touchesOwnGroup) return false;
+
+  const next = applyAction(rootState, action);
+  if (next.winner) return false;
+
+  const group = getConnectedGroup(next.board, row, col);
+  const liberties = getGroupLiberties(next.board, group);
+  if (liberties.size === 0) return false;
+
+  const ownTerritory = new Set(rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`));
+  if ([...liberties].some((l) => ownTerritory.has(l))) return false;
+
+  const room = pocketRoom(next.board, liberties, aiPlayer, POCKET_BFS_CAP);
+  if (room.capped || room.size > SMALL_POCKET_MAX_CELLS) return false;
+  return room.theirsBorder >= room.mineBorder + POCKET_DOMINANCE_MARGIN;
+}
+
+/** Same graceful-narrowing pattern as the other two screens, for
+ * extendsIntoDominatedPocket. */
+function avoidDominatedPockets(rootState: GameState, aiPlayer: Player, pool: AIAction[]): AIAction[] {
+  const safe = pool.filter((action) => !extendsIntoDominatedPocket(rootState, aiPlayer, action));
+  return safe.length > 0 ? safe : pool;
+}
+
+/**
  * VERY_HARD. Adds a life-and-death reader on top of the general search:
  * it first tries to prove a forced capture, and otherwise discards every
  * candidate that lets the opponent prove one against it. Only what survives
@@ -287,9 +644,18 @@ export function findBestMoveVeryHard(
 
   const deadline = Date.now() + timeLimitMs;
 
-  const { winningMove, pool } = getSafeActions(rootState, aiPlayer);
+  const { winningMove, pool: rawPool } = getSafeActions(rootState, aiPlayer);
   if (winningMove) return winningMove;
-  if (pool.length <= 1) return pool[0] ?? { type: "PASS" };
+  if (rawPool.length <= 1) return rawPool[0] ?? { type: "PASS" };
+  const thinGuardedPool = selfInflictedThinGuardEnabled
+    ? avoidSelfInflictedThin(rootState, aiPlayer, rawPool)
+    : rawPool;
+  const trapGuardedPool = oneMoveTrapGuardEnabled
+    ? avoidOneMoveTraps(rootState, aiPlayer, thinGuardedPool)
+    : thinGuardedPool;
+  const pool = dominatedPocketGuardEnabled
+    ? avoidDominatedPockets(rootState, aiPlayer, trapGuardedPool)
+    : trapGuardedPool;
 
   // Work out whether a large enclosure is about to happen *before* spending any
   // of the budget on reading fights. The plan is pure enumeration and costs
@@ -323,6 +689,17 @@ export function findBestMoveVeryHard(
   if (dangerMoves.length > 0) {
     const dangerBudget = Math.max(300, deadline - Date.now());
     return searchVerified(rootState, aiPlayer, dangerMoves, dangerBudget, pool);
+  }
+
+  // 1.75. Nothing is provably forced yet, but is one of my own groups already
+  //    thin (three liberties or fewer) with the opponent bordering it, and is
+  //    there a move here that actually buys it more room? Catches the gap one
+  //    step before existingGroupDanger can prove anything — see
+  //    thinGroupDanger's own comment for the traced loss this closes.
+  const thinMoves = thinGroupDanger(rootState, aiPlayer);
+  if (thinMoves.length > 0) {
+    const thinBudget = Math.max(300, deadline - Date.now());
+    return searchVerified(rootState, aiPlayer, thinMoves, thinBudget, pool);
   }
 
   // 2. Drop moves that let the opponent kill one of ours by force. Screened in
