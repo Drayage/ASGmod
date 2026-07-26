@@ -71,6 +71,12 @@ export function setFrameworkGuardEnabled(enabled: boolean): void {
   frameworkGuardEnabled = enabled;
 }
 
+/** Same, for opponentFrameworkDenialMoves. Always on in the shipped app. */
+export let opponentFrameworkGuardEnabled = true;
+export function setOpponentFrameworkGuardEnabled(enabled: boolean): void {
+  opponentFrameworkGuardEnabled = enabled;
+}
+
 const WIN_SCORE = 1_000_000;
 const MAX_DEPTH = 8;
 
@@ -858,6 +864,57 @@ function frameworkCompletionMoves(rootState: GameState, aiPlayer: Player): AIAct
 }
 
 /**
+ * Cells that would deny one of the OPPONENT's corner cuts — the same
+ * question as frameworkCompletionMoves above, just asked from the other
+ * side of the board. rankFrameworks tells the mover about frames they
+ * themselves could finish; nothing before this ever asked whether the
+ * opponent has one instead, so a frame the opponent had already secured
+ * against invasion could keep closing turn after turn with nothing here
+ * ever contesting it — the search only ever helps finish this engine's own
+ * ground, never threatens someone else's.
+ *
+ * The target here is the frame's missing *wall* point, not its enclosed
+ * interior. That distinction matters: judgeFramework's own security test
+ * only tries invading the enclosed cells, because that is where a stone
+ * would have to live to break the claim from inside, and a secure frame by
+ * definition kills anything planted there. The wall line is different — it
+ * is the frontier of the cut, still connected to the open board outside the
+ * frame, so a stone played there does not need to survive *inside*
+ * surrounded territory, only survive at all. That is exactly what
+ * searchVerified's tactical check already confirms for every candidate
+ * handed to it, the same way it does for this engine's own completion
+ * moves — nothing extra is assumed safe here.
+ *
+ * Only frames the opponent has already secured are worth denying at all: an
+ * insecure one is still contestable by the ordinary search (an invasion has
+ * somewhere to live, or another closing point exists), so acting early on it
+ * would just be guessing. A secure one a handful of moves from done is the
+ * one case where waiting has a real cost — every turn spent elsewhere is a
+ * turn closer to ground nothing here will ever be able to touch again.
+ */
+function opponentFrameworkDenialMoves(rootState: GameState, aiPlayer: Player): AIAction[] {
+  const foe = opponent(aiPlayer);
+  const verdicts = rankFrameworks(rootState, foe, FRAMEWORK_READ_BUDGET_MS);
+  const moves: AIAction[] = [];
+  const seen = new Set<string>();
+
+  for (const verdict of verdicts) {
+    if (!verdict.secure) continue;
+    if (verdict.movesToClose === 0 || verdict.movesToClose > FRAMEWORK_MAX_GAPS) continue;
+
+    for (const cell of verdict.frame.missing) {
+      const key = `${cell.row},${cell.col}`;
+      if (seen.has(key)) continue;
+      if (!isLegalMove(rootState, cell.row, cell.col, aiPlayer)) continue;
+      seen.add(key);
+      moves.push({ type: "PLACE", row: cell.row, col: cell.col });
+    }
+  }
+
+  return moves;
+}
+
+/**
  * VERY_HARD. Adds a life-and-death reader on top of the general search:
  * it first tries to prove a forced capture, and otherwise discards every
  * candidate that lets the opponent prove one against it. Only what survives
@@ -939,6 +996,20 @@ export function findBestMoveVeryHard(
   if (pocketSealMoves.length > 0) {
     const sealBudget = Math.max(300, deadline - Date.now());
     return searchVerified(rootState, aiPlayer, pocketSealMoves, sealBudget, pool);
+  }
+
+  // 1.87. Nothing is in danger. Does the opponent have a corner cut that has
+  //    already passed their own security test and is a handful of moves from
+  //    done? Unlike my own near-complete frame below, this one has a real
+  //    clock on it: theirs stays deniable only until they close it, whereas
+  //    mine stays mine (that's what secure means) whether I finish it this
+  //    turn or later. So contesting theirs comes first.
+  const opponentFrameworkMoves = opponentFrameworkGuardEnabled
+    ? opponentFrameworkDenialMoves(rootState, aiPlayer)
+    : [];
+  if (opponentFrameworkMoves.length > 0) {
+    const opponentFrameworkBudget = Math.max(300, deadline - Date.now());
+    return searchVerified(rootState, aiPlayer, opponentFrameworkMoves, opponentFrameworkBudget, pool);
   }
 
   // 1.9. Nothing is in danger. Is there a corner cut of my own that is one or
