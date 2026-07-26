@@ -5,6 +5,7 @@ import { applyMove, isLegalMove } from "../rules";
 import { DIRECTIONS, inBounds, opponent, playerCell } from "../types";
 import type { Board, GameState, Player } from "../types";
 import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
+import { rankFrameworks } from "./frameworks";
 import { localMoveScore, orderedCandidates } from "./moveOrdering";
 import { planTerritory } from "./territoryPlanner";
 import type { TerritoryPlan } from "./territoryPlanner";
@@ -55,6 +56,12 @@ export function setExistingGroupDangerRankingEnabled(enabled: boolean): void {
 export let pocketSealDangerGuardEnabled = true;
 export function setPocketSealDangerGuardEnabled(enabled: boolean): void {
   pocketSealDangerGuardEnabled = enabled;
+}
+
+/** Same, for frameworkCompletionMoves. Always on in the shipped app. */
+export let frameworkGuardEnabled = true;
+export function setFrameworkGuardEnabled(enabled: boolean): void {
+  frameworkGuardEnabled = enabled;
 }
 
 const WIN_SCORE = 1_000_000;
@@ -782,6 +789,57 @@ function pocketSealDanger(rootState: GameState, aiPlayer: Player): AIAction[] {
   return moves;
 }
 
+/** Budget for reading whether a near-complete corner cut is actually secure
+ * — cheap relative to the move budget, since there are at most four corners
+ * to check and most positions have none worth reading at all. */
+const FRAMEWORK_READ_BUDGET_MS = 300;
+/** A cut needing more gaps than this is outside the "corner is cheap" range
+ * candidateFrameworks itself already enforces (see its own MAX_CUT) — this
+ * exists so a framework that's still barely started doesn't get bumped to
+ * the front of the search just because it happens to rank first among a
+ * handful of far-off options. */
+const FRAMEWORK_MAX_GAPS = 3;
+
+/**
+ * Cells that would finish one of the mover's own corner cuts — but only
+ * once frameworks.ts's own security test has passed: every invasion killable,
+ * and either no closing move left to contest or more than one way to make
+ * it. That test is what makes this safe to prioritize outright rather than
+ * merely score: a secure, one-or-two-gap corner is ground nobody can still
+ * take away, so playing to finish it is never a wasted move the way scoring
+ * a raw evaluation term for "corner-shaped ground" could be.
+ *
+ * This exists because the raw shape was tried as an evaluation term twice
+ * before (see frameworkTerm's own history) and made the engine measurably
+ * worse both times — a plain per-cell credit rewards a claim whether or not
+ * it can actually be kept, which is exactly backwards from how a strong
+ * player treats an unfinished corner. Feeding the *verified* frames into
+ * candidate generation instead, as that history's own postscript suggested,
+ * sidesteps the problem: nothing here is scored, only offered, and only once
+ * it has already passed the same test a human would use to decide a corner
+ * is really theirs.
+ */
+function frameworkCompletionMoves(rootState: GameState, aiPlayer: Player): AIAction[] {
+  const verdicts = rankFrameworks(rootState, aiPlayer, FRAMEWORK_READ_BUDGET_MS);
+  const moves: AIAction[] = [];
+  const seen = new Set<string>();
+
+  for (const verdict of verdicts) {
+    if (!verdict.secure) continue;
+    if (verdict.movesToClose === 0 || verdict.movesToClose > FRAMEWORK_MAX_GAPS) continue;
+
+    for (const cell of verdict.frame.missing) {
+      const key = `${cell.row},${cell.col}`;
+      if (seen.has(key)) continue;
+      if (!isLegalMove(rootState, cell.row, cell.col, aiPlayer)) continue;
+      seen.add(key);
+      moves.push({ type: "PLACE", row: cell.row, col: cell.col });
+    }
+  }
+
+  return moves;
+}
+
 /**
  * VERY_HARD. Adds a life-and-death reader on top of the general search:
  * it first tries to prove a forced capture, and otherwise discards every
@@ -864,6 +922,17 @@ export function findBestMoveVeryHard(
   if (pocketSealMoves.length > 0) {
     const sealBudget = Math.max(300, deadline - Date.now());
     return searchVerified(rootState, aiPlayer, pocketSealMoves, sealBudget, pool);
+  }
+
+  // 1.9. Nothing is in danger. Is there a corner cut of my own that is one or
+  //    two cats from done and has already passed the security test — every
+  //    invasion killable, no single point the opponent can take it away
+  //    with? That is free, keepable ground; finishing it outranks the
+  //    ordinary positional search the same way an imminent seal does.
+  const frameworkMoves = frameworkGuardEnabled ? frameworkCompletionMoves(rootState, aiPlayer) : [];
+  if (frameworkMoves.length > 0) {
+    const frameworkBudget = Math.max(300, deadline - Date.now());
+    return searchVerified(rootState, aiPlayer, frameworkMoves, frameworkBudget, pool);
   }
 
   // 2. Drop moves that let the opponent kill one of ours by force. Screened in
