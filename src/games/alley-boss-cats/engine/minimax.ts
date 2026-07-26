@@ -44,6 +44,13 @@ export function setDominatedPocketGuardEnabled(enabled: boolean): void {
   dominatedPocketGuardEnabled = enabled;
 }
 
+/** Same, for existingGroupDanger's libertyGainingMoves ranking. Always on in
+ * the shipped app. */
+export let existingGroupDangerRankingEnabled = true;
+export function setExistingGroupDangerRankingEnabled(enabled: boolean): void {
+  existingGroupDangerRankingEnabled = enabled;
+}
+
 const WIN_SCORE = 1_000_000;
 const MAX_DEPTH = 8;
 
@@ -174,12 +181,59 @@ function existingGroupDanger(rootState: GameState, aiPlayer: Player, budgetMs: n
 
   const group = getConnectedGroup(rootState.board, forced.target.row, forced.target.col);
   const liberties = getGroupLiberties(rootState.board, group);
+
+  // Prefer a liberty that actually raises the group's count over one that
+  // merely sits on it — see libertyGainingMoves. A real loss played this
+  // exact gap: this check proved the group forced and handed over all three
+  // of its raw liberties with no ranking between them, and the search chose
+  // one that dropped the count from three to two over the one liberty away
+  // that would have raised it to four, because nothing here had ever told it
+  // the three looked-alike candidates weren't alike at all. Falling back to
+  // the raw set when nothing improves keeps this check's original floor: a
+  // defense is still offered even once the group is genuinely past saving.
+  const improving = existingGroupDangerRankingEnabled
+    ? libertyGainingMoves(rootState, aiPlayer, liberties, liberties.size)
+    : [];
+  if (improving.length > 0) return improving;
+
   const candidates: AIAction[] = [];
   for (const liberty of liberties) {
     const [row, col] = liberty.split(",").map(Number);
     if (isLegalMove(rootState, row, col, aiPlayer)) candidates.push({ type: "PLACE", row, col });
   }
   return candidates;
+}
+
+/** The subset of `liberties` (a group's own liberties) where playing there
+ * actually raises that group's post-move liberty count above `currentCount`
+ * — not just "is one of the group's current liberties," which is a much
+ * weaker test. A move that merely relocates a liberty (fills one, opens
+ * another elsewhere on the same stone) leaves the count unchanged and isn't
+ * real reinforcement, whatever it looks like. */
+function libertyGainingMoves(
+  rootState: GameState,
+  aiPlayer: Player,
+  liberties: Iterable<string>,
+  currentCount: number,
+): AIAction[] {
+  const moves: AIAction[] = [];
+  for (const libertyKey of liberties) {
+    const [row, col] = libertyKey.split(",").map(Number);
+    if (!isLegalMove(rootState, row, col, aiPlayer)) continue;
+
+    const action: AIAction = { type: "PLACE", row, col };
+    const next = applyAction(rootState, action);
+    if (next.winner === aiPlayer) {
+      moves.push(action);
+      continue;
+    }
+    if (next.winner) continue;
+
+    const newGroup = getConnectedGroup(next.board, row, col);
+    const newLiberties = getGroupLiberties(next.board, newGroup);
+    if (newLiberties.size > currentCount) moves.push(action);
+  }
+  return moves;
 }
 
 /** Liberty count a thin group is allowed to sit at before this check starts
@@ -235,24 +289,11 @@ function thinGroupDanger(rootState: GameState, aiPlayer: Player): AIAction[] {
     });
     if (!underPressure) continue;
 
-    const currentCount = liberties.size;
-    for (const libertyKey of liberties) {
-      if (seen.has(libertyKey)) continue;
-      seen.add(libertyKey);
-      const [row, col] = libertyKey.split(",").map(Number);
-      if (!isLegalMove(rootState, row, col, aiPlayer)) continue;
-
-      const action: AIAction = { type: "PLACE", row, col };
-      const next = applyAction(rootState, action);
-      if (next.winner === aiPlayer) {
-        moves.push(action);
-        continue;
-      }
-      if (next.winner) continue;
-
-      const newGroup = getConnectedGroup(next.board, row, col);
-      const newLiberties = getGroupLiberties(next.board, newGroup);
-      if (newLiberties.size > currentCount) moves.push(action);
+    for (const action of libertyGainingMoves(rootState, aiPlayer, liberties, liberties.size)) {
+      const dedupeKey = action.type === "PLACE" ? `${action.row},${action.col}` : "PASS";
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      moves.push(action);
     }
   }
 
