@@ -65,14 +65,16 @@ interface ShapeStats {
   atari: number;
   /** Groups down to two escape routes — one move from atari. */
   nearAtari: number;
-  /** A lone cat sitting on exactly three liberties — not yet urgent by the
-   * atari/nearAtari tests, but a real category of its own. A single stone
-   * this thin can be walked down to atari in three unanswered opponent moves
-   * with no warning beforehand: at three liberties the evaluation used to
-   * treat it exactly like a stone with ten, so nothing made defending it
-   * outscore whatever else was on offer until it was already two moves too
-   * late to matter. Not tracked once the group has grown past one cat —
-   * that is what connectedBonus already rewards. */
+  /** A group sitting on exactly three liberties — not yet urgent by the
+   * atari/nearAtari tests, but a real category of its own. A group this thin
+   * can be walked down to atari in a few unanswered opponent moves with no
+   * warning beforehand: at three liberties the evaluation used to treat it
+   * exactly like a group with ten, so nothing made defending — or not
+   * extending into — it outscore whatever else was on offer until it was
+   * already too late to matter. Counted at any group size, not just a lone
+   * stone: a real loss walked a *two*-stone group into exactly this shape
+   * (extending a lone cat one more step into a pocket already half-ringed by
+   * the opponent), and a single-stone-only test never saw it coming. */
   thin: number;
   /** Groups with a liberty inside their owner's confirmed territory. Nobody
    * may ever play there, so that breath is permanent and the group can never
@@ -111,7 +113,7 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
     if (immortal) stats.immortal += 1;
     else if (liberties.size === 1) stats.atari += 1;
     else if (liberties.size === 2) stats.nearAtari += 1;
-    else if (liberties.size === 3 && group.length === 1) stats.thin += 1;
+    else if (liberties.size === 3) stats.thin += 1;
     stats.connectedBonus += group.length - 1;
     if (group.length === 1) stats.isolated += 1;
   }

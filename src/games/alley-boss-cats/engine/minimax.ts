@@ -1,8 +1,8 @@
 import { applyAction, candidateActions, evaluateState, getSafeActions } from "../ai";
 import type { AIAction } from "../ai";
-import { getConnectedGroup, getGroupLiberties } from "../groups";
+import { getAllGroups, getConnectedGroup, getGroupLiberties } from "../groups";
 import { isLegalMove } from "../rules";
-import { opponent } from "../types";
+import { DIRECTIONS, inBounds, opponent, playerCell } from "../types";
 import type { Board, GameState, Player } from "../types";
 import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
 import { localMoveScore, orderedCandidates } from "./moveOrdering";
@@ -158,6 +158,83 @@ function existingGroupDanger(rootState: GameState, aiPlayer: Player, budgetMs: n
     if (isLegalMove(rootState, row, col, aiPlayer)) candidates.push({ type: "PLACE", row, col });
   }
   return candidates;
+}
+
+/** Liberty count a thin group is allowed to sit at before this check starts
+ * looking for reinforcement. Kept equal to captureSearch's own tracked
+ * ceiling: below this, findForcedCapture is already the tool for the job. */
+const THIN_GROUP_LIBERTY_THRESHOLD = 3;
+
+/**
+ * A cheaper, earlier net than existingGroupDanger above. That check only
+ * fires once the forced-capture reader can *prove* a kill, which needs a
+ * group already down to a handful of liberties before the proof search even
+ * starts working — and on a busy board the AND/OR read itself gets
+ * unreliable well before that (traced on a real position: only 1 of 63
+ * candidates cleared the check at all). This asks a much simpler question
+ * instead, of any of the mover's own groups sitting at three liberties or
+ * fewer with an opponent stone already bordering one of those liberties: is
+ * there a legal move right here that actually *raises* this group's liberty
+ * count? "Raises" is checked directly on the resulting board, not assumed —
+ * a traced real loss extended a two-liberty group onto one of its own
+ * liberties and came out with two liberties again, because the new stone's
+ * only new liberty just replaced the one it was built on. A move that
+ * doesn't clear that bar isn't reinforcement, whatever it looks like, and is
+ * left out rather than returned as a false sense of safety.
+ *
+ * Deliberately does not try to stop a group from *becoming* thin in the
+ * first place — that is the evaluation's job (see the `thin` shape term) —
+ * only to notice one that already is and find whatever real escape exists
+ * before the general search, which never asks this question until a capture
+ * is provable, wanders past it.
+ */
+function thinGroupDanger(rootState: GameState, aiPlayer: Player): AIAction[] {
+  const opponentPlayer = opponent(aiPlayer);
+  const opponentCell = playerCell(opponentPlayer);
+  const ownTerritory = new Set(rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`));
+
+  const moves: AIAction[] = [];
+  const seen = new Set<string>();
+
+  for (const group of getAllGroups(rootState.board, aiPlayer)) {
+    const liberties = getGroupLiberties(rootState.board, group);
+    if (liberties.size === 0 || liberties.size > THIN_GROUP_LIBERTY_THRESHOLD) continue;
+    // A liberty inside the mover's own confirmed territory can never be
+    // filled by anyone — this group is permanently safe, not thin.
+    if ([...liberties].some((l) => ownTerritory.has(l))) continue;
+
+    const underPressure = [...liberties].some((libertyKey) => {
+      const [row, col] = libertyKey.split(",").map(Number);
+      return DIRECTIONS.some(([dr, dc]) => {
+        const r = row + dr;
+        const c = col + dc;
+        return inBounds(r, c) && rootState.board[r][c] === opponentCell;
+      });
+    });
+    if (!underPressure) continue;
+
+    const currentCount = liberties.size;
+    for (const libertyKey of liberties) {
+      if (seen.has(libertyKey)) continue;
+      seen.add(libertyKey);
+      const [row, col] = libertyKey.split(",").map(Number);
+      if (!isLegalMove(rootState, row, col, aiPlayer)) continue;
+
+      const action: AIAction = { type: "PLACE", row, col };
+      const next = applyAction(rootState, action);
+      if (next.winner === aiPlayer) {
+        moves.push(action);
+        continue;
+      }
+      if (next.winner) continue;
+
+      const newGroup = getConnectedGroup(next.board, row, col);
+      const newLiberties = getGroupLiberties(next.board, newGroup);
+      if (newLiberties.size > currentCount) moves.push(action);
+    }
+  }
+
+  return moves;
 }
 
 /** Share of the remaining budget set aside to double-check the *search's own
@@ -323,6 +400,17 @@ export function findBestMoveVeryHard(
   if (dangerMoves.length > 0) {
     const dangerBudget = Math.max(300, deadline - Date.now());
     return searchVerified(rootState, aiPlayer, dangerMoves, dangerBudget, pool);
+  }
+
+  // 1.75. Nothing is provably forced yet, but is one of my own groups already
+  //    thin (three liberties or fewer) with the opponent bordering it, and is
+  //    there a move here that actually buys it more room? Catches the gap one
+  //    step before existingGroupDanger can prove anything — see
+  //    thinGroupDanger's own comment for the traced loss this closes.
+  const thinMoves = thinGroupDanger(rootState, aiPlayer);
+  if (thinMoves.length > 0) {
+    const thinBudget = Math.max(300, deadline - Date.now());
+    return searchVerified(rootState, aiPlayer, thinMoves, thinBudget, pool);
   }
 
   // 2. Drop moves that let the opponent kill one of ours by force. Screened in
