@@ -8,6 +8,7 @@ import {
   findBestMoveVeryHard,
   setSelfInflictedThinGuardEnabled,
   setDominatedPocketGuardEnabled,
+  setExistingGroupDangerRankingEnabled,
 } from "./src/games/alley-boss-cats/engine/minimax";
 import { wideAreaBotMove } from "./src/games/alley-boss-cats/engine/wideAreaBot";
 import { sealingBotMove } from "./src/games/alley-boss-cats/engine/sealingBot";
@@ -31,7 +32,9 @@ type Engine =
   | "VH_GUARD"
   | "VH_NOGUARD"
   | "VH_POCKET"
-  | "VH_NOPOCKET";
+  | "VH_NOPOCKET"
+  | "VH_RANK"
+  | "VH_NORANK";
 
 /** Framework weight given to the VH_FRAME variant. Everything else about it is
  * identical to VERY_HARD, so a head-to-head measures that one term and nothing
@@ -92,6 +95,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_THIN) tuning.thinWeight = engine === "VH_THIN" ? THIN_W : 0;
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
+  setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
 
   if (engine === "RANDOM") {
     const moves = getLegalMoves(state, player);
@@ -109,7 +113,9 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_GUARD" ||
     engine === "VH_NOGUARD" ||
     engine === "VH_POCKET" ||
-    engine === "VH_NOPOCKET"
+    engine === "VH_NOPOCKET" ||
+    engine === "VH_RANK" ||
+    engine === "VH_NORANK"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
   }
@@ -268,6 +274,7 @@ if (only === "AB") runMatch(`VH+프레임(${FRAME_W}) vs VERY_HARD`, "VH_FRAME",
 if (only === "THIN") runMatch(`VH+thin(${THIN_W}) vs VERY_HARD(pre-thin)`, "VH_THIN", "VERY_HARD", games);
 if (only === "GUARD") runMatch("VH+guard vs VH-noguard", "VH_GUARD", "VH_NOGUARD", games);
 if (only === "POCKET") runMatch("VH+pocket vs VH-nopocket", "VH_POCKET", "VH_NOPOCKET", games);
+if (only === "RANK") runMatch("VH+rank vs VH-norank", "VH_RANK", "VH_NORANK", games);
 if (only === "VS_SEAL") runMatch("VERY_HARD vs SEAL  ", "VERY_HARD", "SEAL", games);
 if (only === "SEAL") {
   runMatch("VERY_HARD vs SEAL  ", "VERY_HARD", "SEAL", games);
