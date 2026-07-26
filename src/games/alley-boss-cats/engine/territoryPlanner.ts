@@ -1,3 +1,4 @@
+import { tuning } from "../ai";
 import type { AIAction } from "../ai";
 import { getConnectedGroup, getGroupLiberties } from "../groups";
 import { getLegalMoves, isLegalMove } from "../rules";
@@ -208,8 +209,9 @@ export interface TerritoryPlan {
   urgent: boolean;
 }
 
-/** A large swing settled in a move or two is worth answering. */
-const URGENT_CONFIRM_SIZE = 8;
+/** A large swing settled in a move or two is worth answering. Read through the
+ * tuning object so the arena can play two engines that differ only in this. */
+const urgentConfirmSize = () => tuning.urgentConfirmSize;
 /** Big areas are worth contesting even when they take a little longer to seal. */
 const LARGE_AREA = 10;
 /** Trailing by this much open ground means the board is being given away. */
@@ -324,7 +326,7 @@ export function planTerritory(state: GameState, player: Player): TerritoryPlan {
 
   const oneMoveThreat = theirBestSeal?.gained.length ?? 0;
   const theirTwoMovePlan =
-    oneMoveThreat >= URGENT_CONFIRM_SIZE ? null : bestTwoMovePlan(state, foe);
+    oneMoveThreat >= urgentConfirmSize() ? null : bestTwoMovePlan(state, foe);
   const twoMoveThreat = theirTwoMovePlan?.gained.length ?? 0;
 
   // An imminent seal is the loud case, but it is not the common one. A player
@@ -337,8 +339,8 @@ export function planTerritory(state: GameState, player: Player): TerritoryPlan {
   const behindOnInfluence = influence[foe] - influence[player] >= INFLUENCE_DEFICIT;
 
   const imminent =
-    oneMoveThreat >= URGENT_CONFIRM_SIZE ||
-    twoMoveThreat >= Math.max(URGENT_CONFIRM_SIZE, LARGE_AREA);
+    oneMoveThreat >= urgentConfirmSize() ||
+    twoMoveThreat >= Math.max(urgentConfirmSize(), LARGE_AREA);
   const urgent = imminent || behindOnInfluence;
 
   const blocking: Coord[] = [];
