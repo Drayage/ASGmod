@@ -16,7 +16,7 @@ import {
 } from "./src/games/alley-boss-cats/rules";
 import type { GameState, Player } from "./src/games/alley-boss-cats/types";
 
-type Engine = Difficulty | "RANDOM" | "WIDE" | "SEAL" | "VH_FRAME";
+type Engine = Difficulty | "RANDOM" | "WIDE" | "SEAL" | "VH_FRAME" | "VH_THIN";
 
 /** Framework weight given to the VH_FRAME variant. Everything else about it is
  * identical to VERY_HARD, so a head-to-head measures that one term and nothing
@@ -25,6 +25,14 @@ type Engine = Difficulty | "RANDOM" | "WIDE" | "SEAL" | "VH_FRAME";
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
 /** Threat size the VH_FRAME variant answers at, when URGENT is set instead. */
 const URGENT = process.env.URGENT ? Number(process.env.URGENT) : null;
+/** Multiplier on the `thin` shape term given to the VH_THIN variant; 0 plays
+ * exactly the evaluation as it was before that term existed. */
+const THIN_W = Number(process.env.THIN_W ?? 1);
+/** Only the THIN comparison touches tuning.thinWeight at all -- every other
+ * matchup leaves it at the shipped default (1) for both sides equally,
+ * rather than silently testing pre-thin-fix VERY_HARD whenever this script
+ * is used for something else. */
+const TESTING_THIN = process.env.ONLY === "THIN";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -66,6 +74,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     tuning.frameworkWeight = engine === "VH_FRAME" ? FRAME_W : 0;
     tuning.urgentConfirmSize = 8;
   }
+  if (TESTING_THIN) tuning.thinWeight = engine === "VH_THIN" ? THIN_W : 0;
 
   if (engine === "RANDOM") {
     const moves = getLegalMoves(state, player);
@@ -76,7 +85,9 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (engine === "WIDE") return wideAreaBotMove(state, player);
   if (engine === "SEAL") return sealingBotMove(state, player);
   if (engine === "HARD") return findBestMoveMinimax(state, player, HARD_MS);
-  if (engine === "VERY_HARD" || engine === "VH_FRAME") return findBestMoveVeryHard(state, player, VERY_HARD_MS);
+  if (engine === "VERY_HARD" || engine === "VH_FRAME" || engine === "VH_THIN") {
+    return findBestMoveVeryHard(state, player, VERY_HARD_MS);
+  }
   return getAIMove(state, player, engine);
 }
 
@@ -229,6 +240,7 @@ if (only === "WIDE") {
   runMatch("NORMAL    vs WIDE  ", "NORMAL", "WIDE", games);
 }
 if (only === "AB") runMatch(`VH+프레임(${FRAME_W}) vs VERY_HARD`, "VH_FRAME", "VERY_HARD", games);
+if (only === "THIN") runMatch(`VH+thin(${THIN_W}) vs VERY_HARD(pre-thin)`, "VH_THIN", "VERY_HARD", games);
 if (only === "VS_SEAL") runMatch("VERY_HARD vs SEAL  ", "VERY_HARD", "SEAL", games);
 if (only === "SEAL") {
   runMatch("VERY_HARD vs SEAL  ", "VERY_HARD", "SEAL", games);

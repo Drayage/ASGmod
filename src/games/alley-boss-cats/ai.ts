@@ -65,6 +65,15 @@ interface ShapeStats {
   atari: number;
   /** Groups down to two escape routes — one move from atari. */
   nearAtari: number;
+  /** A lone cat sitting on exactly three liberties — not yet urgent by the
+   * atari/nearAtari tests, but a real category of its own. A single stone
+   * this thin can be walked down to atari in three unanswered opponent moves
+   * with no warning beforehand: at three liberties the evaluation used to
+   * treat it exactly like a stone with ten, so nothing made defending it
+   * outscore whatever else was on offer until it was already two moves too
+   * late to matter. Not tracked once the group has grown past one cat —
+   * that is what connectedBonus already rewards. */
+  thin: number;
   /** Groups with a liberty inside their owner's confirmed territory. Nobody
    * may ever play there, so that breath is permanent and the group can never
    * be captured — the local equivalent of an eye. */
@@ -80,6 +89,7 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
     totalLiberties: 0,
     atari: 0,
     nearAtari: 0,
+    thin: 0,
     immortal: 0,
     connectedBonus: 0,
     isolated: 0,
@@ -101,6 +111,7 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
     if (immortal) stats.immortal += 1;
     else if (liberties.size === 1) stats.atari += 1;
     else if (liberties.size === 2) stats.nearAtari += 1;
+    else if (liberties.size === 3 && group.length === 1) stats.thin += 1;
     stats.connectedBonus += group.length - 1;
     if (group.length === 1) stats.isolated += 1;
   }
@@ -120,6 +131,10 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
  */
 export const tuning = {
   frameworkWeight: 0,
+  /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
+   * 1.0). Zero reproduces the evaluation exactly as it was before that term
+   * existed, so the arena can play the two head to head. */
+  thinWeight: 1,
   /** Cells the opponent must be able to settle in one move before the engine
    * drops what it is doing to answer. Measured over 17 real games: the shipped
    * 8 fires on 1.8% of turns, while threats of three or more come up on 22%. */
@@ -169,6 +184,10 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
     // used to wander into happily.
     theirs.nearAtari * 16 -
     mine.nearAtari * 34 +
+    // A lone cat on three liberties is not yet urgent, but it is already the
+    // shape a slow, unanswered squeeze starts from — see the ShapeStats
+    // comment on `thin`.
+    (theirs.thin * 7 - mine.thin * 15) * tuning.thinWeight +
     // A permanently alive group is a lasting asset, for either side.
     mine.immortal * 30 -
     theirs.immortal * 30 +
