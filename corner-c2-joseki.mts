@@ -49,25 +49,45 @@ for (const frame of CORNERS) {
   const a2 = go(frame, "A", 2);
   state = place(state, c2); // Black (A)
   state = place(state, b1); // White (B)
-  const beforeWinner = state.winner;
   state = place(state, a2); // Black (A)
   const captured = state.winner === "A" && state.winReason === "CAPTURE";
   console.log(
     `${frame.name}: C2=${fmt(c2)} B1=${fmt(b1)} A2=${fmt(a2)} -> ` +
       `winner=${state.winner ?? "none"} reason=${state.winReason ?? "-"} ` +
-      `(claim: B1 captured immediately) => ${captured ? "CONFIRMED" : "NOT CONFIRMED"}`,
+      `(claim, read literally as "captured on the spot") => ${captured ? "CONFIRMED" : "NOT CONFIRMED"}`,
   );
-  if (!captured) {
-    // Show B1's actual liberties at this point for a concrete counter-reading.
-    const board = state.board;
-    if (board[b1.row][b1.col] === "PLAYER_B") {
-      const group = getConnectedGroup(board, b1.row, b1.col);
-      const libs = getGroupLiberties(board, group);
-      console.log(`    B1 still alive: group=${JSON.stringify(group)} liberties=${[...libs].join(" ")}`);
-    } else {
-      console.log(`    B1 cell is now: ${board[b1.row][b1.col]}`);
+  if (captured) continue;
+
+  // Not captured on the spot -- B1 still has real liberties. But the post's
+  // claim is better read the way a Go player means "그대로 게임이 끝남": not
+  // "captured this instant" but "already a dead stone, nothing saves it from
+  // here." That's a stronger, checkable claim: does *every* legal White
+  // reply from here still leave Black a forced capture? If so, White's B1
+  // reply was already fatal the moment Black answered with A2, regardless of
+  // how many more moves the actual capture takes on the board.
+  const board = state.board;
+  if (board[b1.row][b1.col] === "PLAYER_B") {
+    const group = getConnectedGroup(board, b1.row, b1.col);
+    const libs = getGroupLiberties(board, group);
+    console.log(`    B1 still on the board: group=${JSON.stringify(group)} liberties=${[...libs].join(" ")}`);
+  }
+
+  const legalWhiteMoves = getLegalMoves(state, "B");
+  let safe = 0;
+  const safeMoves: Coord[] = [];
+  for (const move of legalWhiteMoves) {
+    const next = applyMove(state, move.row, move.col);
+    if (next.winner) continue;
+    if (!findForcedCapture(next, "A", CAPTURE_READ_DEPTH, CAPTURE_READ_MS)) {
+      safe++;
+      safeMoves.push(move);
     }
   }
+  console.log(
+    `    Read as "already dead, no reply saves it": of ${legalWhiteMoves.length} legal White replies, ` +
+      `${safe} escape a forced capture (${CAPTURE_READ_DEPTH}-ply / ${CAPTURE_READ_MS}ms each) ` +
+      `=> ${safe === 0 ? "CONFIRMED" : `NOT CONFIRMED (escapes: ${safeMoves.map(fmt).join(" ")})`}`,
+  );
 }
 
 console.log("\n" + "=".repeat(70));
