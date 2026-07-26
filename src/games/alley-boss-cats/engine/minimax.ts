@@ -1,4 +1,4 @@
-import { applyAction, evaluateState, getSafeActions } from "../ai";
+import { applyAction, candidateActions, evaluateState, getSafeActions } from "../ai";
 import type { AIAction } from "../ai";
 import { getConnectedGroup, getGroupLiberties } from "../groups";
 import { isLegalMove } from "../rules";
@@ -235,6 +235,42 @@ function searchVerified(
   return choice;
 }
 
+/** Tolerance for treating two opening scores as the same move, not a strictly
+ * better/worse one. Exact equality would do given these are computed from
+ * the same deterministic board, but a tiny epsilon guards against float
+ * drift ever splitting what should be one tied group into near-duplicates. */
+const OPENING_TIE_EPSILON = 1e-6;
+
+/**
+ * On a genuinely empty board the position is rotationally and reflectively
+ * symmetric, so a corner-ish point always ties three mirror images of
+ * itself — there is no principled reason the search should keep answering
+ * with the same one of the four every game. Ranks every legal opening by
+ * the same one-ply evaluation the rest of the engine trusts, then picks
+ * uniformly among whatever actually ties for best, the same way EASY
+ * already randomises among its own top candidates. Only fires on move one:
+ * past that the board is no longer symmetric, and the real search should
+ * decide.
+ */
+function openingMove(rootState: GameState, aiPlayer: Player): AIAction | null {
+  const boardIsEmpty = rootState.board.every((row) =>
+    row.every((cell) => cell !== "PLAYER_A" && cell !== "PLAYER_B"),
+  );
+  if (!boardIsEmpty) return null;
+
+  const placements = candidateActions(rootState, aiPlayer).filter(
+    (action): action is Extract<AIAction, { type: "PLACE" }> => action.type === "PLACE",
+  );
+  if (placements.length === 0) return null;
+
+  const ranked = placements
+    .map((action) => ({ action, score: evaluateState(applyAction(rootState, action), aiPlayer) }))
+    .sort((a, b) => b.score - a.score);
+  const best = ranked[0].score;
+  const top = ranked.filter((r) => Math.abs(r.score - best) < OPENING_TIE_EPSILON);
+  return top[Math.floor(Math.random() * top.length)].action;
+}
+
 /**
  * VERY_HARD. Adds a life-and-death reader on top of the general search:
  * it first tries to prove a forced capture, and otherwise discards every
@@ -246,6 +282,9 @@ export function findBestMoveVeryHard(
   aiPlayer: Player,
   timeLimitMs: number,
 ): AIAction {
+  const opening = openingMove(rootState, aiPlayer);
+  if (opening) return opening;
+
   const deadline = Date.now() + timeLimitMs;
 
   const { winningMove, pool } = getSafeActions(rootState, aiPlayer);
