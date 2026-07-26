@@ -22,6 +22,14 @@ import { TranspositionTable } from "./transpositionTable";
  */
 export let lastSearchDepth = 0;
 
+/** Testing-only escape hatch for avoidSelfInflictedThin below, so the arena
+ * can play the guarded and unguarded engine head-to-head. Always on in the
+ * shipped app. */
+export let selfInflictedThinGuardEnabled = true;
+export function setSelfInflictedThinGuardEnabled(enabled: boolean): void {
+  selfInflictedThinGuardEnabled = enabled;
+}
+
 const WIN_SCORE = 1_000_000;
 const MAX_DEPTH = 8;
 
@@ -349,6 +357,73 @@ function openingMove(rootState: GameState, aiPlayer: Player): AIAction | null {
 }
 
 /**
+ * Would `action` take one of the mover's own currently-safe groups and turn
+ * it thin and opponent-pressured, for no compensating reason? "Currently
+ * safe" is the point: this only fires when the group(s) the new stone joins
+ * had *more* than three liberties before the move — a group that was
+ * already this thin isn't made worse by extending it, that's
+ * thinGroupDanger's territory. A traced real loss extended a lone cat with
+ * four liberties one square deeper into a pocket the opponent had already
+ * half-ringed, dropping it to three on a move that wasn't forced by
+ * anything — nothing upstream of the search ever asked "does this specific
+ * placement make one of my own groups worse than leaving it alone would
+ * have," only "how does the resulting position score," and a three-liberty
+ * group two moves deep into a search tree scores close enough to a safe one
+ * that the drop never stood out.
+ */
+function createsVoluntaryThinGroup(rootState: GameState, aiPlayer: Player, action: AIAction): boolean {
+  if (action.type !== "PLACE") return false;
+  const { row, col } = action;
+
+  const touchedLiberties: number[] = [];
+  for (const [dr, dc] of DIRECTIONS) {
+    const r = row + dr;
+    const c = col + dc;
+    if (!inBounds(r, c)) continue;
+    if (rootState.board[r][c] !== playerCell(aiPlayer)) continue;
+    const group = getConnectedGroup(rootState.board, r, c);
+    touchedLiberties.push(getGroupLiberties(rootState.board, group).size);
+  }
+  // A fresh stone joining nothing of the mover's own isn't "extending into"
+  // anything worse — whatever liberties it has are just what that empty
+  // cell offered to begin with.
+  if (touchedLiberties.length === 0) return false;
+  const bestBefore = Math.max(...touchedLiberties);
+  if (bestBefore <= THIN_GROUP_LIBERTY_THRESHOLD) return false;
+
+  const next = applyAction(rootState, action);
+  if (next.winner) return false;
+  const mergedGroup = getConnectedGroup(next.board, row, col);
+  const afterLiberties = getGroupLiberties(next.board, mergedGroup);
+  if (afterLiberties.size === 0 || afterLiberties.size > THIN_GROUP_LIBERTY_THRESHOLD) return false;
+
+  const ownTerritory = new Set(rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`));
+  if ([...afterLiberties].some((l) => ownTerritory.has(l))) return false;
+
+  const opponentCell = playerCell(opponent(aiPlayer));
+  return [...afterLiberties].some((libertyKey) => {
+    const [r2, c2] = libertyKey.split(",").map(Number);
+    return DIRECTIONS.some(([dr, dc]) => {
+      const rr = r2 + dr;
+      const cc = c2 + dc;
+      return inBounds(rr, cc) && next.board[rr][cc] === opponentCell;
+    });
+  });
+}
+
+/**
+ * Drops candidates that would voluntarily thin one of the mover's own safe
+ * groups (see createsVoluntaryThinGroup) from the pool everything downstream
+ * draws from. Like every other screen in this file, it only ever narrows —
+ * if it would remove everything, the original pool survives untouched
+ * rather than handing the rest of the search an empty list to choose from.
+ */
+function avoidSelfInflictedThin(rootState: GameState, aiPlayer: Player, pool: AIAction[]): AIAction[] {
+  const safe = pool.filter((action) => !createsVoluntaryThinGroup(rootState, aiPlayer, action));
+  return safe.length > 0 ? safe : pool;
+}
+
+/**
  * VERY_HARD. Adds a life-and-death reader on top of the general search:
  * it first tries to prove a forced capture, and otherwise discards every
  * candidate that lets the opponent prove one against it. Only what survives
@@ -364,9 +439,12 @@ export function findBestMoveVeryHard(
 
   const deadline = Date.now() + timeLimitMs;
 
-  const { winningMove, pool } = getSafeActions(rootState, aiPlayer);
+  const { winningMove, pool: rawPool } = getSafeActions(rootState, aiPlayer);
   if (winningMove) return winningMove;
-  if (pool.length <= 1) return pool[0] ?? { type: "PASS" };
+  if (rawPool.length <= 1) return rawPool[0] ?? { type: "PASS" };
+  const pool = selfInflictedThinGuardEnabled
+    ? avoidSelfInflictedThin(rootState, aiPlayer, rawPool)
+    : rawPool;
 
   // Work out whether a large enclosure is about to happen *before* spending any
   // of the budget on reading fights. The plan is pure enumeration and costs
