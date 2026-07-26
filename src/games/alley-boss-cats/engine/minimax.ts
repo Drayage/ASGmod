@@ -1,5 +1,7 @@
 import { applyAction, evaluateState, getSafeActions } from "../ai";
 import type { AIAction } from "../ai";
+import { getConnectedGroup, getGroupLiberties } from "../groups";
+import { isLegalMove } from "../rules";
 import { opponent } from "../types";
 import type { Board, GameState, Player } from "../types";
 import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
@@ -113,6 +115,51 @@ const DEFEND_READ_SHARE = 0.4;
  * search with nothing. */
 const DEFEND_SCREEN_LIMIT = 18;
 
+/** Budget for checking whether one of the mover's own *existing* groups —
+ * one already on the board before this turn, not a candidate about to be
+ * placed — is being walked toward a forced capture. Cheap to afford
+ * generously: there are usually zero or one such groups on the whole board,
+ * so one thorough read here costs far less in aggregate than the ~60-way
+ * per-candidate screen above, and a real loss traced to exactly this gap —
+ * see `existingGroupDanger` below. */
+const EXISTING_DANGER_BUDGET_MS = 200;
+
+/**
+ * Does the opponent already have a forced capture against one of the
+ * mover's own existing groups, regardless of what the mover plays elsewhere
+ * this turn? Reuses findForcedCapture exactly as the attack side does,
+ * just asked from the other direction: "if it were your move right now,
+ * could you force one of my groups?"
+ *
+ * This is not a hypothetical the routine defend-screen already covers. That
+ * screen only tests candidates ranked highest by local score, and it tests
+ * them by asking "does *this* move create a problem" — never "is there a
+ * problem sitting on the board already that this move ignores". A traced
+ * real loss: a lone cat sat at two liberties for three unanswered turns
+ * because extending it never scored well locally, so it never reached the
+ * screen, and searchVerified's own after-the-fact check kept flagging
+ * whatever else the search preferred as *also* forced (true — the danger
+ * belongs to the existing group, not to the candidate that ignored it), so
+ * every retry burned through the same greedy candidates without ever
+ * trying the one move that actually helps: extending the endangered group
+ * itself. Surfacing that group's own liberties as the candidate set is what
+ * closes the gap.
+ */
+function existingGroupDanger(rootState: GameState, aiPlayer: Player, budgetMs: number): AIAction[] {
+  const hypothetical: GameState = { ...rootState, currentPlayer: opponent(aiPlayer) };
+  const forced = findForcedCapture(hypothetical, opponent(aiPlayer), CAPTURE_READ_DEPTH, budgetMs);
+  if (!forced) return [];
+
+  const group = getConnectedGroup(rootState.board, forced.target.row, forced.target.col);
+  const liberties = getGroupLiberties(rootState.board, group);
+  const candidates: AIAction[] = [];
+  for (const liberty of liberties) {
+    const [row, col] = liberty.split(",").map(Number);
+    if (isLegalMove(rootState, row, col, aiPlayer)) candidates.push({ type: "PLACE", row, col });
+  }
+  return candidates;
+}
+
 /** Share of the remaining budget set aside to double-check the *search's own
  * answer* against the forced-capture reader, once it has one.
  *
@@ -224,6 +271,20 @@ export function findBestMoveVeryHard(
     timeLimitMs * ATTACK_READ_SHARE,
   );
   if (kill) return kill.move;
+
+  // 1.5. Is one of my own existing groups already facing a forced capture,
+  //    whatever I play elsewhere this turn? The screening in step 2 below
+  //    only asks "does *this* candidate create a problem" — it was never
+  //    going to notice a problem already sitting on the board that a
+  //    candidate simply ignores. Once that's true, defending is the only
+  //    question worth asking: the game ends on the next capture regardless
+  //    of what else got settled in the meantime, so no amount of ground is
+  //    actually a competing option.
+  const dangerMoves = existingGroupDanger(rootState, aiPlayer, EXISTING_DANGER_BUDGET_MS);
+  if (dangerMoves.length > 0) {
+    const dangerBudget = Math.max(300, deadline - Date.now());
+    return searchVerified(rootState, aiPlayer, dangerMoves, dangerBudget, pool);
+  }
 
   // 2. Drop moves that let the opponent kill one of ours by force. Screened in
   //    local-score order so the budget goes to the moves we'd actually play.
