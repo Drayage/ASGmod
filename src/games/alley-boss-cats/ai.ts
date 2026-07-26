@@ -47,8 +47,11 @@ const INFLUENCE_TO_TERRITORY = 0.12;
  * did not know three cells were owed. Without that, "am I ahead, and should I
  * be consolidating or forcing matters?" is a question it could not even ask.
  */
-export function projectedMargin(state: GameState, player: Player): number {
-  const influence = influenceCount(state.board);
+function projectedMarginFrom(
+  state: GameState,
+  player: Player,
+  influence: Record<Player, number>,
+): number {
   const projected = (side: Player) =>
     state.territories[side].length + influence[side] * INFLUENCE_TO_TERRITORY;
 
@@ -56,6 +59,10 @@ export function projectedMargin(state: GameState, player: Player): number {
   // 치즈냥 (A) moves first and must finish at least FIRST_PLAYER_MARGIN ahead;
   // anything short of that is a win for 고등어냥 (B).
   return player === "A" ? lead - FIRST_PLAYER_MARGIN : FIRST_PLAYER_MARGIN - lead;
+}
+
+export function projectedMargin(state: GameState, player: Player): number {
+  return projectedMarginFrom(state, player, influenceCount(state.board));
 }
 
 
@@ -141,6 +148,9 @@ export const tuning = {
    * drops what it is doing to answer. Measured over 17 real games: the shipped
    * 8 fires on 1.8% of turns, while threats of three or more come up on 22%. */
   urgentConfirmSize: 8,
+  /** Multiplier on severeInfluenceTerm below. Zero reproduces the evaluation
+   * exactly as it was before that term existed. */
+  severeInfluenceWeight: 1,
 };
 
 /** Just short of a decided game — used for positions that are lost/won barring
@@ -158,6 +168,43 @@ function frameworkTerm(state: GameState, aiPlayer: Player, opp: Player): number 
   );
 }
 
+/** How far behind on influence counts as severe enough to need an extra
+ * nudge. INFLUENCE_TO_TERRITORY above already prices in ordinary jockeying
+ * for position — it earned HARD a jump from 83% to 100% against NORMAL —
+ * but it is deliberately timid (see its own comment), and a real game showed
+ * exactly the failure mode that timidity risks: VERY_HARD sat sixteen cells
+ * down on influence for the last twenty-plus moves of the game with nothing
+ * in the evaluation ever pushing back, because sixteen cells at 0.12 prices
+ * out at barely two and a half territory-equivalent cells — less than the
+ * three-cell margin the first player owes, so the position could still read
+ * as roughly even while the whole board was being given away. */
+const SEVERE_INFLUENCE_DEFICIT = 10;
+/** Multiplier on the deficit past that threshold. Deliberately not a blanket
+ * raise of INFLUENCE_TO_TERRITORY — that was tried and made things worse
+ * (see its own comment): pushed up everywhere, it overvalues ground that is
+ * only lightly contested and sends the search chasing it into captures.
+ * Wiring the *candidate pool* to a similar deficit signal was also tried, in
+ * territoryPlanner's `behindOnInfluence` — narrowing the search to a
+ * territorial shortlist on that alone dropped VERY_HARD from 75% to 42%
+ * against HARD, which is why that plan only overrides on a concrete
+ * imminent seal and this term exists instead: it changes how the *existing*
+ * search values a position it was already free to choose, never which
+ * positions are on offer. Gating on a severe, sustained deficit keeps
+ * ordinary trades governed by the timid weight and only escalates once the
+ * board is genuinely being given away. */
+const SEVERE_INFLUENCE_WEIGHT = 8;
+
+function severeInfluenceTerm(
+  aiPlayer: Player,
+  opp: Player,
+  influence: Record<Player, number>,
+): number {
+  if (tuning.severeInfluenceWeight === 0) return 0;
+  const myDeficit = Math.max(0, influence[opp] - influence[aiPlayer] - SEVERE_INFLUENCE_DEFICIT);
+  const theirDeficit = Math.max(0, influence[aiPlayer] - influence[opp] - SEVERE_INFLUENCE_DEFICIT);
+  return (theirDeficit - myDeficit) * SEVERE_INFLUENCE_WEIGHT * tuning.severeInfluenceWeight;
+}
+
 export function evaluateState(state: GameState, aiPlayer: Player): number {
   if (state.winner === aiPlayer) return 1_000_000;
   if (state.winner && state.winner !== aiPlayer) return -1_000_000;
@@ -172,12 +219,19 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
   if (mine.atari > 0 && state.currentPlayer === opp) return -NEAR_DECISIVE;
   if (theirs.atari > 0 && state.currentPlayer === aiPlayer) return NEAR_DECISIVE;
 
+  // Computed once and shared: projectedMargin and severeInfluenceTerm both
+  // need it, and influenceCount's breadth-first fill is the single most
+  // expensive thing evaluateState does, run once at every leaf the search
+  // touches.
+  const influence = influenceCount(state.board);
+
   return (
     // One number for the whole territory question: settled ground, ground each
     // side is heading towards, and the first-player margin that decides who
     // the count actually favours.
-    projectedMargin(state, aiPlayer) * 100 +
+    projectedMarginFrom(state, aiPlayer, influence) * 100 +
     frameworkTerm(state, aiPlayer, opp) +
+    severeInfluenceTerm(aiPlayer, opp, influence) +
     mine.totalLiberties * 5 -
     theirs.totalLiberties * 6 +
     theirs.atari * 45 -

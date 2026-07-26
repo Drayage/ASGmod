@@ -37,7 +37,9 @@ type Engine =
   | "VH_RANK"
   | "VH_NORANK"
   | "VH_SEAL"
-  | "VH_NOSEAL";
+  | "VH_NOSEAL"
+  | "VH_SEVERE"
+  | "VH_NOSEVERE";
 
 /** Framework weight given to the VH_FRAME variant. Everything else about it is
  * identical to VERY_HARD, so a head-to-head measures that one term and nothing
@@ -54,6 +56,12 @@ const THIN_W = Number(process.env.THIN_W ?? 1);
  * rather than silently testing pre-thin-fix VERY_HARD whenever this script
  * is used for something else. */
 const TESTING_THIN = process.env.ONLY === "THIN";
+/** Multiplier on severeInfluenceTerm given to the VH_SEVERE variant; 0 plays
+ * exactly the evaluation as it was before that term existed. */
+const SEVERE_W = Number(process.env.SEVERE_W ?? 1);
+/** Only the SEVERE comparison touches tuning.severeInfluenceWeight -- every
+ * other matchup leaves it at the shipped default (1) for both sides equally. */
+const TESTING_SEVERE = process.env.ONLY === "SEVERE";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -96,6 +104,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     tuning.urgentConfirmSize = 8;
   }
   if (TESTING_THIN) tuning.thinWeight = engine === "VH_THIN" ? THIN_W : 0;
+  if (TESTING_SEVERE) tuning.severeInfluenceWeight = engine === "VH_SEVERE" ? SEVERE_W : 0;
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -121,7 +130,9 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_RANK" ||
     engine === "VH_NORANK" ||
     engine === "VH_SEAL" ||
-    engine === "VH_NOSEAL"
+    engine === "VH_NOSEAL" ||
+    engine === "VH_SEVERE" ||
+    engine === "VH_NOSEVERE"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
   }
@@ -281,7 +292,8 @@ if (only === "THIN") runMatch(`VH+thin(${THIN_W}) vs VERY_HARD(pre-thin)`, "VH_T
 if (only === "GUARD") runMatch("VH+guard vs VH-noguard", "VH_GUARD", "VH_NOGUARD", games);
 if (only === "POCKET") runMatch("VH+pocket vs VH-nopocket", "VH_POCKET", "VH_NOPOCKET", games);
 if (only === "RANK") runMatch("VH+rank vs VH-norank", "VH_RANK", "VH_NORANK", games);
-if (only === "SEAL") runMatch("VH+pocketseal vs VH-nopocketseal", "VH_SEAL", "VH_NOSEAL", games);
+if (only === "SEVERE") runMatch(`VH+severe(${SEVERE_W}) vs VERY_HARD(pre-severe)`, "VH_SEVERE", "VH_NOSEVERE", games);
+if (only === "POCKETSEAL") runMatch("VH+pocketseal vs VH-nopocketseal", "VH_SEAL", "VH_NOSEAL", games);
 if (only === "VS_SEAL") runMatch("VERY_HARD vs SEAL  ", "VERY_HARD", "SEAL", games);
 if (only === "SEAL") {
   runMatch("VERY_HARD vs SEAL  ", "VERY_HARD", "SEAL", games);
