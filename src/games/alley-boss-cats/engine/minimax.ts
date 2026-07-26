@@ -51,6 +51,12 @@ export function setExistingGroupDangerRankingEnabled(enabled: boolean): void {
   existingGroupDangerRankingEnabled = enabled;
 }
 
+/** Same, for pocketSealDanger. Always on in the shipped app. */
+export let pocketSealDangerGuardEnabled = true;
+export function setPocketSealDangerGuardEnabled(enabled: boolean): void {
+  pocketSealDangerGuardEnabled = enabled;
+}
+
 const WIN_SCORE = 1_000_000;
 const MAX_DEPTH = 8;
 
@@ -669,6 +675,113 @@ function avoidDominatedPockets(rootState: GameState, aiPlayer: Player, pool: AIA
   return safe.length > 0 ? safe : pool;
 }
 
+/** Ceiling on a group's own liberty count for pocketSealDanger to bother
+ * checking it. Above this the group has enough independent liberties that
+ * no single opponent move could plausibly matter — the whole point of this
+ * check is groups that read as safe by count but aren't, and a wide-open
+ * six-liberty group is genuinely safe by count. */
+const POCKET_SEAL_LIBERTY_CEILING = 6;
+
+/**
+ * Is one of the mover's own groups sitting in space that still *reads* fine
+ * — better liberty count than thinGroupDanger's ≤3 ceiling, nothing any
+ * count-based check would flag — but where a single opponent move, played
+ * anywhere on the rim of that space rather than on one of the group's own
+ * liberties, would seal its whole reachable pocket into something small and
+ * one-sided?
+ *
+ * A traced real loss: a lone stone held four liberties, completely
+ * untouched, for twenty-five moves. Its owner never reinforced it because
+ * nothing ever said it needed to — four liberties is exactly what a brand
+ * new stone starts with. Then a single opponent move, played on a cell that
+ * was not even one of that stone's four liberties, shrank its whole
+ * reachable empty region from wide open to exactly the four cells it
+ * already had, with the opponent now bordering seven of them to the
+ * mover's one. The liberty count did not move at all across that one move —
+ * before and after, it read exactly four — so nothing that watches liberty
+ * counts, including every other check in this file, could have told the
+ * difference. One move earlier, though, two different replies from the
+ * mover would have kept the pocket wide open; checked directly, neither
+ * reply raised the group's own liberty count, so libertyGainingMoves alone
+ * would not have surfaced them either — what made them work was keeping the
+ * *outside* space open, not the group's own breath.
+ */
+function pocketSealDanger(rootState: GameState, aiPlayer: Player): AIAction[] {
+  const opponentPlayer = opponent(aiPlayer);
+  const ownTerritory = new Set(rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`));
+  const moves: AIAction[] = [];
+  const seen = new Set<string>();
+
+  for (const group of getAllGroups(rootState.board, aiPlayer)) {
+    const liberties = getGroupLiberties(rootState.board, group);
+    if (liberties.size === 0 || liberties.size > POCKET_SEAL_LIBERTY_CEILING) continue;
+    if ([...liberties].some((l) => ownTerritory.has(l))) continue;
+
+    // The cells a single opposing move could plausibly matter on: the
+    // group's own liberties, plus the empty cells one step beyond them —
+    // the same reach captureSearch's focusAround gives a capture race,
+    // because that is exactly the reach a single move has on this shape.
+    const rim = new Set<string>();
+    for (const lib of liberties) {
+      rim.add(lib);
+      const [row, col] = lib.split(",").map(Number);
+      for (const [dr, dc] of DIRECTIONS) {
+        const r = row + dr;
+        const c = col + dc;
+        if (inBounds(r, c) && rootState.board[r][c] === "EMPTY") rim.add(`${r},${c}`);
+      }
+    }
+
+    const sealingCells: string[] = [];
+    for (const key of rim) {
+      const [row, col] = key.split(",").map(Number);
+      if (!isLegalMove(rootState, row, col, opponentPlayer)) continue;
+
+      const hypothetical: GameState = { ...rootState, currentPlayer: opponentPlayer };
+      const afterOpponent = applyMove(hypothetical, row, col);
+      if (afterOpponent.winner) continue; // not this check's business
+      if (afterOpponent.board[group[0].row][group[0].col] !== playerCell(aiPlayer)) continue;
+
+      const groupAfter = getConnectedGroup(afterOpponent.board, group[0].row, group[0].col);
+      const libsAfter = getGroupLiberties(afterOpponent.board, groupAfter);
+      const after = pocketRoom(afterOpponent.board, libsAfter, aiPlayer, POCKET_BFS_CAP);
+      if (
+        !after.capped &&
+        after.size <= SMALL_POCKET_MAX_CELLS &&
+        after.theirsBorder >= after.mineBorder + POCKET_DOMINANCE_MARGIN
+      ) {
+        sealingCells.push(key);
+      }
+    }
+    if (sealingCells.length === 0) continue;
+
+    // Two kinds of answer: raise the group's own liberty count right now,
+    // or occupy the very cell the opponent would have sealed it with —
+    // denying the seal even when it doesn't raise the count itself.
+    const candidates = [
+      ...libertyGainingMoves(rootState, aiPlayer, liberties, liberties.size),
+      ...sealingCells
+        .filter((key) => {
+          const [row, col] = key.split(",").map(Number);
+          return isLegalMove(rootState, row, col, aiPlayer);
+        })
+        .map((key) => {
+          const [row, col] = key.split(",").map(Number);
+          return { type: "PLACE" as const, row, col };
+        }),
+    ];
+
+    for (const action of candidates) {
+      const dedupeKey = action.type === "PLACE" ? `${action.row},${action.col}` : "PASS";
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      moves.push(action);
+    }
+  }
+
+  return moves;
+}
+
 /**
  * VERY_HARD. Adds a life-and-death reader on top of the general search:
  * it first tries to prove a forced capture, and otherwise discards every
@@ -741,6 +854,16 @@ export function findBestMoveVeryHard(
   if (thinMoves.length > 0) {
     const thinBudget = Math.max(300, deadline - Date.now());
     return searchVerified(rootState, aiPlayer, thinMoves, thinBudget, pool);
+  }
+
+  // 1.85. Nothing is thin by liberty count either, but is one of my own
+  //    groups sitting in space a single opponent move could seal into a
+  //    small, one-sided pocket? Liberty count alone never signals this — see
+  //    pocketSealDanger's own comment for the traced loss this closes.
+  const pocketSealMoves = pocketSealDangerGuardEnabled ? pocketSealDanger(rootState, aiPlayer) : [];
+  if (pocketSealMoves.length > 0) {
+    const sealBudget = Math.max(300, deadline - Date.now());
+    return searchVerified(rootState, aiPlayer, pocketSealMoves, sealBudget, pool);
   }
 
   // 2. Drop moves that let the opponent kill one of ours by force. Screened in
