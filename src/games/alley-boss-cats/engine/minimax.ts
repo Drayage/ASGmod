@@ -58,6 +58,13 @@ export function setPocketSealDangerGuardEnabled(enabled: boolean): void {
   pocketSealDangerGuardEnabled = enabled;
 }
 
+/** Same, for pocketSealDanger's denial-candidate filter below. Always on in
+ * the shipped app. */
+export let pocketSealDenialFilterEnabled = true;
+export function setPocketSealDenialFilterEnabled(enabled: boolean): void {
+  pocketSealDenialFilterEnabled = enabled;
+}
+
 /** Same, for frameworkCompletionMoves. Always on in the shipped app. */
 export let frameworkGuardEnabled = true;
 export function setFrameworkGuardEnabled(enabled: boolean): void {
@@ -764,13 +771,23 @@ function pocketSealDanger(rootState: GameState, aiPlayer: Player): AIAction[] {
 
     // Two kinds of answer: raise the group's own liberty count right now,
     // or occupy the very cell the opponent would have sealed it with —
-    // denying the seal even when it doesn't raise the count itself.
+    // denying the seal even when it doesn't raise the count itself. Denying
+    // it is only a real answer if taking that cell doesn't itself thin the
+    // group the same way createsVoluntaryThinGroup already screens for
+    // elsewhere — a traced real loss offered exactly this group's own four
+    // liberties as "denial" candidates undifferentiated, and the search
+    // picked the one of the four that createsVoluntaryThinGroup would have
+    // vetoed outright had it ever been asked, because this path builds its
+    // own candidate list straight from the group's liberties instead of
+    // going through the guarded pool the general search uses.
     const candidates = [
       ...libertyGainingMoves(rootState, aiPlayer, liberties, liberties.size),
       ...sealingCells
         .filter((key) => {
           const [row, col] = key.split(",").map(Number);
-          return isLegalMove(rootState, row, col, aiPlayer);
+          if (!isLegalMove(rootState, row, col, aiPlayer)) return false;
+          if (!pocketSealDenialFilterEnabled) return true;
+          return !createsVoluntaryThinGroup(rootState, aiPlayer, { type: "PLACE", row, col });
         })
         .map((key) => {
           const [row, col] = key.split(",").map(Number);
