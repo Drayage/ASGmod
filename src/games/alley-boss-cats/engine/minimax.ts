@@ -193,11 +193,24 @@ function minimax(
     }
   }
 
-  // A node the clock cut short has only looked at some of its moves, so
-  // `best` is not a bound on anything and must not be stored as one — a
-  // wrong score here would be read back as fact by every later lookup.
-  // The move hint is still worth keeping: it is only ever a suggestion.
-  if (aborted) {
+  // Nothing is stored once the clock has run out, however this node's loop
+  // happened to end. Two different ways a score goes bad here, and only
+  // checking `aborted` catches the first:
+  //
+  //  - this node broke out early, so it never saw the rest of its moves;
+  //  - the deadline passed somewhere *below* it, where every recursive call
+  //    bails out returning a static evaluation instead of a searched value.
+  //    Those shallow numbers propagate straight back up, and a node that
+  //    then exits on a beta cutoff still looks like a clean cutoff — so it
+  //    would store a bound built out of values nothing ever searched.
+  //
+  // The second is the dangerous one, because a stored score is read back as
+  // fact by every later lookup, and the table now outlives a single search
+  // (see searchVerified) — so one poisoned entry can steer every remaining
+  // attempt on this move. The deadline only ever passes, never un-passes,
+  // so testing it here rules out both cases at once. The move hint is still
+  // worth keeping either way: it is only ever a suggestion.
+  if (aborted || Date.now() >= deadline) {
     if (bestActionKey) tt.setBestMoveKey(key, bestActionKey);
     return best;
   }
