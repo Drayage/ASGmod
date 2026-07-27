@@ -497,14 +497,22 @@ function searchVerified(
  * away rather than being attributed to one point:
  *
  *   (2,2) class    61/120   50.8%
+ *   (1,2) class    91/192   47.4%
  *   (1,3) class   100/216   46.3%
  *   (3,3) class    45/120   37.5%
  *
- * (2,2) beats (3,3) by 13.3 points (z = 2.08, p = 0.038). (1,3) sits between
- * them and is not separable from either (p = 0.43 against (2,2), p = 0.12
- * against (3,3)). So the first two classes go in the book and the third does
- * not: it is the only one measurably worse than another, and it is the one
- * this engine used to play.
+ * The top three are indistinguishable from one another — the widest gap
+ * among them, (2,2) over (1,3), is 4.5 points at p = 0.43. Only (3,3) is
+ * measurably worse than anything else (13.3 points below (2,2), z = 2.08,
+ * p = 0.038), and it is the one this engine used to play. So the book holds
+ * the three that tie and drops the one that loses.
+ *
+ * (1,2) is worth naming: it is the point professionals actually open on. In
+ * a recorded Great Kingdom game (프로연우 vs 이세돌, 2023/06/05) all four
+ * corners' first cat landed on a member of this class. It was nearly left
+ * out on the strength of a single member scoring 46%, which is exactly the
+ * mistake described below; across its full mirror set it scores as well as
+ * anything in the book.
  *
  * It used to get there by ranking all 80 openings on a one-ply evaluation
  * and picking among the ties. That evaluation put (3,3) top with 95 points
@@ -515,9 +523,9 @@ function searchVerified(
  * shallowest read this engine ever takes, and it was taking it on the one
  * move where nothing is under attack and there is nothing to read.
  *
- * Keeping both classes rather than only the best also keeps the opening
- * unpredictable — twelve distinct first moves instead of four — which costs
- * nothing when the two are statistically indistinguishable.
+ * Keeping all three rather than only the best also keeps the opening
+ * unpredictable — twenty distinct first moves instead of four — which costs
+ * nothing when they are statistically indistinguishable.
  *
  * Measured at a 700ms budget. If the search gets much faster or slower than
  * that, the ordering is worth re-running before it is trusted again.
@@ -528,6 +536,15 @@ const OPENING_BOOK: ReadonlyArray<Coord> = [
   { row: 2, col: 6 },
   { row: 6, col: 2 },
   { row: 6, col: 6 },
+  // (1,2) class — 47.4%
+  { row: 1, col: 2 },
+  { row: 1, col: 6 },
+  { row: 2, col: 1 },
+  { row: 2, col: 7 },
+  { row: 6, col: 1 },
+  { row: 6, col: 7 },
+  { row: 7, col: 2 },
+  { row: 7, col: 6 },
   // (1,3) class — 46.3%
   { row: 1, col: 3 },
   { row: 1, col: 5 },
