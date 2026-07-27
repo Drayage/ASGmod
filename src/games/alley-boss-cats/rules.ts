@@ -1,5 +1,5 @@
 import { findCapturedGroupsAround, placedGroupIsCaptured } from "./groups";
-import { calculateTerritories } from "./territory";
+import { territoriesAfterPlacement } from "./territory";
 import {
   BOARD_SIZE,
   CENTER,
@@ -126,7 +126,7 @@ export function applyMove(state: GameState, row: number, col: number): GameState
     throw new Error("Illegal move: would self-capture without capturing the opponent");
   }
 
-  const territories = calculateTerritories(board);
+  const territories = territoriesAfterPlacement(board, row, col, state.territories);
 
   return {
     ...state,
