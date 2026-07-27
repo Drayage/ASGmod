@@ -1,9 +1,9 @@
-import { applyAction, candidateActions, evaluateState, getSafeActions } from "../ai";
+import { applyAction, evaluateState, getSafeActions } from "../ai";
 import type { AIAction } from "../ai";
 import { getAllGroups, getConnectedGroup, getGroupLiberties } from "../groups";
 import { applyMove, isLegalMove } from "../rules";
 import { DIRECTIONS, inBounds, opponent, playerCell } from "../types";
-import type { Board, GameState, Player } from "../types";
+import type { Board, Coord, GameState, Player } from "../types";
 import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
 import { rankFrameworks } from "./frameworks";
 import { localMoveScore, orderedCandidates } from "./moveOrdering";
@@ -487,22 +487,61 @@ function searchVerified(
   return choice;
 }
 
-/** Tolerance for treating two opening scores as the same move, not a strictly
- * better/worse one. Exact equality would do given these are computed from
- * the same deterministic board, but a tiny epsilon guards against float
- * drift ever splitting what should be one tied group into near-duplicates. */
-const OPENING_TIE_EPSILON = 1e-6;
+/**
+ * Openings worth playing, measured rather than judged.
+ *
+ * An empty board is symmetric under all eight rotations and reflections, so
+ * every opening belongs to a class whose members are the same move with the
+ * coordinates relabelled. Three classes were played out in full — each
+ * member of each class, so that any lopsidedness in the test itself averages
+ * away rather than being attributed to one point:
+ *
+ *   (2,2) class    61/120   50.8%
+ *   (1,3) class   100/216   46.3%
+ *   (3,3) class    45/120   37.5%
+ *
+ * (2,2) beats (3,3) by 13.3 points (z = 2.08, p = 0.038). (1,3) sits between
+ * them and is not separable from either (p = 0.43 against (2,2), p = 0.12
+ * against (3,3)). So the first two classes go in the book and the third does
+ * not: it is the only one measurably worse than another, and it is the one
+ * this engine used to play.
+ *
+ * It used to get there by ranking all 80 openings on a one-ply evaluation
+ * and picking among the ties. That evaluation put (3,3) top with 95 points
+ * and (2,2) joint-second with 75 — the reverse of how they actually score,
+ * which is the same influence-radius bias documented on severeInfluenceTerm
+ * and INFLUENCE_TO_TERRITORY: two board edges truncate a corner-ward cat's
+ * apparent reach long before an opposing cat would. One ply is the
+ * shallowest read this engine ever takes, and it was taking it on the one
+ * move where nothing is under attack and there is nothing to read.
+ *
+ * Keeping both classes rather than only the best also keeps the opening
+ * unpredictable — twelve distinct first moves instead of four — which costs
+ * nothing when the two are statistically indistinguishable.
+ *
+ * Measured at a 700ms budget. If the search gets much faster or slower than
+ * that, the ordering is worth re-running before it is trusted again.
+ */
+const OPENING_BOOK: ReadonlyArray<Coord> = [
+  // (2,2) class — 50.8%
+  { row: 2, col: 2 },
+  { row: 2, col: 6 },
+  { row: 6, col: 2 },
+  { row: 6, col: 6 },
+  // (1,3) class — 46.3%
+  { row: 1, col: 3 },
+  { row: 1, col: 5 },
+  { row: 3, col: 1 },
+  { row: 3, col: 7 },
+  { row: 5, col: 1 },
+  { row: 5, col: 7 },
+  { row: 7, col: 3 },
+  { row: 7, col: 5 },
+];
 
 /**
- * On a genuinely empty board the position is rotationally and reflectively
- * symmetric, so a corner-ish point always ties three mirror images of
- * itself — there is no principled reason the search should keep answering
- * with the same one of the four every game. Ranks every legal opening by
- * the same one-ply evaluation the rest of the engine trusts, then picks
- * uniformly among whatever actually ties for best, the same way EASY
- * already randomises among its own top candidates. Only fires on move one:
- * past that the board is no longer symmetric, and the real search should
- * decide.
+ * The book move, on move one only. Past that the board is no longer
+ * symmetric and the real search should decide.
  */
 function openingMove(rootState: GameState, aiPlayer: Player): AIAction | null {
   const boardIsEmpty = rootState.board.every((row) =>
@@ -510,17 +549,13 @@ function openingMove(rootState: GameState, aiPlayer: Player): AIAction | null {
   );
   if (!boardIsEmpty) return null;
 
-  const placements = candidateActions(rootState, aiPlayer).filter(
-    (action): action is Extract<AIAction, { type: "PLACE" }> => action.type === "PLACE",
-  );
-  if (placements.length === 0) return null;
+  const playable = OPENING_BOOK.filter(({ row, col }) => isLegalMove(rootState, row, col, aiPlayer));
+  // Nothing in the book is playable — hand the position back to the search
+  // rather than forcing a move the rules would not allow.
+  if (playable.length === 0) return null;
 
-  const ranked = placements
-    .map((action) => ({ action, score: evaluateState(applyAction(rootState, action), aiPlayer) }))
-    .sort((a, b) => b.score - a.score);
-  const best = ranked[0].score;
-  const top = ranked.filter((r) => Math.abs(r.score - best) < OPENING_TIE_EPSILON);
-  return top[Math.floor(Math.random() * top.length)].action;
+  const pick = playable[Math.floor(Math.random() * playable.length)];
+  return { type: "PLACE", row: pick.row, col: pick.col };
 }
 
 /**
