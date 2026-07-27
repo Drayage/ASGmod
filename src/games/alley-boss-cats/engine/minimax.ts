@@ -9,7 +9,7 @@ import { rankFrameworks } from "./frameworks";
 import { localMoveScore, orderedCandidates } from "./moveOrdering";
 import { planTerritory } from "./territoryPlanner";
 import type { TerritoryPlan } from "./territoryPlanner";
-import { TranspositionTable } from "./transpositionTable";
+import { Bound, TranspositionTable } from "./transpositionTable";
 
 /**
  * Deepest ply the last search completed.
@@ -77,6 +77,15 @@ export function setOpponentFrameworkGuardEnabled(enabled: boolean): void {
   opponentFrameworkGuardEnabled = enabled;
 }
 
+/** Whether the transposition table's stored *scores* are used to answer a
+ * repeated position outright, or only its move hints are (which is all this
+ * table held before). Always on in the shipped app; the toggle exists so
+ * ai-arena.mts can measure what the scores are worth. */
+export let ttScoresEnabled = true;
+export function setTtScoresEnabled(enabled: boolean): void {
+  ttScoresEnabled = enabled;
+}
+
 const WIN_SCORE = 1_000_000;
 const MAX_DEPTH = 8;
 
@@ -126,6 +135,30 @@ function minimax(
   }
 
   const key = positionKey(state);
+
+  // What an earlier visit to this exact position already proved. The same
+  // few cells get played in different orders all over the tree, so the same
+  // position turns up again and again — answering from here skips the whole
+  // subtree underneath it rather than merely ordering it better.
+  //
+  // Only a result searched at least as deep as this node needs can be
+  // trusted; a shallower one saw less than we are about to. The bound kind
+  // decides how much it says: an exact score answers outright, while a
+  // one-sided bound can only narrow the window, which still often produces
+  // an immediate cutoff.
+  if (ttScoresEnabled) {
+    const hit = tt.get(key);
+    if (hit && hit.depth >= remainingDepth) {
+      if (hit.bound === Bound.Exact) return hit.score;
+      if (hit.bound === Bound.Lower) alpha = Math.max(alpha, hit.score);
+      else beta = Math.min(beta, hit.score);
+      if (alpha >= beta) return hit.score;
+    }
+  }
+
+  const alphaOrig = alpha;
+  const betaOrig = beta;
+
   const actions = orderedCandidates(
     state,
     playerToMove,
@@ -137,6 +170,7 @@ function minimax(
   const maximizing = playerToMove === rootPlayer;
   let best = maximizing ? -Infinity : Infinity;
   let bestActionKey: string | null = null;
+  let aborted = false;
 
   for (const action of actions) {
     const child = applyAction(state, action);
@@ -153,10 +187,47 @@ function minimax(
     else beta = Math.min(beta, best);
 
     if (beta <= alpha) break;
-    if (Date.now() >= deadline) break;
+    if (Date.now() >= deadline) {
+      aborted = true;
+      break;
+    }
   }
 
-  if (bestActionKey) tt.setBestMoveKey(key, bestActionKey);
+  // Nothing is stored once the clock has run out, however this node's loop
+  // happened to end. Two different ways a score goes bad here, and only
+  // checking `aborted` catches the first:
+  //
+  //  - this node broke out early, so it never saw the rest of its moves;
+  //  - the deadline passed somewhere *below* it, where every recursive call
+  //    bails out returning a static evaluation instead of a searched value.
+  //    Those shallow numbers propagate straight back up, and a node that
+  //    then exits on a beta cutoff still looks like a clean cutoff — so it
+  //    would store a bound built out of values nothing ever searched.
+  //
+  // The second is the dangerous one, because a stored score is read back as
+  // fact by every later lookup, and the table now outlives a single search
+  // (see searchVerified) — so one poisoned entry can steer every remaining
+  // attempt on this move. The deadline only ever passes, never un-passes,
+  // so testing it here rules out both cases at once. The move hint is still
+  // worth keeping either way: it is only ever a suggestion.
+  if (aborted || Date.now() >= deadline) {
+    if (bestActionKey) tt.setBestMoveKey(key, bestActionKey);
+    return best;
+  }
+
+  if (ttScoresEnabled) {
+    // Which side of the original window the result fell out of is what
+    // decides whether it is exact or one-sided, and the same two tests read
+    // correctly for both node types: a maximizing node cuts off having shown
+    // the value is at least `best`, a minimizing one having shown it is at
+    // most `best`, and each lands on its own branch below. Only a result
+    // that stayed strictly inside the window saw every move it needed to.
+    const bound =
+      best <= alphaOrig ? Bound.Upper : best >= betaOrig ? Bound.Lower : Bound.Exact;
+    tt.store(key, remainingDepth, best, bound, bestActionKey);
+  } else if (bestActionKey) {
+    tt.setBestMoveKey(key, bestActionKey);
+  }
   return best;
 }
 
@@ -378,6 +449,21 @@ function searchVerified(
   let hasWidened = false;
   let choice: AIAction = pool[0];
 
+  // One table across every retry, rather than one per attempt. A refuted
+  // candidate only removes a move from the *root* list; every position below
+  // the root is the same board it was a moment ago, so everything the last
+  // attempt proved about those subtrees still holds. Rebuilding from empty
+  // each time threw all of it away — and it is exactly the positions that
+  // retry most that could least afford it. Measured on a real game, turns
+  // 30-40 ran six full re-searches per move, and search depth there had
+  // collapsed to 3 while the early game managed 5.
+  //
+  // Safe because a cat is never removed from the board: a capture ends the
+  // game outright, so stone count strictly increases and no position can
+  // ever recur within a search. An entry can therefore never describe a
+  // position that has since changed underneath it.
+  const tt = ttScoresEnabled ? new TranspositionTable() : undefined;
+
   for (let attempt = 0; attempt < MAX_VERIFY_ATTEMPTS; attempt++) {
     if (candidates.length === 0) {
       if (hasWidened || !widenTo || widenTo.length === 0) break;
@@ -389,7 +475,7 @@ function searchVerified(
     const verifyBudget = Math.min(VERIFY_BUDGET_CAP_MS, Math.max(VERIFY_BUDGET_FLOOR_MS, timeLeft * VERIFY_SHARE));
     const searchBudget = Math.max(150, timeLeft - verifyBudget);
 
-    choice = searchWithin(rootState, aiPlayer, candidates, searchBudget);
+    choice = searchWithin(rootState, aiPlayer, candidates, searchBudget, tt);
     const next = applyAction(rootState, choice);
     if (next.winner || !opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, verifyBudget)) {
       return choice;
@@ -1193,9 +1279,10 @@ function searchWithin(
   aiPlayer: Player,
   pool: AIAction[],
   timeLimitMs: number,
+  sharedTt?: TranspositionTable,
 ): AIAction {
   const deadline = Date.now() + timeLimitMs;
-  const tt = new TranspositionTable();
+  const tt = sharedTt ?? new TranspositionTable();
 
   // Rank the pool locally once; deeper iterations reorder via the TT.
   const rootActions = [...pool].sort((a, b) => {
