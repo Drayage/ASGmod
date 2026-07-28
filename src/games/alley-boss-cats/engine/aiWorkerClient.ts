@@ -1,6 +1,6 @@
 import type { SearchDifficulty } from "../ai";
 import type { GameState, Player } from "../types";
-import type { AIWorkerRequest, AIWorkerResponse } from "../aiWorker";
+import type { AIWorkerRequest, AIWorkerResponse, SearchEngine } from "../aiWorker";
 
 export const TIME_LIMIT_MS: Record<SearchDifficulty, number> = {
   HARD: 2500,
@@ -9,6 +9,12 @@ export const TIME_LIMIT_MS: Record<SearchDifficulty, number> = {
   VERY_HARD: 3000,
 };
 const WATCHDOG_MARGIN_MS = 4000;
+
+export interface SearchRequestOptions {
+  engine?: SearchEngine;
+  simulations?: number;
+  seed?: number;
+}
 
 /** Thin wrapper around the search Web Worker: one worker per client, spun up
  * lazily and reused across moves, with a watchdog timeout in case the worker
@@ -23,7 +29,12 @@ export class SearchAIClient {
     return this.worker;
   }
 
-  requestMove(state: GameState, player: Player, difficulty: SearchDifficulty): Promise<AIWorkerResponse> {
+  requestMove(
+    state: GameState,
+    player: Player,
+    difficulty: SearchDifficulty,
+    options: SearchRequestOptions = {},
+  ): Promise<AIWorkerResponse> {
     const worker = this.ensureWorker();
     const timeLimitMs = TIME_LIMIT_MS[difficulty];
 
@@ -49,7 +60,13 @@ export class SearchAIClient {
 
       worker.addEventListener("message", handleMessage);
       worker.addEventListener("error", handleError);
-      worker.postMessage({ state, player, timeLimitMs, difficulty } satisfies AIWorkerRequest);
+      worker.postMessage({
+        state,
+        player,
+        timeLimitMs,
+        difficulty,
+        ...options,
+      } satisfies AIWorkerRequest);
     });
   }
 
