@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { generateKataCatM0 } from "./katacatM0";
+import { replaceTerritoryCurriculumWithFixtures } from "./katacatTerritoryFixtures";
 
 const env = globalThis.process?.env ?? {};
 const enabled = env.RUN_KATACAT_GENERATE === "1";
@@ -23,7 +24,7 @@ suite("KataCat M0 dataset generation", () => {
     "writes replayable naturally-terminal games and balanced samples",
     () => {
       const outputDir = resolve(env.KATACAT_OUTPUT_DIR ?? "katacat-m0-output");
-      const bundle = generateKataCatM0({
+      const generated = generateKataCatM0({
         games: envInt("KATACAT_GAMES", 20, 4),
         teacherMs: envInt("KATACAT_TEACHER_MS", 100, 20),
         maxMoves: envInt("KATACAT_MAX_MOVES", 90, 20),
@@ -32,6 +33,7 @@ suite("KataCat M0 dataset generation", () => {
         noisyRate: envFloat("KATACAT_NOISY_RATE", 0.25, 0, 1),
         territoryPassPly: envInt("KATACAT_TERRITORY_PASS_PLY", 56, 12),
       });
+      const bundle = replaceTerritoryCurriculumWithFixtures(generated);
 
       mkdirSync(outputDir, { recursive: true });
       writeFileSync(
