@@ -65,7 +65,11 @@ def visit_target_stats(samples: list[dict[str, Any]]) -> dict[str, Any]:
     puct_samples = 0
     for sample in samples:
         target = sample.get("policyTarget", [])
-        visits = [float(item.get("visits", 0)) for item in target if float(item.get("visits", 0)) > 0]
+        visits = [
+            float(item.get("visits", 0))
+            for item in target
+            if float(item.get("visits", 0)) > 0
+        ]
         if not visits:
             raise ValueError(f"Sample {sample.get('sampleId')} has no positive policy visits")
         visit_sums.append(sum(visits))
@@ -82,6 +86,22 @@ def visit_target_stats(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "maxVisitSum": float(max(visit_sums)),
         "meanVisitedActions": float(sum(nonzero_actions) / len(nonzero_actions)),
     }
+
+
+def required_metrics_are_finite(metrics: dict[str, float]) -> bool:
+    required = (
+        "loss",
+        "policyLoss",
+        "policyTop1",
+        "valueLoss",
+        "valueAccuracy",
+        "scoreLoss",
+        "scoreMaeCells",
+        "ownershipLoss",
+        "ownershipAccuracy",
+        "meanTerritoryIou",
+    )
+    return all(key in metrics and math.isfinite(float(metrics[key])) for key in required)
 
 
 def main() -> None:
@@ -230,13 +250,9 @@ def main() -> None:
                 candidate_path,
             )
 
-    finite_metric_values = [
-        float(value)
-        for metrics in (initial_metrics, best_metrics)
-        for value in metrics.values()
-        if isinstance(value, (int, float)) and not math.isnan(float(value))
-    ]
-    all_metrics_finite = all(math.isfinite(value) for value in finite_metric_values)
+    all_metrics_finite = required_metrics_are_finite(
+        initial_metrics
+    ) and required_metrics_are_finite(best_metrics)
     smoke_acceptance = {
         "gameSplitDisjoint": train_games.isdisjoint(validation_games),
         "puctVisitTargetsPresent": selfplay_stats["puctSamples"] > 0,
@@ -246,7 +262,9 @@ def main() -> None:
         "candidateCheckpointSaved": candidate_path.is_file(),
         "passed": False,
     }
-    smoke_acceptance["passed"] = all(smoke_acceptance.values())
+    smoke_acceptance["passed"] = all(
+        value for key, value in smoke_acceptance.items() if key != "passed"
+    )
 
     summary = {
         "schemaVersion": 1,
