@@ -8,6 +8,7 @@ import {
 import type { AIAction } from "../ai";
 import type { GameState, Player } from "../types";
 import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
+import { findBestMoveMinimax } from "./minimax";
 import { orderedCandidates } from "./moveOrdering";
 import { planTerritory } from "./territoryPlanner";
 
@@ -32,6 +33,10 @@ export interface MCTSOptions {
   rootScreenLimit?: number;
   /** Maximum capture-reader time per root candidate. */
   rootScreenMs?: number;
+  /** Optional explicit alpha-beta baseline budget. Mainly useful for deterministic tests. */
+  baselineSearchMs?: number;
+  /** MCTS must complete at least this many simulations before it may override the baseline. */
+  minimumSimulationsToOverride?: number;
 }
 
 export interface MCTSRootStat {
@@ -40,10 +45,19 @@ export interface MCTSRootStat {
   meanValue: number;
 }
 
+export type MCTSSelection =
+  | "IMMEDIATE_WIN"
+  | "FORCED_CAPTURE"
+  | "ONLY_ROOT_ACTION"
+  | "BASELINE"
+  | "MCTS";
+
 export interface MCTSResult {
   action: AIAction;
   simulations: number;
   rootStats: MCTSRootStat[];
+  selection: MCTSSelection;
+  baselineAction?: AIAction;
 }
 
 interface Node {
@@ -59,6 +73,10 @@ interface Node {
 
 function actionKey(action: AIAction): string {
   return action.type === "PASS" ? "PASS" : `${action.row},${action.col}`;
+}
+
+function sameAction(a: AIAction, b: AIAction): boolean {
+  return actionKey(a) === actionKey(b);
 }
 
 function uniqueActions(actions: AIAction[]): AIAction[] {
@@ -160,10 +178,12 @@ function selectChild(node: Node, rootPlayer: Player, exploration: number): Node 
 }
 
 function expand(node: Node, random: () => number): Node {
-  // Local ordering supplies the tactical prior. A small random window avoids
-  // deterministically starving nearby candidates with almost identical scores.
+  // At the root, actions are deliberately ordered with the alpha-beta baseline
+  // first. Expanding it first guarantees the confidence gate has a comparison.
+  // Deeper in the tree a small random window prevents near-equal moves from being
+  // deterministically starved.
   const window = Math.min(3, node.untriedActions.length);
-  const index = Math.floor(random() * window);
+  const index = node.parent === null ? 0 : Math.floor(random() * window);
   const [action] = node.untriedActions.splice(index, 1);
   const child = makeNode(applyAction(node.state, action), node, action);
   node.children.push(child);
@@ -205,10 +225,11 @@ function strategicRootShortlist(
   player: Player,
   actions: AIAction[],
   limit: number,
+  preferred?: AIAction,
 ): AIAction[] {
   const candidateLimit = Math.max(2, limit || DEFAULT_ROOT_SCREEN_LIMIT);
   const ranked = rankByStaticEval(state, player, actions);
-  const chosen = ranked.slice(0, candidateLimit);
+  const chosen = preferred ? [preferred, ...ranked.slice(0, candidateLimit)] : ranked.slice(0, candidateLimit);
   const allowed = new Set(actions.map(actionKey));
   const plan = planTerritory(state, player);
 
@@ -222,7 +243,7 @@ function strategicRootShortlist(
 
   // Two extra slots are reserved for urgent territory moves. Keeping the root
   // narrow makes it possible to prove every candidate safe instead of silently
-  // admitting dozens of unexamined moves, which caused the 0-12 capture record.
+  // admitting dozens of unexamined moves, which caused the original 0-12 record.
   return uniqueActions(chosen).slice(0, candidateLimit + 2);
 }
 
@@ -258,7 +279,8 @@ function screenRootActions(
 
 /**
  * Experimental strategy search. The existing life-and-death reader defines the
- * tactical floor; MCTS only compares a small set of root moves that survived it.
+ * tactical floor. A short alpha-beta search supplies a stable baseline, and MCTS
+ * may override it only after enough simulations and a meaningful value lead.
  */
 export function findBestMoveHybridMCTS(
   rootState: GameState,
@@ -277,7 +299,12 @@ export function findBestMoveHybridMCTS(
 
   const safe = getSafeActions(rootState, rootPlayer);
   if (safe.winningMove) {
-    return { action: safe.winningMove, simulations: 0, rootStats: [] };
+    return {
+      action: safe.winningMove,
+      simulations: 0,
+      rootStats: [],
+      selection: "IMMEDIATE_WIN",
+    };
   }
 
   // Before comparing strategy, retain the shipped engine's first priority:
@@ -289,11 +316,35 @@ export function findBestMoveHybridMCTS(
       : Math.max(20, (options.rootScreenMs ?? DEFAULT_ROOT_SCREEN_MS) * 2);
     if (attackBudget > 0) {
       const kill = findForcedCapture(rootState, rootPlayer, CAPTURE_READ_DEPTH, attackBudget);
-      if (kill) return { action: kill.move, simulations: 0, rootStats: [] };
+      if (kill) {
+        return {
+          action: kill.move,
+          simulations: 0,
+          rootStats: [],
+          selection: "FORCED_CAPTURE",
+        };
+      }
     }
   }
 
-  const shortlist = strategicRootShortlist(rootState, rootPlayer, safe.pool, screenLimit);
+  // The replay from the 0-8 run showed the decisive pattern: every game entered
+  // a streak of zero-simulation moves before the final capture. The root reader
+  // had collapsed to one static fallback and MCTS was no longer making the move.
+  // A short alpha-beta answer is now computed inside the same total clock and is
+  // used both as a root candidate and as the conservative fallback.
+  let baselineAction: AIAction | undefined;
+  const remainingBeforeBaseline = Math.max(0, deadline - Date.now());
+  const baselineBudget = options.baselineSearchMs ??
+    (totalBudgetMs ? Math.max(12, Math.min(180, remainingBeforeBaseline * 0.16)) : 0);
+  if (baselineBudget > 0 && remainingBeforeBaseline > 0) {
+    baselineAction = findBestMoveMinimax(
+      rootState,
+      rootPlayer,
+      Math.min(baselineBudget, remainingBeforeBaseline),
+    );
+  }
+
+  const shortlist = strategicRootShortlist(rootState, rootPlayer, safe.pool, screenLimit, baselineAction);
   const rootActions = screenRootActions(
     rootState,
     rootPlayer,
@@ -304,15 +355,40 @@ export function findBestMoveHybridMCTS(
     totalBudgetMs,
   );
 
-  if (rootActions.length <= 1 || Date.now() >= deadline) {
-    return { action: rootActions[0] ?? { type: "PASS" }, simulations: 0, rootStats: [] };
+  const baselineSurvived = baselineAction
+    ? rootActions.some((action) => sameAction(action, baselineAction as AIAction))
+    : false;
+  const fallbackAction = baselineSurvived
+    ? (baselineAction as AIAction)
+    : rootActions[0] ?? { type: "PASS" as const };
+
+  if (rootActions.length <= 1) {
+    return {
+      action: rootActions[0] ?? fallbackAction,
+      simulations: 0,
+      rootStats: [],
+      selection: "ONLY_ROOT_ACTION",
+      baselineAction,
+    };
+  }
+  if (Date.now() >= deadline) {
+    return {
+      action: fallbackAction,
+      simulations: 0,
+      rootStats: [],
+      selection: "BASELINE",
+      baselineAction,
+    };
   }
 
+  const orderedRootActions = baselineSurvived
+    ? [fallbackAction, ...rootActions.filter((action) => !sameAction(action, fallbackAction))]
+    : rootActions;
   const random = mulberry32(options.seed ?? 1);
   const exploration = options.exploration ?? DEFAULT_EXPLORATION;
   const playoutDepth = options.playoutDepth ?? DEFAULT_PLAYOUT_DEPTH;
   const simulationLimit = Math.max(1, options.simulations ?? 2_000);
-  const root = makeNode(rootState, null, null, rootActions);
+  const root = makeNode(rootState, null, null, orderedRootActions);
 
   let completed = 0;
   while (completed < simulationLimit && Date.now() < deadline) {
@@ -339,9 +415,43 @@ export function findBestMoveHybridMCTS(
     }))
     .sort((a, b) => b.visits - a.visits || b.meanValue - a.meanValue);
 
+  const top = rootStats[0];
+  if (!baselineSurvived || !baselineAction) {
+    return {
+      action: top?.action ?? fallbackAction,
+      simulations: completed,
+      rootStats,
+      selection: "MCTS",
+      baselineAction,
+    };
+  }
+
+  const minimumSimulations = options.minimumSimulationsToOverride ?? Math.max(48, orderedRootActions.length * 10);
+  const baselineStat = rootStats.find((stat) => sameAction(stat.action, baselineAction as AIAction));
+  const minimumTopVisits = Math.max(8, Math.floor(completed / Math.max(1, orderedRootActions.length * 3)));
+  const mctsHasConfidence = Boolean(
+    top &&
+      baselineStat &&
+      completed >= minimumSimulations &&
+      top.visits >= minimumTopVisits &&
+      (sameAction(top.action, baselineAction) || top.meanValue >= baselineStat.meanValue + 0.08),
+  );
+
+  if (!mctsHasConfidence || !top || sameAction(top.action, baselineAction)) {
+    return {
+      action: baselineAction,
+      simulations: completed,
+      rootStats,
+      selection: "BASELINE",
+      baselineAction,
+    };
+  }
+
   return {
-    action: rootStats[0]?.action ?? rootActions[0],
+    action: top.action,
     simulations: completed,
     rootStats,
+    selection: "MCTS",
+    baselineAction,
   };
 }
