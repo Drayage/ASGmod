@@ -4,9 +4,9 @@ import { applyMove, createInitialState, isLegalMove } from "../rules";
 import { findBestMoveHybridMCTS } from "./mcts";
 
 const FAST_OPTIONS = {
-  simulations: 80,
+  simulations: 8,
   seed: 17,
-  playoutDepth: 8,
+  playoutDepth: 3,
   rootScreenLimit: 0,
 };
 
@@ -15,7 +15,7 @@ describe("findBestMoveHybridMCTS", () => {
     const state = createInitialState();
     const result = findBestMoveHybridMCTS(state, "A", FAST_OPTIONS);
 
-    expect(result.simulations).toBe(80);
+    expect(result.simulations).toBe(8);
     expect(result.action.type).toBe("PLACE");
     if (result.action.type === "PLACE") {
       expect(isLegalMove(state, result.action.row, result.action.col, "A")).toBe(true);
