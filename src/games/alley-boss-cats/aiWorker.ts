@@ -1,6 +1,6 @@
 import { findBestMoveMinimax, findBestMoveVeryHard, lastSearchDepth } from "./engine/minimax";
 import { findBestMoveHybridMCTS } from "./engine/mcts";
-import type { MCTSRootStat } from "./engine/mcts";
+import type { MCTSRootStat, MCTSSelection } from "./engine/mcts";
 import type { AIAction, SearchDifficulty } from "./ai";
 import type { GameState, Player } from "./types";
 
@@ -25,6 +25,8 @@ export interface AIWorkerResponse {
   depth: number;
   simulations?: number;
   rootStats?: MCTSRootStat[];
+  selection?: MCTSSelection;
+  baselineAction?: AIAction;
 }
 
 self.onmessage = (event: MessageEvent<AIWorkerRequest>) => {
@@ -41,6 +43,8 @@ self.onmessage = (event: MessageEvent<AIWorkerRequest>) => {
       depth: 0,
       simulations: result.simulations,
       rootStats: result.rootStats,
+      selection: result.selection,
+      baselineAction: result.baselineAction,
     } satisfies AIWorkerResponse);
     return;
   }
