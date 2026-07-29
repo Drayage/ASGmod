@@ -16,6 +16,8 @@ katacat-m3-output/
 katacat-m3-model/
 katacat-m3-candidate-check/
 katacat-m4-output/
+katacat-m31-output/
+katacat-m31-model/
 
 # Scratch scripts used for one-off measurement runs.
 *.tmp.mts
