@@ -13,6 +13,8 @@
     "katacat:smoke": "node scripts/run-katacat-smoke.mjs",
     "katacat:m2-core": "vitest run src/games/alley-boss-cats/engine/katacatPuct.test.ts",
     "katacat:m2-neural": "vitest run src/games/alley-boss-cats/engine/katacatM2Neural.test.ts",
+    "katacat:m3-selfplay": "node scripts/run-katacat-m3-selfplay.mjs",
+    "katacat:m3-validate": "node scripts/validate-katacat-m3.mjs",
     "generate-icons": "node scripts/generate-icons.mjs",
     "postinstall": "npm run generate-icons"
   },
