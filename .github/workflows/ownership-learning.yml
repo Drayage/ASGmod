@@ -71,6 +71,12 @@ jobs:
           python -m pip install numpy
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
 
+      - name: Measure trivial territory baselines
+        run: |
+          python ml/evaluate_baseline.py \
+            --data ownership-dataset.jsonl \
+            --out ownership-training/baseline.json
+
       - name: Train ownership and margin model
         run: |
           python ml/train_ownership.py \
@@ -95,6 +101,12 @@ jobs:
               echo "### Dataset"
               echo '```json'
               cat ownership-dataset.meta.json
+              echo '```'
+            fi
+            if [ -f ownership-training/baseline.json ]; then
+              echo "### Trivial baselines"
+              echo '```json'
+              cat ownership-training/baseline.json
               echo '```'
             fi
             if [ -f ownership-training/summary.json ]; then
