@@ -5,6 +5,7 @@ import { createInitialState } from "../rules";
 import { FIRST_PLAYER_MARGIN } from "../types";
 import type { GameState, Player, WinReason } from "../types";
 import { findBestMoveHybridMCTS } from "./mcts";
+import type { MCTSSelection } from "./mcts";
 import { findBestMoveVeryHard } from "./minimax";
 
 type EngineName = "CURRENT" | "HYBRID_MCTS";
@@ -20,6 +21,7 @@ interface ArenaTotals {
   captureWins: Record<EngineName, number>;
   territoryWins: Record<EngineName, number>;
   timing: Record<EngineName, TimingTotals>;
+  mctsSelections: Record<MCTSSelection, number>;
   territoryGames: number;
   mctsTerritoryMarginTotal: number;
 }
@@ -31,6 +33,8 @@ interface ArenaMoveLog {
   action: AIAction;
   elapsedMs: number;
   simulations: number;
+  selection?: MCTSSelection;
+  baselineAction?: AIAction;
 }
 
 interface ArenaGameLog {
@@ -68,12 +72,20 @@ function territoryMarginFor(state: GameState, player: Player): number {
   return player === "A" ? rawLead - FIRST_PLAYER_MARGIN : FIRST_PLAYER_MARGIN - rawLead;
 }
 
+interface PickedMove {
+  action: AIAction;
+  elapsedMs: number;
+  simulations: number;
+  selection?: MCTSSelection;
+  baselineAction?: AIAction;
+}
+
 function pickMove(
   engine: EngineName,
   state: GameState,
   player: Player,
   seed: number,
-): { action: AIAction; elapsedMs: number; simulations: number } {
+): PickedMove {
   const startedAt = Date.now();
   if (engine === "CURRENT") {
     const action = findBestMoveVeryHard(state, player, MOVE_BUDGET_MS);
@@ -91,6 +103,8 @@ function pickMove(
     action: result.action,
     elapsedMs: Date.now() - startedAt,
     simulations: result.simulations,
+    selection: result.selection,
+    baselineAction: result.baselineAction,
   };
 }
 
@@ -123,6 +137,7 @@ function playGame(
     totals.timing[engine].moves += 1;
     totals.timing[engine].elapsedMs += picked.elapsedMs;
     totals.timing[engine].simulations += picked.simulations;
+    if (picked.selection) totals.mctsSelections[picked.selection] += 1;
     moves.push({
       turn: state.moveHistory.length + 1,
       player,
@@ -130,6 +145,8 @@ function playGame(
       action: picked.action,
       elapsedMs: picked.elapsedMs,
       simulations: picked.simulations,
+      selection: picked.selection,
+      baselineAction: picked.baselineAction,
     });
     state = applyAction(state, picked.action);
   }
@@ -154,6 +171,13 @@ arenaDescribe("CURRENT VERY_HARD vs HYBRID_MCTS arena", () => {
         timing: {
           CURRENT: { moves: 0, elapsedMs: 0, simulations: 0 },
           HYBRID_MCTS: { moves: 0, elapsedMs: 0, simulations: 0 },
+        },
+        mctsSelections: {
+          IMMEDIATE_WIN: 0,
+          FORCED_CAPTURE: 0,
+          ONLY_ROOT_ACTION: 0,
+          BASELINE: 0,
+          MCTS: 0,
         },
         territoryGames: 0,
         mctsTerritoryMarginTotal: 0,
@@ -203,6 +227,9 @@ arenaDescribe("CURRENT VERY_HARD vs HYBRID_MCTS arena", () => {
       console.log(`CURRENT avg move: ${average(current.elapsedMs, current.moves)}ms`);
       console.log(`MCTS avg move:    ${average(mcts.elapsedMs, mcts.moves)}ms`);
       console.log(`MCTS avg simulations/move: ${average(mcts.simulations, mcts.moves)}`);
+      console.log(
+        `MCTS choices: baseline ${totals.mctsSelections.BASELINE}, MCTS ${totals.mctsSelections.MCTS}, only-safe ${totals.mctsSelections.ONLY_ROOT_ACTION}, forced ${totals.mctsSelections.IMMEDIATE_WIN + totals.mctsSelections.FORCED_CAPTURE}`,
+      );
       console.log(`MCTS avg territory margin: ${average(totals.mctsTerritoryMarginTotal, totals.territoryGames)} (${totals.territoryGames} territory games)`);
 
       // The wrapper script removes this machine-readable line from the visible
