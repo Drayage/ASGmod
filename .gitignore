@@ -10,6 +10,7 @@ public/icons/*.png
 
 # KataCat generated replay and training artifacts.
 katacat-m0-output/
+katacat-m1-output/
 
 # Scratch scripts used for one-off measurement runs.
 *.tmp.mts
