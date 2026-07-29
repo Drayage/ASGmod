@@ -20,6 +20,11 @@ const env = globalThis.process?.env ?? {};
 const enabled = env.RUN_KATACAT_M2_NEURAL === "1";
 const suite = enabled ? describe : describe.skip;
 
+function positiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) ? Math.max(1, parsed) : fallback;
+}
+
 function encodeBoard(state: GameState): string {
   const code = { EMPTY: ".", PLAYER_A: "A", PLAYER_B: "B", NEUTRAL: "N" } as const;
   return state.board.flat().map((cell) => code[cell]).join("");
@@ -134,8 +139,9 @@ suite("KataCat M2 neural integration", () => {
     "runs deterministic rules-engine PUCT with real four-head M1 inference",
     async () => {
       const state = createInitialState();
+      const simulations = positiveInt(env.KATACAT_M2_SIMULATIONS, 16);
       const options = {
-        simulations: 16,
+        simulations,
         cpuct: 1.35,
         neuralPriorWeight: 0.75,
         scoreValueWeight: 0.05,
@@ -144,7 +150,9 @@ suite("KataCat M2 neural integration", () => {
       const second = await searchKataCatPuct(state, evaluator, options);
 
       expect(first.reason).toBe("SEARCH");
-      expect(first.visitDistribution.reduce((sum, record) => sum + record.visits, 0)).toBe(16);
+      expect(first.visitDistribution.reduce((sum, record) => sum + record.visits, 0)).toBe(
+        simulations,
+      );
       expect(first.visitDistribution).toEqual(second.visitDistribution);
       expect(first.action).toEqual(second.action);
       expect(first.rootEvaluation?.policyLogits).toHaveLength(KATACAT_POLICY_SIZE);
