@@ -1,0 +1,180 @@
+name: KataCat M3
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "M3 코드를 실행할 브랜치 또는 커밋"
+        required: true
+        default: "feat/katacat-m3"
+        type: string
+      selfplay_games:
+        description: "M3 PUCT 자가대전 수"
+        required: true
+        default: "4"
+        type: string
+      simulations:
+        description: "비전술 착수당 PUCT simulation 수"
+        required: true
+        default: "64"
+        type: string
+      bootstrap_epochs:
+        description: "M1 bootstrap 학습 epoch"
+        required: true
+        default: "8"
+        type: string
+      candidate_epochs:
+        description: "M3 candidate 재학습 epoch"
+        required: true
+        default: "4"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  katacat-m3:
+    name: Bootstrap, self-play, retrain, and recheck candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Verify PUCT core and tactical guards
+        run: npm run katacat:m2-core
+
+      - name: Generate M0 replay data
+        run: |
+          npm run katacat:generate -- \
+            --games=20 \
+            --teacher-ms=100 \
+            --max-per-bucket=24 \
+            --territory-pass-ply=56 \
+            --output=katacat-m0-output
+
+      - name: Validate M0 data
+        run: |
+          npm run katacat:validate -- \
+            --output=katacat-m0-output \
+            --strict=true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+
+      - name: Install Python dependencies
+        run: pip install -r ml/requirements-katacat.txt
+
+      - name: Train M1 bootstrap checkpoint
+        run: |
+          python ml/train_katacat_m1.py \
+            --data=katacat-m0-output/katacat-samples.jsonl \
+            --out=katacat-m1-output \
+            --epochs="${{ inputs.bootstrap_epochs }}" \
+            --channels=96 \
+            --blocks=8 \
+            --device=cpu \
+            --augment=on
+
+      - name: Generate M3 PUCT self-play
+        run: |
+          npm run katacat:m3-selfplay -- \
+            --checkpoint=katacat-m1-output/katacat-m1.pt \
+            --games="${{ inputs.selfplay_games }}" \
+            --simulations="${{ inputs.simulations }}" \
+            --max-moves=90 \
+            --temperature-moves=12 \
+            --noise-alpha=0.3 \
+            --noise-fraction=0.25 \
+            --output=katacat-m3-output
+
+      - name: Train M3 candidate from bootstrap and visit targets
+        run: |
+          python ml/train_katacat_m3.py \
+            --bootstrap-data=katacat-m0-output/katacat-samples.jsonl \
+            --selfplay-data=katacat-m3-output/katacat-selfplay-samples.jsonl \
+            --init-checkpoint=katacat-m1-output/katacat-m1.pt \
+            --out=katacat-m3-model \
+            --epochs="${{ inputs.candidate_epochs }}" \
+            --device=cpu \
+            --augment=on
+
+      - name: Recheck candidate through neural PUCT
+        env:
+          RUN_KATACAT_M2_NEURAL: "1"
+          KATACAT_M1_CHECKPOINT: katacat-m3-model/katacat-m3.pt
+          KATACAT_M2_OUTPUT_DIR: katacat-m3-candidate-check
+          KATACAT_M2_SIMULATIONS: "32"
+        run: npm run katacat:m2-neural
+
+      - name: Validate complete M3 loop
+        run: |
+          npm run katacat:m3-validate -- \
+            --selfplay=katacat-m3-output/selfplay-summary.json \
+            --training=katacat-m3-model/summary.json \
+            --candidate=katacat-m3-candidate-check/summary.json \
+            --output=katacat-m3-output/summary.json
+
+      - name: Add reports to summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## KataCat M3"
+            echo
+            echo "- Ref: \`${{ inputs.ref }}\`"
+            echo "- Self-play games: \`${{ inputs.selfplay_games }}\`"
+            echo "- PUCT simulations: \`${{ inputs.simulations }}\`"
+            echo "- Bootstrap epochs: \`${{ inputs.bootstrap_epochs }}\`"
+            echo "- Candidate epochs: \`${{ inputs.candidate_epochs }}\`"
+            echo
+            for item in \
+              "M0 acceptance|katacat-m0-output/katacat-meta.json" \
+              "M1 bootstrap|katacat-m1-output/summary.json" \
+              "M3 self-play|katacat-m3-output/selfplay-summary.json" \
+              "M3 candidate training|katacat-m3-model/summary.json" \
+              "M3 candidate PUCT check|katacat-m3-candidate-check/summary.json" \
+              "M3 final acceptance|katacat-m3-output/summary.json"; do
+              title="${item%%|*}"
+              file="${item#*|}"
+              if [ -f "$file" ]; then
+                echo "### $title"
+                echo '```json'
+                cat "$file"
+                echo '```'
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload KataCat M3 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m3-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            katacat-m0-output/
+            katacat-m1-output/
+            katacat-m3-output/
+            katacat-m3-model/
+            katacat-m3-candidate-check/
