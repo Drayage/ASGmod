@@ -1,23 +1,36 @@
-import { applyAction, evaluateState, getSafeActions, rankByStaticEval } from "../ai";
+import {
+  applyAction,
+  evaluateState,
+  getSafeActions,
+  opponentHasImmediateWin,
+  rankByStaticEval,
+} from "../ai";
 import type { AIAction } from "../ai";
 import type { GameState, Player } from "../types";
-import { opponentCanForceCapture } from "./captureSearch";
+import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
+import { orderedCandidates } from "./moveOrdering";
+import { planTerritory } from "./territoryPlanner";
 
 const DEFAULT_EXPLORATION = Math.SQRT2;
-const DEFAULT_PLAYOUT_DEPTH = 24;
-const DEFAULT_ROOT_SCREEN_LIMIT = 18;
+const DEFAULT_PLAYOUT_DEPTH = 12;
+const DEFAULT_ROOT_SCREEN_LIMIT = 8;
 const DEFAULT_ROOT_SCREEN_MS = 45;
+const DEFAULT_TREE_BRANCH_LIMIT = 8;
+const DEFAULT_PLAYOUT_BRANCH_LIMIT = 5;
+const CAPTURE_READ_DEPTH = 7;
 
 export interface MCTSOptions {
   /** Fixed iteration budget. Prefer this in tests and arenas for reproducibility. */
   simulations?: number;
-  /** Optional wall-clock budget for actual play. */
+  /** Optional wall-clock budget for actual play, including root tactical work. */
   timeLimitMs?: number;
   /** Deterministic seed used for expansion and playout tie-breaking. */
   seed?: number;
   exploration?: number;
   playoutDepth?: number;
+  /** Number of promising root moves to prove safe before MCTS. Zero skips the deep reader in fast tests. */
   rootScreenLimit?: number;
+  /** Maximum capture-reader time per root candidate. */
   rootScreenMs?: number;
 }
 
@@ -48,8 +61,16 @@ function actionKey(action: AIAction): string {
   return action.type === "PASS" ? "PASS" : `${action.row},${action.col}`;
 }
 
-function sameAction(a: AIAction, b: AIAction): boolean {
-  return actionKey(a) === actionKey(b);
+function uniqueActions(actions: AIAction[]): AIAction[] {
+  const seen = new Set<string>();
+  const result: AIAction[] = [];
+  for (const action of actions) {
+    const key = actionKey(action);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(action);
+  }
+  return result;
 }
 
 function mulberry32(seed: number): () => number {
@@ -65,8 +86,7 @@ function mulberry32(seed: number): () => number {
 
 function terminalValue(state: GameState, rootPlayer: Player): number | null {
   if (!state.winner) return null;
-  if (state.winner === rootPlayer) return 1;
-  return -1;
+  return state.winner === rootPlayer ? 1 : -1;
 }
 
 function boundedLeafValue(state: GameState, rootPlayer: Player): number {
@@ -77,16 +97,45 @@ function boundedLeafValue(state: GameState, rootPlayer: Player): number {
   return Math.tanh(evaluateState(state, rootPlayer) / 350);
 }
 
-function makeNode(state: GameState, parent: Node | null, action: AIAction | null): Node {
-  const safe = getSafeActions(state, state.currentPlayer);
-  const actions = safe.winningMove ? [safe.winningMove] : rankByStaticEval(state, state.currentPlayer, safe.pool);
+/**
+ * Cheap tree policy. The first experiment called getSafeActions and then the
+ * full-board evaluation for every child of every node. A 1-second move therefore
+ * completed barely more simulations than a 300ms move. This version ranks only
+ * a small local candidate set and performs the inexpensive one-ply safety test.
+ */
+function fastSafeActions(state: GameState, limit: number): AIAction[] {
+  const player = state.currentPlayer;
+  const candidates = orderedCandidates(state, player, limit);
+
+  if (candidates.length === 0) return [{ type: "PASS" }];
+
+  const safe: AIAction[] = [];
+  for (const action of candidates) {
+    const next = applyAction(state, action);
+    if (next.winner === player) return [action];
+    if (next.winner) continue;
+    if (!opponentHasImmediateWin(next, player)) safe.push(action);
+  }
+
+  // In a position where every shortlisted move loses immediately, keep the best
+  // legal try. The root reader is stricter; this fallback only keeps simulations
+  // moving in already-bad rollout positions.
+  return safe.length > 0 ? safe : candidates;
+}
+
+function makeNode(
+  state: GameState,
+  parent: Node | null,
+  action: AIAction | null,
+  rootActions?: AIAction[],
+): Node {
   return {
     state,
     parent,
     action,
     playerToMove: state.currentPlayer,
     children: [],
-    untriedActions: actions,
+    untriedActions: rootActions ?? fastSafeActions(state, DEFAULT_TREE_BRANCH_LIMIT),
     visits: 0,
     valueSum: 0,
   };
@@ -111,9 +160,9 @@ function selectChild(node: Node, rootPlayer: Player, exploration: number): Node 
 }
 
 function expand(node: Node, random: () => number): Node {
-  // Static ordering supplies the strategic prior. A small random window avoids
+  // Local ordering supplies the tactical prior. A small random window avoids
   // deterministically starving nearby candidates with almost identical scores.
-  const window = Math.min(4, node.untriedActions.length);
+  const window = Math.min(3, node.untriedActions.length);
   const index = Math.floor(random() * window);
   const [action] = node.untriedActions.splice(index, 1);
   const child = makeNode(applyAction(node.state, action), node, action);
@@ -122,16 +171,10 @@ function expand(node: Node, random: () => number): Node {
 }
 
 function choosePlayoutAction(state: GameState, random: () => number): AIAction {
-  const { winningMove, pool } = getSafeActions(state, state.currentPlayer);
-  if (winningMove) return winningMove;
-
-  const ranked = rankByStaticEval(state, state.currentPlayer, pool);
-  // Mostly follow the current fast policy, but leave enough exploration for
-  // quiet territorial alternatives to reach actual end results.
-  const top = Math.min(5, ranked.length);
-  const roll = random();
-  const index = roll < 0.72 ? 0 : Math.floor(random() * top);
-  return ranked[index] ?? { type: "PASS" };
+  const actions = fastSafeActions(state, DEFAULT_PLAYOUT_BRANCH_LIMIT);
+  const top = Math.min(4, actions.length);
+  const index = random() < 0.78 ? 0 : Math.floor(random() * top);
+  return actions[index] ?? { type: "PASS" };
 }
 
 function playout(state: GameState, rootPlayer: Player, random: () => number, maxDepth: number): number {
@@ -151,36 +194,71 @@ function backup(node: Node, value: number): void {
   }
 }
 
-function screenRootActions(
+/**
+ * Keep MCTS focused on moves the shipped engine already considers strategically
+ * plausible. Full evaluation is paid once at the root, not at every tree node.
+ * When a large enclosure is imminent, the territory planner's answers are
+ * explicitly retained even if they sit outside the static top group.
+ */
+function strategicRootShortlist(
   state: GameState,
   player: Player,
   actions: AIAction[],
   limit: number,
-  perMoveMs: number,
 ): AIAction[] {
-  const survivors: AIAction[] = [];
+  const candidateLimit = Math.max(2, limit || DEFAULT_ROOT_SCREEN_LIMIT);
   const ranked = rankByStaticEval(state, player, actions);
+  const chosen = ranked.slice(0, candidateLimit);
+  const allowed = new Set(actions.map(actionKey));
+  const plan = planTerritory(state, player);
 
-  for (let i = 0; i < ranked.length; i += 1) {
-    const action = ranked[i];
-    if (i >= limit) {
-      survivors.push(action);
-      continue;
+  if (plan.imminent) {
+    const territorial = [...plan.blockingMoves, ...plan.expansionMoves];
+    for (const action of territorial) {
+      if (!allowed.has(actionKey(action))) continue;
+      chosen.push(action);
     }
+  }
+
+  // Two extra slots are reserved for urgent territory moves. Keeping the root
+  // narrow makes it possible to prove every candidate safe instead of silently
+  // admitting dozens of unexamined moves, which caused the 0-12 capture record.
+  return uniqueActions(chosen).slice(0, candidateLimit + 2);
+}
+
+function screenRootActions(
+  state: GameState,
+  player: Player,
+  actions: AIAction[],
+  screenEnabled: boolean,
+  perMoveCapMs: number,
+  deadline: number,
+  totalBudgetMs?: number,
+): AIAction[] {
+  if (!screenEnabled) return actions;
+
+  const survivors: AIAction[] = [];
+  const remaining = Number.isFinite(deadline) ? Math.max(0, deadline - Date.now()) : actions.length * perMoveCapMs;
+  const screenBudget = totalBudgetMs ? Math.min(remaining, totalBudgetMs * 0.42) : remaining;
+  const perMoveMs = Math.max(5, Math.min(perMoveCapMs, screenBudget / Math.max(1, actions.length)));
+
+  for (const action of actions) {
+    if (Date.now() >= deadline) break;
     const next = applyAction(state, action);
     if (next.winner === player) return [action];
     if (next.winner) continue;
-    if (!opponentCanForceCapture(next, player, 7, perMoveMs)) survivors.push(action);
+    if (!opponentCanForceCapture(next, player, CAPTURE_READ_DEPTH, perMoveMs)) survivors.push(action);
   }
 
-  // A timeout or a genuinely lost position must still return something legal.
-  return survivors.length > 0 ? survivors : ranked;
+  // Only proven survivors enter MCTS. If every candidate is refuted (or the
+  // reader could not complete even one), return the best legal try rather than
+  // widening back out to the untested tail.
+  return survivors.length > 0 ? survivors : actions.slice(0, 1);
 }
 
 /**
- * Experimental strategy search. Existing capture readers keep the tactical
- * floor; MCTS is only asked to compare the surviving moves over longer,
- * policy-guided continuations.
+ * Experimental strategy search. The existing life-and-death reader defines the
+ * tactical floor; MCTS only compares a small set of root moves that survived it.
  */
 export function findBestMoveHybridMCTS(
   rootState: GameState,
@@ -191,19 +269,42 @@ export function findBestMoveHybridMCTS(
     throw new Error("Hybrid MCTS must search for the state's current player");
   }
 
+  const startedAt = Date.now();
+  const totalBudgetMs = options.timeLimitMs;
+  const deadline = totalBudgetMs ? startedAt + totalBudgetMs : Number.POSITIVE_INFINITY;
+  const screenLimit = options.rootScreenLimit ?? DEFAULT_ROOT_SCREEN_LIMIT;
+  const screenEnabled = screenLimit > 0;
+
   const safe = getSafeActions(rootState, rootPlayer);
   if (safe.winningMove) {
     return { action: safe.winningMove, simulations: 0, rootStats: [] };
   }
 
+  // Before comparing strategy, retain the shipped engine's first priority:
+  // prove a forced kill. Fast fixed-simulation tests explicitly disable this by
+  // setting rootScreenLimit to zero.
+  if (screenEnabled) {
+    const attackBudget = totalBudgetMs
+      ? Math.max(10, Math.min(totalBudgetMs * 0.18, deadline - Date.now()))
+      : Math.max(20, (options.rootScreenMs ?? DEFAULT_ROOT_SCREEN_MS) * 2);
+    if (attackBudget > 0) {
+      const kill = findForcedCapture(rootState, rootPlayer, CAPTURE_READ_DEPTH, attackBudget);
+      if (kill) return { action: kill.move, simulations: 0, rootStats: [] };
+    }
+  }
+
+  const shortlist = strategicRootShortlist(rootState, rootPlayer, safe.pool, screenLimit);
   const rootActions = screenRootActions(
     rootState,
     rootPlayer,
-    safe.pool,
-    options.rootScreenLimit ?? DEFAULT_ROOT_SCREEN_LIMIT,
+    shortlist,
+    screenEnabled,
     options.rootScreenMs ?? DEFAULT_ROOT_SCREEN_MS,
+    deadline,
+    totalBudgetMs,
   );
-  if (rootActions.length <= 1) {
+
+  if (rootActions.length <= 1 || Date.now() >= deadline) {
     return { action: rootActions[0] ?? { type: "PASS" }, simulations: 0, rootStats: [] };
   }
 
@@ -211,12 +312,7 @@ export function findBestMoveHybridMCTS(
   const exploration = options.exploration ?? DEFAULT_EXPLORATION;
   const playoutDepth = options.playoutDepth ?? DEFAULT_PLAYOUT_DEPTH;
   const simulationLimit = Math.max(1, options.simulations ?? 2_000);
-  const deadline = options.timeLimitMs ? Date.now() + options.timeLimitMs : Number.POSITIVE_INFINITY;
-
-  const root = makeNode(rootState, null, null);
-  root.untriedActions = root.untriedActions.filter((candidate) =>
-    rootActions.some((allowed) => sameAction(candidate, allowed)),
-  );
+  const root = makeNode(rootState, null, null, rootActions);
 
   let completed = 0;
   while (completed < simulationLimit && Date.now() < deadline) {
