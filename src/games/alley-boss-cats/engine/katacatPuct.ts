@@ -2,6 +2,7 @@ import { applyAction, getSafeActions } from "../ai";
 import type { AIAction } from "../ai";
 import { BOARD_SIZE } from "../types";
 import type { GameState } from "../types";
+import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
 
 const BOARD_CELLS = BOARD_SIZE * BOARD_SIZE;
 export const KATACAT_POLICY_SIZE = BOARD_CELLS + 1;
@@ -27,6 +28,12 @@ export interface KataCatPuctOptions {
   cpuct: number;
   neuralPriorWeight: number;
   scoreValueWeight: number;
+  /** Enables the focused root life-and-death reader. Internal nodes stay on the fast guard. */
+  tacticalShell: boolean;
+  captureReadDepth: number;
+  captureAttackMs: number;
+  captureDefenseMs: number;
+  captureDefenseLimit: number;
 }
 
 export interface KataCatVisitRecord {
@@ -37,12 +44,23 @@ export interface KataCatVisitRecord {
   meanValue: number;
 }
 
+export interface KataCatTacticalReport {
+  enabled: boolean;
+  forcedCaptureFound: boolean;
+  screenedActions: number;
+  refutedActions: number;
+  rootPoolBefore: number;
+  rootPoolAfter: number;
+  allRefutedFallback: boolean;
+}
+
 export interface KataCatPuctResult {
   action: AIAction;
-  reason: "IMMEDIATE_WIN" | "SEARCH";
+  reason: "IMMEDIATE_WIN" | "FORCED_CAPTURE" | "SEARCH";
   simulations: number;
   visitDistribution: KataCatVisitRecord[];
   rootEvaluation?: KataCatNeuralEvaluation;
+  tactical: KataCatTacticalReport;
 }
 
 interface SearchEdge {
@@ -66,6 +84,11 @@ const DEFAULT_OPTIONS: KataCatPuctOptions = {
   cpuct: 1.35,
   neuralPriorWeight: 0.75,
   scoreValueWeight: 0.05,
+  tacticalShell: false,
+  captureReadDepth: 7,
+  captureAttackMs: 25,
+  captureDefenseMs: 50,
+  captureDefenseLimit: 12,
 };
 
 export function encodeKataCatPuctAction(action: AIAction): number {
@@ -124,10 +147,11 @@ function expandNode(
   node: SearchNode,
   evaluation: KataCatNeuralEvaluation,
   neuralPriorWeight: number,
+  suppliedActions?: AIAction[],
 ): void {
   validateEvaluation(evaluation);
-  const safe = getSafeActions(node.state, node.state.currentPlayer);
-  const actions = safe.winningMove ? [safe.winningMove] : safe.pool;
+  const safe = suppliedActions ? null : getSafeActions(node.state, node.state.currentPlayer);
+  const actions = suppliedActions ?? (safe?.winningMove ? [safe.winningMove] : safe?.pool ?? []);
   if (actions.length === 0) throw new Error("KataCat PUCT found no playable actions");
 
   const ordered = [...actions].sort(
@@ -158,7 +182,7 @@ function selectEdge(node: SearchNode, cpuct: number): SearchEdge {
 
   for (const edge of node.edges) {
     const meanValue = edge.visits > 0 ? edge.valueSum / edge.visits : 0;
-    const exploration = cpuct * edge.prior * explorationScale / (1 + edge.visits);
+    const exploration = (cpuct * edge.prior * explorationScale) / (1 + edge.visits);
     const score = meanValue + exploration;
     if (
       score > bestScore + 1e-12 ||
@@ -194,13 +218,85 @@ function visitsFor(edges: SearchEdge[]): KataCatVisitRecord[] {
     }));
 }
 
+function oneVisitResult(
+  action: AIAction,
+  reason: "IMMEDIATE_WIN" | "FORCED_CAPTURE",
+  tactical: KataCatTacticalReport,
+): KataCatPuctResult {
+  return {
+    action,
+    reason,
+    simulations: 0,
+    visitDistribution: [
+      {
+        action,
+        actionIndex: encodeKataCatPuctAction(action),
+        visits: 1,
+        prior: 1,
+        meanValue: 1,
+      },
+    ],
+    tactical,
+  };
+}
+
+function rankByPolicy(actions: AIAction[], evaluation: KataCatNeuralEvaluation): AIAction[] {
+  return [...actions].sort((left, right) => {
+    const leftIndex = encodeKataCatPuctAction(left);
+    const rightIndex = encodeKataCatPuctAction(right);
+    const difference = evaluation.policyLogits[rightIndex] - evaluation.policyLogits[leftIndex];
+    return difference !== 0 ? difference : leftIndex - rightIndex;
+  });
+}
+
+function screenRootActions(
+  state: GameState,
+  actions: AIAction[],
+  evaluation: KataCatNeuralEvaluation,
+  options: KataCatPuctOptions,
+): { actions: AIAction[]; screened: number; refuted: number; allRefutedFallback: boolean } {
+  if (!options.tacticalShell || actions.length <= 1 || options.captureDefenseMs <= 0) {
+    return { actions, screened: 0, refuted: 0, allRefutedFallback: false };
+  }
+
+  const ranked = rankByPolicy(actions, evaluation);
+  const screened = ranked.slice(0, Math.min(options.captureDefenseLimit, ranked.length));
+  const perMoveMs = Math.max(1, Math.floor(options.captureDefenseMs / Math.max(1, screened.length)));
+  const refutedKeys = new Set<string>();
+
+  for (const action of screened) {
+    const next = applyAction(state, action);
+    if (next.winner === state.currentPlayer) continue;
+    if (next.winner || opponentCanForceCapture(next, state.currentPlayer, options.captureReadDepth, perMoveMs)) {
+      refutedKeys.add(actionKey(action));
+    }
+  }
+
+  const survivors = ranked.filter((action) => !refutedKeys.has(actionKey(action)));
+  if (survivors.length === 0) {
+    return {
+      actions: ranked,
+      screened: screened.length,
+      refuted: refutedKeys.size,
+      allRefutedFallback: true,
+    };
+  }
+  return {
+    actions: survivors,
+    screened: screened.length,
+    refuted: refutedKeys.size,
+    allRefutedFallback: false,
+  };
+}
+
 /**
  * Neural PUCT with the existing rules engine as the sole authority.
  *
  * Tactical guards are intentionally outside the learned model:
  * - an immediate winning move is returned before search;
- * - expansion uses getSafeActions, so moves that volunteer an immediate loss are excluded;
- * - if every move loses, getSafeActions falls back to all legal actions rather than inventing one.
+ * - the optional root shell reads focused forced captures and rejects only proven losing roots;
+ * - internal expansion uses getSafeActions, so moves that volunteer an immediate loss are excluded;
+ * - if every screened move is refuted, the full ranked pool is retained rather than inventing certainty.
  *
  * Random rollout simulation is never used. Every non-terminal leaf is evaluated by the supplied
  * policy/value/score/ownership evaluator.
@@ -214,28 +310,52 @@ export async function searchKataCatPuct(
   const options: KataCatPuctOptions = { ...DEFAULT_OPTIONS, ...requested };
   options.simulations = Math.max(1, Math.floor(options.simulations));
   options.cpuct = Math.max(0, options.cpuct);
+  options.captureReadDepth = Math.max(1, Math.floor(options.captureReadDepth));
+  options.captureAttackMs = Math.max(0, Math.floor(options.captureAttackMs));
+  options.captureDefenseMs = Math.max(0, Math.floor(options.captureDefenseMs));
+  options.captureDefenseLimit = Math.max(1, Math.floor(options.captureDefenseLimit));
 
   const tactical = getSafeActions(state, state.currentPlayer);
+  const baseTacticalReport: KataCatTacticalReport = {
+    enabled: options.tacticalShell,
+    forcedCaptureFound: false,
+    screenedActions: 0,
+    refutedActions: 0,
+    rootPoolBefore: tactical.pool.length,
+    rootPoolAfter: tactical.pool.length,
+    allRefutedFallback: false,
+  };
   if (tactical.winningMove) {
-    return {
-      action: tactical.winningMove,
-      reason: "IMMEDIATE_WIN",
-      simulations: 0,
-      visitDistribution: [
-        {
-          action: tactical.winningMove,
-          actionIndex: encodeKataCatPuctAction(tactical.winningMove),
-          visits: 1,
-          prior: 1,
-          meanValue: 1,
-        },
-      ],
-    };
+    return oneVisitResult(tactical.winningMove, "IMMEDIATE_WIN", baseTacticalReport);
+  }
+
+  if (options.tacticalShell && options.captureAttackMs > 0) {
+    const forced = findForcedCapture(
+      state,
+      state.currentPlayer,
+      options.captureReadDepth,
+      options.captureAttackMs,
+    );
+    if (forced) {
+      return oneVisitResult(forced.move, "FORCED_CAPTURE", {
+        ...baseTacticalReport,
+        forcedCaptureFound: true,
+      });
+    }
   }
 
   const root: SearchNode = { state, expanded: false, visits: 0, edges: [] };
   const rootEvaluation = await evaluator.evaluate(state);
-  expandNode(root, rootEvaluation, options.neuralPriorWeight);
+  validateEvaluation(rootEvaluation);
+  const screened = screenRootActions(state, tactical.pool, rootEvaluation, options);
+  const tacticalReport: KataCatTacticalReport = {
+    ...baseTacticalReport,
+    screenedActions: screened.screened,
+    refutedActions: screened.refuted,
+    rootPoolAfter: screened.actions.length,
+    allRefutedFallback: screened.allRefutedFallback,
+  };
+  expandNode(root, rootEvaluation, options.neuralPriorWeight, screened.actions);
 
   for (let simulation = 0; simulation < options.simulations; simulation += 1) {
     let node = root;
@@ -286,9 +406,9 @@ export async function searchKataCatPuct(
     );
   }
 
-  const safeKeys = new Set(tactical.pool.map(actionKey));
-  if (!safeKeys.has(actionKey(selected.action))) {
-    throw new Error("KataCat PUCT selected an action outside the tactical safe root pool");
+  const rootKeys = new Set(screened.actions.map(actionKey));
+  if (!rootKeys.has(actionKey(selected.action))) {
+    throw new Error("KataCat PUCT selected an action outside the screened tactical root pool");
   }
 
   return {
@@ -297,5 +417,6 @@ export async function searchKataCatPuct(
     simulations: options.simulations,
     visitDistribution,
     rootEvaluation,
+    tactical: tacticalReport,
   };
 }
