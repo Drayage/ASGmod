@@ -25,10 +25,11 @@ from train_katacat_m1 import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Retrain a KataCat M3 candidate from M0 bootstrap and PUCT self-play visits."
+        description="Retrain a KataCat candidate from bootstrap, PUCT self-play, and optional mixed data."
     )
     parser.add_argument("--bootstrap-data", default="katacat-m0-output/katacat-samples.jsonl")
     parser.add_argument("--selfplay-data", default="katacat-m3-output/katacat-selfplay-samples.jsonl")
+    parser.add_argument("--mixed-data", default="")
     parser.add_argument("--init-checkpoint", default="katacat-m1-output/katacat-m1.pt")
     parser.add_argument("--out", default="katacat-m3-model")
     parser.add_argument("--epochs", type=int, default=4)
@@ -62,7 +63,8 @@ def visit_target_stats(samples: list[dict[str, Any]]) -> dict[str, Any]:
     visit_sums: list[float] = []
     nonzero_actions: list[int] = []
     targets_with_repeat = 0
-    puct_samples = 0
+    policy_sources: dict[str, int] = {}
+    agent_sources: dict[str, int] = {}
     for sample in samples:
         target = sample.get("policyTarget", [])
         visits = [
@@ -76,11 +78,16 @@ def visit_target_stats(samples: list[dict[str, Any]]) -> dict[str, Any]:
         nonzero_actions.append(len(visits))
         if max(visits) > 1:
             targets_with_repeat += 1
-        if sample.get("policySource") == "PUCT_VISITS":
-            puct_samples += 1
+        policy_source = str(sample.get("policySource", "UNKNOWN"))
+        policy_sources[policy_source] = policy_sources.get(policy_source, 0) + 1
+        agent_source = str(sample.get("agentSource", "UNSPECIFIED"))
+        agent_sources[agent_source] = agent_sources.get(agent_source, 0) + 1
     return {
         "samples": len(samples),
-        "puctSamples": puct_samples,
+        "puctSamples": policy_sources.get("PUCT_VISITS", 0),
+        "currentTeacherSamples": policy_sources.get("CURRENT_TEACHER", 0),
+        "policySources": policy_sources,
+        "agentSources": agent_sources,
         "targetsWithRepeatedVisits": targets_with_repeat,
         "meanVisitSum": float(sum(visit_sums) / len(visit_sums)),
         "maxVisitSum": float(max(visit_sums)),
@@ -112,7 +119,8 @@ def main() -> None:
 
     bootstrap_samples = load_jsonl(Path(args.bootstrap_data))
     selfplay_samples = load_jsonl(Path(args.selfplay_data))
-    samples = unique_samples([*bootstrap_samples, *selfplay_samples])
+    mixed_samples = load_jsonl(Path(args.mixed_data)) if args.mixed_data else []
+    samples = unique_samples([*bootstrap_samples, *selfplay_samples, *mixed_samples])
     train_samples = [sample for sample in samples if sample["split"] == "train"]
     validation_samples = [sample for sample in samples if sample["split"] == "validation"]
     if not train_samples or not validation_samples:
@@ -126,6 +134,13 @@ def main() -> None:
     selfplay_stats = visit_target_stats(selfplay_samples)
     if selfplay_stats["puctSamples"] != len(selfplay_samples):
         raise ValueError("Every self-play sample must use PUCT_VISITS policy targets")
+    mixed_stats = visit_target_stats(mixed_samples) if mixed_samples else None
+    if mixed_stats:
+        recognised = mixed_stats["puctSamples"] + mixed_stats["currentTeacherSamples"]
+        if recognised != len(mixed_samples):
+            raise ValueError("Mixed samples must use PUCT_VISITS or CURRENT_TEACHER targets")
+        if mixed_stats["puctSamples"] == 0 or mixed_stats["currentTeacherSamples"] == 0:
+            raise ValueError("Mixed data must include both PUCT and CURRENT teacher targets")
 
     checkpoint_path = Path(args.init_checkpoint)
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
@@ -177,11 +192,12 @@ def main() -> None:
     best_metrics: dict[str, float] = {}
     candidate_path = output_dir / "katacat-m3.pt"
     epoch_history: list[dict[str, float]] = []
+    stage = "M3.1_TRAIN" if mixed_samples else "M3_TRAIN"
 
     print(
-        f"KataCat M3 on {device}: train={len(train_dataset)} samples/{len(train_games)} games, "
+        f"KataCat {stage} on {device}: train={len(train_dataset)} samples/{len(train_games)} games, "
         f"validation={len(validation_dataset)} samples/{len(validation_games)} games, "
-        f"bootstrap={len(bootstrap_samples)} selfplay={len(selfplay_samples)}"
+        f"bootstrap={len(bootstrap_samples)} selfplay={len(selfplay_samples)} mixed={len(mixed_samples)}"
     )
 
     for epoch in range(1, args.epochs + 1):
@@ -243,7 +259,7 @@ def main() -> None:
                     "boardSize": int(checkpoint["boardSize"]),
                     "maxMargin": int(checkpoint["maxMargin"]),
                     "epoch": epoch,
-                    "stage": "M3",
+                    "stage": "M3.1" if mixed_samples else "M3",
                     "parentCheckpoint": str(checkpoint_path),
                     "validationMetrics": metrics,
                 },
@@ -257,6 +273,9 @@ def main() -> None:
         "gameSplitDisjoint": train_games.isdisjoint(validation_games),
         "puctVisitTargetsPresent": selfplay_stats["puctSamples"] > 0,
         "multiVisitTargetsObserved": selfplay_stats["targetsWithRepeatedVisits"] > 0,
+        "mixedPuctAndCurrentPresent": mixed_stats is None
+        or (mixed_stats["puctSamples"] > 0 and mixed_stats["currentTeacherSamples"] > 0),
+        "initializedFromCheckpoint": checkpoint_path.is_file(),
         "initializedFromM1": checkpoint_path.is_file(),
         "allMetricsFinite": all_metrics_finite,
         "candidateCheckpointSaved": candidate_path.is_file(),
@@ -268,10 +287,11 @@ def main() -> None:
 
     summary = {
         "schemaVersion": 1,
-        "stage": "M3_TRAIN",
+        "stage": stage,
         "device": str(device),
         "bootstrapData": str(args.bootstrap_data),
         "selfplayData": str(args.selfplay_data),
+        "mixedData": str(args.mixed_data) if args.mixed_data else None,
         "parentCheckpoint": str(checkpoint_path),
         "trainGames": len(train_games),
         "validationGames": len(validation_games),
@@ -279,7 +299,9 @@ def main() -> None:
         "validationSamples": len(validation_samples),
         "bootstrapSamples": len(bootstrap_samples),
         "selfplaySamples": len(selfplay_samples),
+        "mixedSamples": len(mixed_samples),
         "selfplayVisitTargets": selfplay_stats,
+        "mixedVisitTargets": mixed_stats,
         "epochs": args.epochs,
         "bestEpoch": best_epoch,
         "initialValidation": initial_metrics,
@@ -299,14 +321,14 @@ def main() -> None:
         "augmentation": args.augment == "on",
         "smokeAcceptance": smoke_acceptance,
         "epochHistory": epoch_history,
-        "note": "M3 is the self-play/retraining loop gate. Strength promotion remains M4; no game AI is replaced here.",
+        "note": "M3.1 mixes bootstrap coverage, PUCT self-play, previous-champion visits, and CURRENT teacher turns. Strength promotion remains M4.",
     }
     (output_dir / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     print("KATACAT_M3_TRAIN:" + json.dumps(summary, ensure_ascii=False))
     if not smoke_acceptance["passed"]:
-        raise RuntimeError(f"KataCat M3 training acceptance failed: {smoke_acceptance}")
+        raise RuntimeError(f"KataCat training acceptance failed: {smoke_acceptance}")
 
 
 if __name__ == "__main__":
