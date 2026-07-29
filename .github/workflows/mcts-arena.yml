@@ -67,12 +67,18 @@ jobs:
               echo "Arena output was not created. Check the failed step logs."
             fi
             echo '```'
+            echo
+            if [ -f mcts-arena.json ]; then
+              echo "Detailed move-by-move replay data is attached as \`mcts-arena.json\`."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload arena log
+      - name: Upload arena logs and replay
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mcts-arena-${{ github.run_number }}
-          path: mcts-arena.txt
+          path: |
+            mcts-arena.txt
+            mcts-arena.json
           if-no-files-found: ignore
