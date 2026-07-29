@@ -16,6 +16,8 @@
     "katacat:m3-selfplay": "node scripts/run-katacat-m3-selfplay.mjs",
     "katacat:m3-validate": "node scripts/validate-katacat-m3.mjs",
     "katacat:m4-arena": "vitest run src/games/alley-boss-cats/engine/katacatM4Arena.test.ts",
+    "katacat:m31-mixed": "node scripts/run-katacat-m31-mixed.mjs",
+    "katacat:m31-arena": "vitest run src/games/alley-boss-cats/engine/katacatM31Arena.test.ts",
     "generate-icons": "node scripts/generate-icons.mjs",
     "postinstall": "npm run generate-icons"
   },
