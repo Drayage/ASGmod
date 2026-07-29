@@ -30,7 +30,6 @@ const result = spawnSync(
     "vitest",
     "run",
     "src/games/alley-boss-cats/engine/katacatValidate.test.ts",
-    "--reporter=basic",
   ],
   { env, stdio: "inherit" },
 );
