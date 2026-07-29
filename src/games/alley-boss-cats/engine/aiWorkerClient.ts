@@ -18,8 +18,8 @@ export interface SearchRequestOptions {
 
 /** Thin wrapper around the search Web Worker: one worker per client, spun up
  * lazily and reused across moves, with a watchdog timeout in case the worker
- * never replies. The normal game omits `engine`, so CURRENT remains the default;
- * HYBRID_MCTS is opt-in for experiments and arena comparisons. */
+ * never replies. Experimental engines must be requested explicitly; normal
+ * HARD and VERY_HARD games continue to use the shipped CURRENT search. */
 export class SearchAIClient {
   private worker: Worker | null = null;
 
