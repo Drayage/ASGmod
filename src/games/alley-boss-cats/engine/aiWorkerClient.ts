@@ -18,7 +18,8 @@ export interface SearchRequestOptions {
 
 /** Thin wrapper around the search Web Worker: one worker per client, spun up
  * lazily and reused across moves, with a watchdog timeout in case the worker
- * never replies. */
+ * never replies. VERY_HARD now uses the hybrid MCTS path in normal games;
+ * callers can still opt back into CURRENT explicitly for arena comparisons. */
 export class SearchAIClient {
   private worker: Worker | null = null;
 
@@ -37,6 +38,7 @@ export class SearchAIClient {
   ): Promise<AIWorkerResponse> {
     const worker = this.ensureWorker();
     const timeLimitMs = TIME_LIMIT_MS[difficulty];
+    const engine = options.engine ?? (difficulty === "VERY_HARD" ? "HYBRID_MCTS" : "CURRENT");
 
     return new Promise((resolve, reject) => {
       const timeout = window.setTimeout(() => {
@@ -66,6 +68,7 @@ export class SearchAIClient {
         timeLimitMs,
         difficulty,
         ...options,
+        engine,
       } satisfies AIWorkerRequest);
     });
   }
