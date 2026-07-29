@@ -1,6 +1,5 @@
 import { applyAction, evaluateState, getSafeActions, rankByStaticEval } from "../ai";
 import type { AIAction } from "../ai";
-import { opponent } from "../types";
 import type { GameState, Player } from "../types";
 import { opponentCanForceCapture } from "./captureSearch";
 
