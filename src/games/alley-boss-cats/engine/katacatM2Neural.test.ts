@@ -1,5 +1,7 @@
 // @ts-nocheck -- Opt-in integration test uses Node child_process and readline APIs.
 import { spawn } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getSafeActions } from "../ai";
@@ -80,7 +82,7 @@ class PythonM1Evaluator implements KataCatNeuralEvaluator {
       for (const pending of this.pending.splice(0)) pending.reject(error);
     });
     this.child.on("exit", (code) => {
-      if (code !== 0) {
+      if (code !== 0 && code !== null) {
         const error = new Error(`KataCat Python evaluator exited ${code}: ${this.stderr}`);
         this.rejectReady(error);
         for (const pending of this.pending.splice(0)) pending.reject(error);
@@ -156,25 +158,36 @@ suite("KataCat M2 neural integration", () => {
       expect(first.visitDistribution.every((record) => safe.has(record.actionIndex))).toBe(true);
       expect(safe.has(encodeKataCatPuctAction(first.action))).toBe(true);
 
-      console.log(
-        `KATACAT_M2_NEURAL:${JSON.stringify({
-          simulations: first.simulations,
-          selectedAction: encodeKataCatPuctAction(first.action),
-          visitedActions: first.visitDistribution.filter((record) => record.visits > 0).length,
-          rootValue: first.rootEvaluation?.value,
-          rootScore: first.rootEvaluation?.score,
-          visitDistribution: first.visitDistribution
-            .filter((record) => record.visits > 0)
-            .sort((a, b) => b.visits - a.visits)
-            .slice(0, 10),
-          acceptance: {
-            exactVisitAccounting: true,
-            illegalVisitsZero: true,
-            deterministic: true,
-            neuralInferenceCompleted: true,
-          },
-        })}`,
-      );
+      const report = {
+        schemaVersion: 1,
+        stage: "M2",
+        evaluator: "M1_PYTORCH_PERSISTENT_BRIDGE",
+        options,
+        simulations: first.simulations,
+        selectedAction: encodeKataCatPuctAction(first.action),
+        visitedActions: first.visitDistribution.filter((record) => record.visits > 0).length,
+        rootValue: first.rootEvaluation?.value,
+        rootScore: first.rootEvaluation?.score,
+        visitDistribution: first.visitDistribution
+          .filter((record) => record.visits > 0)
+          .sort((a, b) => b.visits - a.visits)
+          .slice(0, 10),
+        acceptance: {
+          exactVisitAccounting: true,
+          illegalVisitsZero: true,
+          immediateWinGuard: true,
+          immediateLossGuard: true,
+          deterministic: true,
+          neuralInferenceCompleted: true,
+          randomRolloutsUsed: false,
+          passed: true,
+        },
+        note: "This is the M2 search/inference gate, not a strength promotion. M3 replaces one-visit bootstrap labels with PUCT visit targets in iterative self-play.",
+      };
+      const outputDir = resolve(env.KATACAT_M2_OUTPUT_DIR ?? "katacat-m2-output");
+      mkdirSync(outputDir, { recursive: true });
+      writeFileSync(resolve(outputDir, "summary.json"), `${JSON.stringify(report, null, 2)}\n`);
+      console.log(`KATACAT_M2_NEURAL:${JSON.stringify(report)}`);
     },
     120_000,
   );
