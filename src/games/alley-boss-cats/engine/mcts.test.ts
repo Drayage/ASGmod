@@ -16,6 +16,7 @@ describe("findBestMoveHybridMCTS", () => {
     const result = findBestMoveHybridMCTS(state, "A", FAST_OPTIONS);
 
     expect(result.simulations).toBe(8);
+    expect(result.selection).toBe("MCTS");
     expect(result.action.type).toBe("PLACE");
     if (result.action.type === "PLACE") {
       expect(isLegalMove(state, result.action.row, result.action.col, "A")).toBe(true);
@@ -45,6 +46,24 @@ describe("findBestMoveHybridMCTS", () => {
     const result = findBestMoveHybridMCTS(state, "A", FAST_OPTIONS);
     expect(result.action).toEqual({ type: "PLACE", row: 4, col: 3 });
     expect(result.simulations).toBe(0);
+    expect(result.selection).toBe("IMMEDIATE_WIN");
     expect(applyAction(state, result.action).winner).toBe("A");
+  });
+
+  it("keeps the alpha-beta baseline when MCTS has too little evidence", () => {
+    const state = createInitialState();
+    const result = findBestMoveHybridMCTS(state, "A", {
+      ...FAST_OPTIONS,
+      baselineSearchMs: 10,
+      minimumSimulationsToOverride: 1_000,
+    });
+
+    expect(result.simulations).toBe(8);
+    expect(result.selection).toBe("BASELINE");
+    expect(result.baselineAction).toEqual(result.action);
+    expect(result.action.type).toBe("PLACE");
+    if (result.action.type === "PLACE") {
+      expect(isLegalMove(state, result.action.row, result.action.col, "A")).toBe(true);
+    }
   });
 });
