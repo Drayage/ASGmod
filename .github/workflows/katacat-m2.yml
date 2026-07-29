@@ -100,6 +100,7 @@ jobs:
           RUN_KATACAT_M2_NEURAL: "1"
           KATACAT_M1_CHECKPOINT: katacat-m1-output/katacat-m1.pt
           KATACAT_M2_OUTPUT_DIR: katacat-m2-output
+          KATACAT_M2_SIMULATIONS: ${{ inputs.simulations }}
         run: npm run katacat:m2-neural
 
       - name: Add reports to summary
