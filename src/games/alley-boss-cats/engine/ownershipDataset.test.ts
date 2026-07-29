@@ -32,7 +32,7 @@ interface DatasetSample {
   source: "QUIET_CURRENT_CURRICULUM";
 }
 
-interface PendingSample extends Omit<DatasetSample, "finalOwnership" | "finalMargin" | "finalWinner"> {}
+type PendingSample = Omit<DatasetSample, "finalOwnership" | "finalMargin" | "finalWinner">;
 
 interface DatasetMetadata {
   games: number;
@@ -168,6 +168,7 @@ function snapshot(
   teacherAction: AIAction,
   playedAction: AIAction,
 ): PendingSample {
+  const lastMove = state.moveHistory[state.moveHistory.length - 1];
   return {
     game,
     ply: state.moveHistory.length,
@@ -179,7 +180,7 @@ function snapshot(
     remainingA: state.remainingCats.A,
     remainingB: state.remainingCats.B,
     consecutivePasses: state.consecutivePasses,
-    lastMove: encodeMove(state.moveHistory.at(-1)),
+    lastMove: encodeMove(lastMove),
     teacherAction: encodeAction(teacherAction),
     playedAction: encodeAction(playedAction),
     teacherOverridden: actionKey(teacherAction) !== actionKey(playedAction),
