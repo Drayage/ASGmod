@@ -1,0 +1,100 @@
+name: KataCat M0
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "M0 코드를 실행할 브랜치 또는 커밋"
+        required: true
+        default: "feat/katacat-m0"
+        type: string
+      games:
+        description: "생성할 완결 대국 수"
+        required: true
+        default: "20"
+        type: string
+      teacher_ms:
+        description: "CURRENT 교사 한 수당 제한 시간(ms)"
+        required: true
+        default: "100"
+        type: string
+      max_per_bucket:
+        description: "분할+복합 버킷별 최대 장면 수"
+        required: true
+        default: "16"
+        type: string
+      territory_pass_ply:
+        description: "영역 curriculum이 안전한 패스를 고려할 최소 착수 수"
+        required: true
+        default: "56"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  katacat-m0:
+    name: Generate, replay, and validate M0 data
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Generate naturally-terminal replay data
+        run: |
+          npm run katacat:generate -- \
+            --games="${{ inputs.games }}" \
+            --teacher-ms="${{ inputs.teacher_ms }}" \
+            --max-per-bucket="${{ inputs.max_per_bucket }}" \
+            --territory-pass-ply="${{ inputs.territory_pass_ply }}" \
+            --output=katacat-m0-output
+
+      - name: Replay and validate all labels
+        run: |
+          npm run katacat:validate -- \
+            --output=katacat-m0-output \
+            --strict=true
+
+      - name: Add M0 report to summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## KataCat M0"
+            echo
+            echo "- Ref: \`${{ inputs.ref }}\`"
+            echo "- Requested games: \`${{ inputs.games }}\`"
+            echo "- Teacher budget: \`${{ inputs.teacher_ms }} ms\`"
+            echo
+            if [ -f katacat-m0-output/katacat-meta.json ]; then
+              echo '```json'
+              cat katacat-m0-output/katacat-meta.json
+              echo '```'
+            else
+              echo "No metadata file was produced."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload M0 replay bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m0-${{ github.run_number }}
+          path: katacat-m0-output/
+          if-no-files-found: ignore
