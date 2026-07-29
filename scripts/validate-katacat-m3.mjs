@@ -39,7 +39,7 @@ const acceptance = {
   candidateCheckpointSaved: training?.smokeAcceptance?.candidateCheckpointSaved === true,
   candidateNeuralPuctPassed: candidate?.acceptance?.passed === true,
   candidateInferenceCompleted: candidate?.acceptance?.neuralInferenceCompleted === true,
-  randomRolloutsUsed: candidate?.acceptance?.randomRolloutsUsed === false,
+  noRandomRollouts: candidate?.acceptance?.randomRolloutsUsed === false,
   passed: false,
 };
 acceptance.passed = Object.entries(acceptance)
