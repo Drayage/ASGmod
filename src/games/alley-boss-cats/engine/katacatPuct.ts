@@ -269,7 +269,9 @@ export async function searchKataCatPuct(
 
     for (const visitedNode of nodes) visitedNode.visits += 1;
     for (let index = path.length - 1; index >= 0; index -= 1) {
-      value = -value;
+      const parent = nodes[index];
+      const child = nodes[index + 1];
+      if (parent.state.currentPlayer !== child.state.currentPlayer) value = -value;
       path[index].visits += 1;
       path[index].valueSum += value;
     }
