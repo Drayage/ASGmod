@@ -1,0 +1,136 @@
+name: KataCat M1
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "M1 코드를 실행할 브랜치 또는 커밋"
+        required: true
+        default: "feat/katacat-m1"
+        type: string
+      games:
+        description: "M0 완결 대국 수"
+        required: true
+        default: "20"
+        type: string
+      teacher_ms:
+        description: "CURRENT 교사 한 수당 제한 시간(ms)"
+        required: true
+        default: "100"
+        type: string
+      epochs:
+        description: "M1 학습 epoch"
+        required: true
+        default: "8"
+        type: string
+      channels:
+        description: "Residual trunk 채널 수"
+        required: true
+        default: "96"
+        type: string
+      blocks:
+        description: "Residual block 수"
+        required: true
+        default: "8"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  katacat-m1:
+    name: Generate M0 data and train four-head M1
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Generate M0 replay data
+        run: |
+          npm run katacat:generate -- \
+            --games="${{ inputs.games }}" \
+            --teacher-ms="${{ inputs.teacher_ms }}" \
+            --max-per-bucket=24 \
+            --territory-pass-ply=56 \
+            --output=katacat-m0-output
+
+      - name: Validate M0 data
+        run: |
+          npm run katacat:validate -- \
+            --output=katacat-m0-output \
+            --strict=true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+
+      - name: Install Python dependencies
+        run: pip install -r ml/requirements-katacat.txt
+
+      - name: Train KataCat M1
+        run: |
+          python ml/train_katacat_m1.py \
+            --data=katacat-m0-output/katacat-samples.jsonl \
+            --out=katacat-m1-output \
+            --epochs="${{ inputs.epochs }}" \
+            --channels="${{ inputs.channels }}" \
+            --blocks="${{ inputs.blocks }}" \
+            --device=cpu \
+            --augment=on
+
+      - name: Add reports to summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## KataCat M1"
+            echo
+            echo "- Ref: \`${{ inputs.ref }}\`"
+            echo "- M0 games: \`${{ inputs.games }}\`"
+            echo "- Model: \`${{ inputs.channels }} channels × ${{ inputs.blocks }} blocks\`"
+            echo "- Epochs: \`${{ inputs.epochs }}\`"
+            echo
+            if [ -f katacat-m0-output/katacat-meta.json ]; then
+              echo "### M0 data acceptance"
+              echo '```json'
+              cat katacat-m0-output/katacat-meta.json
+              echo '```'
+            fi
+            if [ -f katacat-m1-output/summary.json ]; then
+              echo "### M1 training"
+              echo '```json'
+              cat katacat-m1-output/summary.json
+              echo '```'
+            else
+              echo "M1 summary was not produced."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload KataCat M1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m1-${{ github.run_number }}
+          path: |
+            katacat-m0-output/
+            katacat-m1-output/
+          if-no-files-found: ignore
