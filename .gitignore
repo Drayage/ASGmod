@@ -12,3 +12,11 @@ public/icons/*.png
 *.tmp.mts
 *.tmp.mjs
 *.tmp.sh
+
+# Ownership-learning datasets and checkpoints.
+ownership-dataset.jsonl
+ownership-dataset.meta.json
+ownership-training/
+data/ownership-*.jsonl
+data/ownership-*.meta.json
+.venv/
