@@ -118,4 +118,37 @@ describe("KataCat neural PUCT", () => {
     );
     expect(safeIndices.has(encodeKataCatPuctAction(result.action))).toBe(true);
   });
+
+  it("takes a proven multi-ply capture before consulting the network", async () => {
+    const board = emptyBoard();
+    board[1][5] = "PLAYER_A";
+    board[1][7] = "PLAYER_A";
+    board[2][6] = "PLAYER_A";
+    board[0][6] = "PLAYER_B";
+    board[1][6] = "PLAYER_B";
+    board[3][6] = "PLAYER_B";
+    const state = tacticalState(board, "A");
+    let evaluations = 0;
+    const evaluator: KataCatNeuralEvaluator = {
+      async evaluate() {
+        evaluations += 1;
+        return evaluatorWithPreferredAction().evaluate(state);
+      },
+    };
+
+    const result = await searchKataCatPuct(state, evaluator, {
+      simulations: 16,
+      tacticalShell: true,
+      captureReadDepth: 7,
+      captureAttackMs: 2000,
+      captureDefenseMs: 0,
+    });
+    expect(result.reason).toBe("FORCED_CAPTURE");
+    expect([
+      { type: "PLACE", row: 0, col: 5 },
+      { type: "PLACE", row: 0, col: 7 },
+    ]).toContainEqual(result.action);
+    expect(result.tactical.forcedCaptureFound).toBe(true);
+    expect(evaluations).toBe(0);
+  });
 });
