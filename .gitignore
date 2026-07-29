@@ -12,6 +12,9 @@ public/icons/*.png
 katacat-m0-output/
 katacat-m1-output/
 katacat-m2-output/
+katacat-m3-output/
+katacat-m3-model/
+katacat-m3-candidate-check/
 
 # Scratch scripts used for one-off measurement runs.
 *.tmp.mts
