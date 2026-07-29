@@ -340,7 +340,7 @@ def main() -> None:
     ownership_loss = nn.CrossEntropyLoss(weight=class_weights(train_dataset, device))
     score_loss = nn.MSELoss()
     optimizer = torch.optim.AdamW(
-        model.parameters(), learning_rate=args.learning_rate, weight_decay=args.weight_decay
+        model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(1, args.epochs))
 
