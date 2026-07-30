@@ -22,6 +22,9 @@
     "katacat:m32-arena": "vitest run src/games/alley-boss-cats/engine/katacatM32Arena.test.ts",
     "katacat:m321-arena": "vitest run src/games/alley-boss-cats/engine/katacatM321Arena.test.ts",
     "katacat:m322-arena": "vitest run src/games/alley-boss-cats/engine/katacatM322Arena.test.ts",
+    "katacat:m33-relative": "vitest run src/games/alley-boss-cats/engine/katacatM33Relative.test.ts",
+    "katacat:m33-curriculum": "python ml/build_katacat_m33_curriculum.py",
+    "katacat:m33-arena": "vitest run src/games/alley-boss-cats/engine/katacatM33Arena.test.ts",
     "generate-icons": "node scripts/generate-icons.mjs",
     "postinstall": "npm run generate-icons"
   },
