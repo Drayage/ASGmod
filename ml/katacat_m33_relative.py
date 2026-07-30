@@ -23,6 +23,8 @@ from train_katacat_m1 import (
     value_target,
 )
 
+FIRST_PLAYER_MARGIN = 3
+
 
 def index_plane(indices: list[int]) -> np.ndarray:
     plane = np.zeros((BOARD_SIZE, BOARD_SIZE), dtype=np.float32)
@@ -70,7 +72,11 @@ def relative_featurize(sample: dict[str, Any]) -> np.ndarray:
     features[11].fill(float(opponent_remaining) / STARTING_CATS)
     features[12].fill(min(float(sample["consecutivePasses"]), 2.0) / 2.0)
     features[13].fill(min(float(sample["ply"]), 90.0) / 90.0)
-    signed_margin = 3.0 / BOARD_CELLS if player == "A" else -3.0 / BOARD_CELLS
+    signed_margin = (
+        float(FIRST_PLAYER_MARGIN) / BOARD_CELLS
+        if player == "A"
+        else -float(FIRST_PLAYER_MARGIN) / BOARD_CELLS
+    )
     features[14].fill(signed_margin)
     features[15].fill(1.0 if PASS_INDEX in sample["legalActions"] else 0.0)
     return features
@@ -96,7 +102,11 @@ def swap_token(value: str) -> str:
 
 
 def seat_swap_sample(sample: dict[str, Any]) -> dict[str, Any]:
-    """Create the color-swapped training twin while preserving mover-relative labels."""
+    """Create a color-swapped twin with labels recalculated for A's fixed margin.
+
+    Capture outcomes are color-symmetric. Territory outcomes are not a simple sign
+    flip because A remains the first player and always keeps the fixed margin.
+    """
     swapped = copy.deepcopy(sample)
     swapped["sampleId"] = f"{sample['sampleId']}:seat-swap"
     swapped["gameId"] = f"{sample['gameId']}:seat-swap"
@@ -104,9 +114,14 @@ def seat_swap_sample(sample: dict[str, Any]) -> dict[str, Any]:
     swapped["currentPlayer"] = swap_token(str(sample["currentPlayer"]))
     swapped["territoryA"], swapped["territoryB"] = list(sample["territoryB"]), list(sample["territoryA"])
     swapped["remainingA"], swapped["remainingB"] = sample["remainingB"], sample["remainingA"]
-    swapped["finalWinner"] = swap_token(str(sample["finalWinner"]))
-    swapped["finalAdjustedMarginA"] = -float(sample["finalAdjustedMarginA"])
     swapped["finalOwnership"] = "".join(swap_token(value) for value in sample["finalOwnership"])
+    final_a = swapped["finalOwnership"].count("A")
+    final_b = swapped["finalOwnership"].count("B")
+    swapped["finalAdjustedMarginA"] = float(final_a - final_b - FIRST_PLAYER_MARGIN)
+    if sample.get("finalWinReason") == "TERRITORY":
+        swapped["finalWinner"] = "A" if final_a >= final_b + FIRST_PLAYER_MARGIN else "B"
+    else:
+        swapped["finalWinner"] = swap_token(str(sample["finalWinner"]))
     swapped["seatSwapped"] = True
     return swapped
 
@@ -170,8 +185,9 @@ def self_test() -> dict[str, Any]:
         "ply": 12,
         "policyTarget": [{"action": 1, "visits": 3}, {"action": 2, "visits": 1}],
         "finalWinner": "A",
-        "finalAdjustedMarginA": 5,
-        "finalOwnership": "A" + "." * 79 + "B",
+        "finalWinReason": "CAPTURE",
+        "finalAdjustedMarginA": 4,
+        "finalOwnership": "A" * 8 + "." * 72 + "B",
     }
     swapped = seat_swap_sample(sample)
     original_features = relative_featurize(sample)
@@ -184,8 +200,10 @@ def self_test() -> dict[str, Any]:
     ownership_invariant = np.array_equal(
         relative_ownership_target(sample), relative_ownership_target(swapped)
     )
-    score_invariant = score_target(sample) == score_target(swapped)
     value_invariant = value_target(sample) == value_target(swapped)
+    expected_score_shift = (2.0 * FIRST_PLAYER_MARGIN) / MAX_MARGIN
+    observed_score_shift = score_target(swapped) - score_target(sample)
+    score_margin_recalculated = abs(observed_score_shift - expected_score_shift) < 1e-9
     seat_planes_swapped = (
         float(original_features[7, 0, 0]) == 1.0
         and float(original_features[8, 0, 0]) == 0.0
@@ -196,8 +214,8 @@ def self_test() -> dict[str, Any]:
     result = {
         "relativeInvariantPlanes": invariant,
         "relativeOwnershipInvariant": ownership_invariant,
-        "relativeScoreInvariant": score_invariant,
         "relativeValueInvariant": value_invariant,
+        "scoreMarginRecalculated": score_margin_recalculated,
         "seatPlanesSwapped": seat_planes_swapped,
         "signedMarginFlipped": signed_margin_flipped,
         "passed": False,
