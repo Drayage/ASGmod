@@ -27,6 +27,10 @@ Ownership labels are likewise `neutral / self / opponent`. Value and score were 
 
 Absolute A/B checkpoints are not input-compatible with these meanings, so M3.3 trains a fresh 96-channel, 8-block network rather than pretending an old first convolution is transferable.
 
+## M3.3 game-level split
+
+The original five-mode M3.1 cycle puts one CURRENT seat on the old validation cadence. M3.3 therefore rewrites only the split metadata at whole-game granularity: with modulo 6, validation receives non-CURRENT modes while CURRENT teacher games from both seats remain in training. The replay, actions, natural terminal result, and labels are unchanged. Samples always inherit their game's split, so no game crosses train and validation.
+
 ## Exact seat balancing
 
 M3.3 uses only positions recorded from legal, naturally completed games. Within train and validation separately, it deterministically downsamples whichever mover seat has more samples until A-turn and B-turn counts are exactly equal. Dedicated curriculum samples are kept ahead of ordinary samples when a training-seat reduction is needed.
@@ -48,7 +52,7 @@ The curriculum deliberately upweights trusted teacher positions already present 
 
 ## Controlled arena
 
-The M3.3 relative candidate is compared with the frozen absolute M3.1 candidate and CURRENT VERY_HARD.
+The M3.3 relative candidate is compared with an absolute M3.1 control model trained from the same resplit mixed source and with CURRENT VERY_HARD. The control is useful for the smoke comparison, but it is not treated as formal M4 promotion evidence.
 
 Both neural agents receive identical:
 
