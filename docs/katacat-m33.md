@@ -29,14 +29,9 @@ Absolute A/B checkpoints are not input-compatible with these meanings, so M3.3 t
 
 ## Exact seat balancing
 
-Every source sample receives a color-swapped twin:
+M3.3 uses only positions recorded from legal, naturally completed games. Within train and validation separately, it deterministically downsamples whichever mover seat has more samples until A-turn and B-turn counts are exactly equal. Dedicated curriculum samples are kept ahead of ordinary samples when a training-seat reduction is needed.
 
-- A and B stones, territory, remaining cats, current player, and final ownership are swapped.
-- capture winners are color-swapped.
-- territory winners and adjusted score are recalculated from the swapped final ownership while keeping A's fixed three-cell first-player margin.
-- action coordinates and legal masks are unchanged.
-
-The mover-relative board, policy, value for capture outcomes, and ownership meanings remain aligned. The explicit first/second-player planes and signed margin plane tell the model which fixed-margin seat it occupies; score and territory winner labels are recalculated rather than incorrectly treated as a simple sign flip. Train and validation sets contain exactly equal A-turn and B-turn counts.
+A color-swap routine remains only as a feature-encoder unit test. It verifies that mover-relative board and ownership meanings are preserved and that A's fixed three-cell margin is recalculated rather than treated as a simple sign flip. Synthetic color-swapped positions are not added to training.
 
 ## Tactical curriculum
 
@@ -44,11 +39,12 @@ The expanded M3.1 mixed run supplies CURRENT teacher turns. The M3.3 curriculum 
 
 - prioritises B-seat late-capture and early-survival positions;
 - chooses an equal-sized A-seat control set;
-- uses only `CURRENT_TEACHER` actions;
+- uses only train-split `CURRENT_TEACHER` actions;
 - relabels them as `CURRENT_TACTICAL_TEACHER`;
+- keeps all curriculum clones in training so an upweighted mixed-train state cannot leak into validation;
 - never copies a PUCT unverified fallback or proven-losing action as a teacher target.
 
-The curriculum deliberately upweights trusted teacher positions already present in the mixed games. It does not fabricate terminal labels or force territory outcomes.
+The curriculum deliberately upweights trusted teacher positions already present in the mixed training games. It does not fabricate terminal labels or force territory outcomes.
 
 ## Controlled arena
 
