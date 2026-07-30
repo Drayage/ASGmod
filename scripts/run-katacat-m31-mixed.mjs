@@ -33,12 +33,10 @@ const env = {
   KATACAT_M31_CAPTURE_ATTACK_MS: args["capture-attack-ms"] ?? "25",
   KATACAT_M31_CAPTURE_DEFENSE_MS: args["capture-defense-ms"] ?? "50",
   KATACAT_M31_CAPTURE_DEFENSE_LIMIT: args["capture-defense-limit"] ?? "12",
-  KATACAT_M31_VALIDATION_MODULO: args["validation-modulo"] ?? "5",
-  KATACAT_M31_VALIDATION_OFFSET: args["validation-offset"] ?? "0",
 };
 
 console.log(
-  `Generating KataCat M3.1 mixed data: games=${env.KATACAT_M31_GAMES}, simulations=${env.KATACAT_M31_SIMULATIONS}, validation=${env.KATACAT_M31_VALIDATION_OFFSET} mod ${env.KATACAT_M31_VALIDATION_MODULO}, latest=${latest}, champion=${champion}`,
+  `Generating KataCat M3.1 mixed data: games=${env.KATACAT_M31_GAMES}, simulations=${env.KATACAT_M31_SIMULATIONS}, latest=${latest}, champion=${champion}`,
 );
 
 const executable = process.platform === "win32" ? "npx.cmd" : "npx";
