@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 describe("KataCat M3.3 player-relative encoding", () => {
-  it("preserves mover-relative state under an A/B seat swap", () => {
+  it("preserves relative state while recalculating A's fixed margin", () => {
     const python = process.env.PYTHON ?? "python";
     const result = spawnSync(python, ["ml/katacat_m33_relative.py", "--self-test"], {
       encoding: "utf-8",
@@ -14,8 +14,8 @@ describe("KataCat M3.3 player-relative encoding", () => {
     expect(summary).toMatchObject({
       relativeInvariantPlanes: true,
       relativeOwnershipInvariant: true,
-      relativeScoreInvariant: true,
       relativeValueInvariant: true,
+      scoreMarginRecalculated: true,
       seatPlanesSwapped: true,
       signedMarginFlipped: true,
       passed: true,
