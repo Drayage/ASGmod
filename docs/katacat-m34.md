@@ -13,9 +13,12 @@ The collector plays deterministic mirrored candidate-versus-CURRENT games. On ca
 1. runs the existing neural PUCT and root tactical shell;
 2. checks the highest visit-ranked actions with the focused forced-capture reader;
 3. records only actions for which a forced loss is positively proved;
-4. asks CURRENT VERY_HARD for a teacher action and independently checks that it is not refuted;
-5. removes proved losing actions from the PUCT target and inserts the verified teacher action;
-6. plays the real game through the unchanged final guard and keeps samples only when the game ends naturally.
+4. asks CURRENT VERY_HARD for a teacher action and independently checks it with the same reader;
+5. keeps the teacher only when no forced loss is proved within the configured depth and time budget;
+6. removes proved losing actions from the PUCT target and inserts the CURRENT teacher action;
+7. plays the real game through the unchanged final guard and keeps samples only when the game ends naturally.
+
+The reader is conservative: a `false` result means “not refuted under this budget,” not a mathematical proof of safety. In contrast, every negative action is included only after the reader actually finds a forced capture.
 
 `UNVERIFIED_VISITED`, `UNVERIFIED_ZERO_VISIT`, and `ALL_ROOT_ACTIONS_REFUTED` moves are never used as positive policy teachers.
 
@@ -25,7 +28,7 @@ M3.4 mixes the original balanced M3.3 replay set with a separately seat-balanced
 
 - normal soft policy loss remains active;
 - masked PUCT targets assign zero probability to proved losing actions;
-- an auxiliary pairwise loss pushes the verified positive action above every proved negative action;
+- an auxiliary pairwise loss pushes the CURRENT positive action above every proved negative action;
 - value, score, and ownership heads continue to train on the same naturally terminal labels;
 - the learning rate is reduced for checkpoint-compatible fine-tuning.
 
