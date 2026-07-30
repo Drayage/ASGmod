@@ -18,6 +18,8 @@
     "katacat:m4-arena": "vitest run src/games/alley-boss-cats/engine/katacatM4Arena.test.ts",
     "katacat:m31-mixed": "node scripts/run-katacat-m31-mixed.mjs",
     "katacat:m31-arena": "vitest run src/games/alley-boss-cats/engine/katacatM31Arena.test.ts",
+    "katacat:m32-final-guard": "vitest run src/games/alley-boss-cats/engine/katacatFinalGuard.test.ts",
+    "katacat:m32-arena": "vitest run src/games/alley-boss-cats/engine/katacatM32Arena.test.ts",
     "generate-icons": "node scripts/generate-icons.mjs",
     "postinstall": "npm run generate-icons"
   },
