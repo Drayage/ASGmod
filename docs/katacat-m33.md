@@ -31,11 +31,12 @@ Absolute A/B checkpoints are not input-compatible with these meanings, so M3.3 t
 
 Every source sample receives a color-swapped twin:
 
-- A and B stones, territory, remaining cats, winner, and final ownership are swapped.
-- adjusted margin A is negated.
+- A and B stones, territory, remaining cats, current player, and final ownership are swapped.
+- capture winners are color-swapped.
+- territory winners and adjusted score are recalculated from the swapped final ownership while keeping A's fixed three-cell first-player margin.
 - action coordinates and legal masks are unchanged.
 
-The player-relative feature planes, policy, value, score, and ownership targets remain equivalent except for the explicit first/second-player planes and signed margin plane. Train and validation sets therefore contain exactly equal A-turn and B-turn counts.
+The mover-relative board, policy, value for capture outcomes, and ownership meanings remain aligned. The explicit first/second-player planes and signed margin plane tell the model which fixed-margin seat it occupies; score and territory winner labels are recalculated rather than incorrectly treated as a simple sign flip. Train and validation sets contain exactly equal A-turn and B-turn counts.
 
 ## Tactical curriculum
 
