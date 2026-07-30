@@ -21,6 +21,7 @@
     "katacat:m32-final-guard": "vitest run src/games/alley-boss-cats/engine/katacatFinalGuard.test.ts",
     "katacat:m32-arena": "vitest run src/games/alley-boss-cats/engine/katacatM32Arena.test.ts",
     "katacat:m321-arena": "vitest run src/games/alley-boss-cats/engine/katacatM321Arena.test.ts",
+    "katacat:m322-arena": "vitest run src/games/alley-boss-cats/engine/katacatM322Arena.test.ts",
     "generate-icons": "node scripts/generate-icons.mjs",
     "postinstall": "npm run generate-icons"
   },
