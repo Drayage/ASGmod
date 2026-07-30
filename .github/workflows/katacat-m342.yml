@@ -1,0 +1,436 @@
+name: KataCat M3.4.2
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful KataCat M3.4.1 run ID; blank selects the latest successful run"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  KATACAT_M342_SIMULATIONS: "32"
+  KATACAT_M342_CURRENT_MS: "50"
+  KATACAT_M342_MAX_MOVES: "90"
+  KATACAT_M342_CAPTURE_DEPTH: "7"
+  KATACAT_M342_FINAL_VERIFY_MS: "75"
+  KATACAT_M342_FINAL_VERIFY_LIMIT: "5"
+  KATACAT_M342_RESCUE_VERIFY_MS: "50"
+  KATACAT_M342_RESCUE_VERIFY_LIMIT: "8"
+  KATACAT_M342_RESCUE_TOTAL_MS: "450"
+  KATACAT_M342_EXHAUSTIVE_VERIFY_MS: "25"
+
+jobs:
+  prepare_smoke:
+    name: Mine pre-collapse data, train parent-safe checkpoint, and run smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    outputs:
+      smoke_pass: ${{ steps.smoke_gate.outputs.passed }}
+
+    steps:
+      - name: Checkout M3.4.2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m342
+
+      - name: Record commit SHA
+        shell: bash
+        run: echo "KATACAT_M342_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+
+      - name: Install Python dependencies
+        run: pip install -r ml/requirements-katacat.txt
+
+      - name: Build and verify static contracts
+        run: |
+          npm run build
+          npm run katacat:m2-core
+          npm run katacat:m32-final-guard
+          npm run katacat:m33-relative
+          npm run katacat:m341-fallback
+          python -m py_compile ml/train_katacat_m342.py
+          node --check scripts/gate-katacat-m342.mjs
+
+      - name: Download successful M3.4.1 artifacts
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+          SOURCE_RUN_ID="$REQUESTED_RUN_ID"
+          if [ -z "$SOURCE_RUN_ID" ]; then
+            SOURCE_RUN_ID=$(gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/katacat-m341.yml/runs?status=success&per_page=20" \
+              --jq '.workflow_runs[0].id')
+          fi
+          if [ -z "$SOURCE_RUN_ID" ] || [ "$SOURCE_RUN_ID" = "null" ]; then
+            echo "No successful KataCat M3.4.1 workflow run was found" >&2
+            exit 1
+          fi
+          mkdir -p prepared-artifact development-artifact
+          gh run download "$SOURCE_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m341-prepared-${SOURCE_RUN_ID}" \
+            --dir prepared-artifact
+          gh run download "$SOURCE_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m341-development-${SOURCE_RUN_ID}" \
+            --dir development-artifact
+          test -f prepared-artifact/katacat-m341-model/katacat-m341.pt
+          test -f prepared-artifact/katacat-m341-hard-negative/katacat-m341-hard-negative-samples.jsonl
+          test -f prepared-artifact/katacat-m341-hard-negative/katacat-m341-regression-fixtures.json
+          test -f prepared-artifact/source-artifact/katacat-m0-output/katacat-samples.jsonl
+          test -f prepared-artifact/source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
+          test -f prepared-artifact/source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
+          test -f prepared-artifact/source-artifact/katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
+          test -f development-artifact/katacat-m341-development/loss-replays.jsonl
+          test -f development-artifact/katacat-m341-development/arena-summary.json
+          cp development-artifact/katacat-m341-development/arena-summary.json katacat-m342-source-development.json
+          echo "KATACAT_M342_SOURCE_RUN_ID=$SOURCE_RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Mine 2/4/6-ply pre-collapse ancestors
+        env:
+          RUN_KATACAT_M342_PRECOLLAPSE: "1"
+          KATACAT_M342_SOURCE_CHECKPOINT: prepared-artifact/katacat-m341-model/katacat-m341.pt
+          KATACAT_M342_REPLAY_PATH: development-artifact/katacat-m341-development/loss-replays.jsonl
+          KATACAT_M342_OUTPUT_DIR: katacat-m342-precollapse
+          KATACAT_M342_DISTANCES: "2,4,6"
+          KATACAT_M342_MAX_SAMPLES_PER_GAME: "3"
+          KATACAT_M342_SIMULATIONS: "32"
+        run: npm run katacat:m342-precollapse
+
+      - name: Re-run actual-loss fallback regressions
+        env:
+          KATACAT_M341_REGRESSION_FIXTURE: prepared-artifact/katacat-m341-hard-negative/katacat-m341-regression-fixtures.json
+          KATACAT_M341_REGRESSION_OUTPUT: katacat-m342-regression/summary.json
+        run: |
+          mkdir -p katacat-m342-regression
+          npm run katacat:m341-fallback
+
+      - name: Fine-tune from M3.4.1 with epoch zero retained
+        run: >-
+          python ml/train_katacat_m342.py
+          --bootstrap-data=prepared-artifact/source-artifact/katacat-m0-output/katacat-samples.jsonl
+          --selfplay-data=prepared-artifact/source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
+          --mixed-data=prepared-artifact/source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
+          --curriculum-data=prepared-artifact/source-artifact/katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
+          --hard-negative-data=prepared-artifact/katacat-m341-hard-negative/katacat-m341-hard-negative-samples.jsonl
+          --precollapse-data=katacat-m342-precollapse/katacat-m342-precollapse-samples.jsonl
+          --init-checkpoint=prepared-artifact/katacat-m341-model/katacat-m341.pt
+          --out=katacat-m342-model
+          --epochs=6
+          --learning-rate=0.00005
+          --pairwise-weight=0.75
+          --pairwise-margin=0.5
+          --commit-sha=${KATACAT_M342_COMMIT_SHA}
+          --device=cpu
+          --augment=on
+
+      - name: Validate checkpoint selection and hashes
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          summary = json.loads(Path('katacat-m342-model/summary.json').read_text())
+          assert summary['best_validation_loss'] <= summary['parent_validation_loss'] + 1e-9
+          assert summary['selected']['frozenTacticalValidation']['regressionFailuresVsParent'] == 0
+          assert summary['selected']['frozenPrecollapseValidation']['valueSignRegressionsVsParent'] == 0
+          parent = Path('prepared-artifact/katacat-m341-model/katacat-m341.pt')
+          candidate = Path('katacat-m342-model/katacat-m342.pt')
+          digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+          assert digest(parent) == summary['parent_checkpoint_sha256']
+          assert digest(candidate) == summary['selected_checkpoint_sha256']
+          if summary['selected_epoch'] == 0:
+              assert summary['improved_over_parent'] is False
+              assert digest(parent) == digest(candidate)
+          PY
+
+      - name: Record manifest and checkpoint SHA-256
+        shell: bash
+        run: |
+          PARENT_SHA=$(sha256sum prepared-artifact/katacat-m341-model/katacat-m341.pt | awk '{print $1}')
+          CANDIDATE_SHA=$(sha256sum katacat-m342-model/katacat-m342.pt | awk '{print $1}')
+          echo "KATACAT_M342_PARENT_CHECKPOINT_SHA256=$PARENT_SHA" >> "$GITHUB_ENV"
+          echo "KATACAT_M342_CANDIDATE_CHECKPOINT_SHA256=$CANDIDATE_SHA" >> "$GITHUB_ENV"
+          python - <<PY
+          import json
+          from pathlib import Path
+          Path('katacat-m342-manifest.json').write_text(json.dumps({
+              'schemaVersion': 1,
+              'stage': 'M3.4.2_MANIFEST',
+              'sourceM341RunId': '${KATACAT_M342_SOURCE_RUN_ID}',
+              'commitSha': '${KATACAT_M342_COMMIT_SHA}',
+              'parentCheckpointSha256': '$PARENT_SHA',
+              'candidateCheckpointSha256': '$CANDIDATE_SHA',
+          }, indent=2) + '\n')
+          PY
+
+      - name: Run 32-game smoke per opponent
+        env:
+          RUN_KATACAT_M342_ARENA: "1"
+          KATACAT_M342_CANDIDATE_CHECKPOINT: katacat-m342-model/katacat-m342.pt
+          KATACAT_M342_PARENT_CHECKPOINT: prepared-artifact/katacat-m341-model/katacat-m341.pt
+          KATACAT_M342_PHASE: smoke
+          KATACAT_M342_GAMES_PER_COMPARISON: "32"
+          KATACAT_M342_ARENA_OUTPUT_DIR: katacat-m342-smoke
+        run: npm run katacat:m342-arena
+
+      - name: Evaluate smoke gate
+        id: smoke_gate
+        run: >-
+          npm run katacat:m342-gate --
+          --phase=smoke
+          --training=katacat-m342-model/summary.json
+          --mining=katacat-m342-precollapse/summary.json
+          --regression=katacat-m342-regression/summary.json
+          --arena=katacat-m342-smoke/arena-summary.json
+          --source-development=katacat-m342-source-development.json
+          --output=katacat-m342-gates/smoke.json
+
+      - name: Add prepare and smoke reports
+        if: always()
+        shell: bash
+        run: |
+          echo "## KataCat M3.4.2 Prepare + Smoke" >> "$GITHUB_STEP_SUMMARY"
+          echo "- commit: ${KATACAT_M342_COMMIT_SHA:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- source M3.4.1 run: ${KATACAT_M342_SOURCE_RUN_ID:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- smoke pass: ${{ steps.smoke_gate.outputs.passed }}" >> "$GITHUB_STEP_SUMMARY"
+          for report in \
+            katacat-m342-precollapse/summary.json \
+            katacat-m342-regression/summary.json \
+            katacat-m342-model/summary.json \
+            katacat-m342-manifest.json \
+            katacat-m342-smoke/arena-summary.json \
+            katacat-m342-gates/smoke.json; do
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo "### $report" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            test -f "$report" && cat "$report" >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Upload prepared M3.4.2 artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m342-prepared-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            prepared-artifact/katacat-m341-model/katacat-m341.pt
+            katacat-m342-source-development.json
+            katacat-m342-precollapse/
+            katacat-m342-regression/
+            katacat-m342-model/
+            katacat-m342-manifest.json
+            katacat-m342-smoke/
+            katacat-m342-gates/smoke.json
+          if-no-files-found: warn
+
+  development:
+    name: Run 128-game M3.4.2 development evaluation
+    needs: prepare_smoke
+    if: needs.prepare_smoke.outputs.smoke_pass == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    outputs:
+      development_pass: ${{ steps.development_gate.outputs.passed }}
+
+    steps:
+      - name: Checkout M3.4.2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m342
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+
+      - name: Install Python dependencies
+        run: pip install -r ml/requirements-katacat.txt
+
+      - name: Download prepared artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: katacat-m342-prepared-${{ github.run_id }}
+          path: .
+
+      - name: Restore manifest environment
+        shell: bash
+        run: |
+          echo "KATACAT_M342_COMMIT_SHA=$(jq -r .commitSha katacat-m342-manifest.json)" >> "$GITHUB_ENV"
+          echo "KATACAT_M342_PARENT_CHECKPOINT_SHA256=$(jq -r .parentCheckpointSha256 katacat-m342-manifest.json)" >> "$GITHUB_ENV"
+          echo "KATACAT_M342_CANDIDATE_CHECKPOINT_SHA256=$(jq -r .candidateCheckpointSha256 katacat-m342-manifest.json)" >> "$GITHUB_ENV"
+
+      - name: Run 128-game development phase per opponent
+        env:
+          RUN_KATACAT_M342_ARENA: "1"
+          KATACAT_M342_CANDIDATE_CHECKPOINT: katacat-m342-model/katacat-m342.pt
+          KATACAT_M342_PARENT_CHECKPOINT: prepared-artifact/katacat-m341-model/katacat-m341.pt
+          KATACAT_M342_PHASE: development
+          KATACAT_M342_GAMES_PER_COMPARISON: "128"
+          KATACAT_M342_ARENA_OUTPUT_DIR: katacat-m342-development
+        run: npm run katacat:m342-arena
+
+      - name: Evaluate development gate
+        id: development_gate
+        run: >-
+          npm run katacat:m342-gate --
+          --phase=development
+          --training=katacat-m342-model/summary.json
+          --mining=katacat-m342-precollapse/summary.json
+          --regression=katacat-m342-regression/summary.json
+          --arena=katacat-m342-development/arena-summary.json
+          --source-development=katacat-m342-source-development.json
+          --output=katacat-m342-gates/development.json
+
+      - name: Add development report
+        if: always()
+        shell: bash
+        run: |
+          echo "## KataCat M3.4.2 Development" >> "$GITHUB_STEP_SUMMARY"
+          echo "- development pass: ${{ steps.development_gate.outputs.passed }}" >> "$GITHUB_STEP_SUMMARY"
+          for report in katacat-m342-development/arena-summary.json katacat-m342-gates/development.json; do
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo "### $report" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            test -f "$report" && cat "$report" >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Upload development artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m342-development-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            katacat-m342-development/
+            katacat-m342-gates/development.json
+          if-no-files-found: warn
+
+  promotion:
+    name: Run conditional 400-game M3.4.2 promotion evaluation
+    needs: [prepare_smoke, development]
+    if: needs.development.outputs.development_pass == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout M3.4.2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m342
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+
+      - name: Install Python dependencies
+        run: pip install -r ml/requirements-katacat.txt
+
+      - name: Download prepared artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: katacat-m342-prepared-${{ github.run_id }}
+          path: .
+
+      - name: Restore manifest environment
+        shell: bash
+        run: |
+          echo "KATACAT_M342_COMMIT_SHA=$(jq -r .commitSha katacat-m342-manifest.json)" >> "$GITHUB_ENV"
+          echo "KATACAT_M342_PARENT_CHECKPOINT_SHA256=$(jq -r .parentCheckpointSha256 katacat-m342-manifest.json)" >> "$GITHUB_ENV"
+          echo "KATACAT_M342_CANDIDATE_CHECKPOINT_SHA256=$(jq -r .candidateCheckpointSha256 katacat-m342-manifest.json)" >> "$GITHUB_ENV"
+
+      - name: Run 400-game promotion phase per opponent
+        env:
+          RUN_KATACAT_M342_ARENA: "1"
+          KATACAT_M342_CANDIDATE_CHECKPOINT: katacat-m342-model/katacat-m342.pt
+          KATACAT_M342_PARENT_CHECKPOINT: prepared-artifact/katacat-m341-model/katacat-m341.pt
+          KATACAT_M342_PHASE: promotion
+          KATACAT_M342_GAMES_PER_COMPARISON: "400"
+          KATACAT_M342_ARENA_OUTPUT_DIR: katacat-m342-promotion
+        run: npm run katacat:m342-arena
+
+      - name: Evaluate formal promotion gate
+        id: promotion_gate
+        run: >-
+          npm run katacat:m342-gate --
+          --phase=promotion
+          --training=katacat-m342-model/summary.json
+          --mining=katacat-m342-precollapse/summary.json
+          --regression=katacat-m342-regression/summary.json
+          --arena=katacat-m342-promotion/arena-summary.json
+          --source-development=katacat-m342-source-development.json
+          --output=katacat-m342-gates/promotion.json
+
+      - name: Add promotion report
+        if: always()
+        shell: bash
+        run: |
+          echo "## KataCat M3.4.2 Promotion" >> "$GITHUB_STEP_SUMMARY"
+          echo "- promotion pass: ${{ steps.promotion_gate.outputs.passed }}" >> "$GITHUB_STEP_SUMMARY"
+          for report in katacat-m342-promotion/arena-summary.json katacat-m342-gates/promotion.json; do
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo "### $report" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            test -f "$report" && cat "$report" >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Upload promotion artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m342-promotion-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            katacat-m342-promotion/
+            katacat-m342-gates/promotion.json
+          if-no-files-found: warn
