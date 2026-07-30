@@ -8,6 +8,9 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "katacat:generate": "node scripts/run-katacat-generate.mjs",
+    "katacat:validate": "node scripts/run-katacat-validate.mjs",
+    "katacat:smoke": "node scripts/run-katacat-smoke.mjs",
     "generate-icons": "node scripts/generate-icons.mjs",
     "postinstall": "npm run generate-icons"
   },
