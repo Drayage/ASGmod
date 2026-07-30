@@ -40,7 +40,6 @@ def risk_tuple(sample: dict[str, Any], game: dict[str, Any], late_window: int) -
     capture = game.get("finalWinReason") == "CAPTURE"
     late = distance <= late_window
     early = int(sample["ply"]) <= 30
-    # Prefer late capture states, then early B survival states, then later positions.
     score = int(capture) * 4 + int(late) * 3 + int(early) * 2
     return (-score, distance, int(sample["ply"]), str(sample["sampleId"]))
 
@@ -51,6 +50,11 @@ def clone_curriculum(sample: dict[str, Any], game: dict[str, Any], late_window: 
     cloned = dict(sample)
     cloned["sampleId"] = f"katacat-m33-cur:{sample['sampleId']}"
     cloned["gameId"] = f"katacat-m33-cur:{sample['gameId']}"
+    # The source position already belongs to its source split. Curriculum clones
+    # are training-only so an upweighted copy of a mixed-train state can never
+    # leak into validation under a new game id.
+    cloned["sourceSplit"] = sample.get("split")
+    cloned["split"] = "train"
     cloned["policySource"] = "CURRENT_TACTICAL_TEACHER"
     cloned["agentSource"] = "CURRENT"
     cloned["curriculumSeat"] = sample["currentPlayer"]
@@ -74,6 +78,7 @@ def main() -> None:
         sample
         for sample in samples
         if sample.get("policySource") == "CURRENT_TEACHER"
+        and sample.get("split") == "train"
         and str(sample.get("gameId")) in games_by_id
     ]
     by_seat = {
@@ -88,7 +93,7 @@ def main() -> None:
     per_seat = min(args.max_per_seat, len(by_seat["A"]), len(by_seat["B"]))
     if per_seat <= 0:
         raise ValueError(
-            f"Need CURRENT teacher samples for both seats; A={len(by_seat['A'])}, B={len(by_seat['B'])}"
+            f"Need train-split CURRENT teacher samples for both seats; A={len(by_seat['A'])}, B={len(by_seat['B'])}"
         )
 
     selected: list[dict[str, Any]] = []
@@ -101,12 +106,6 @@ def main() -> None:
             )
     selected.sort(key=lambda sample: str(sample["sampleId"]))
 
-    train_games = {
-        sample["gameId"] for sample in selected if sample.get("split") == "train"
-    }
-    validation_games = {
-        sample["gameId"] for sample in selected if sample.get("split") == "validation"
-    }
     seat_counts = {
         seat: sum(sample["currentPlayer"] == seat for sample in selected)
         for seat in ("A", "B")
@@ -130,10 +129,10 @@ def main() -> None:
             sample["policySource"] == "CURRENT_TACTICAL_TEACHER"
             for sample in selected
         ),
+        "trainingOnly": all(sample["split"] == "train" for sample in selected),
         "exactSeatBalance": seat_counts["A"] == seat_counts["B"] == per_seat,
         "bSeatPresent": seat_counts["B"] > 0,
         "bLateOrEarlyTacticsPresent": late_capture_counts["B"] > 0 or early_counts["B"] > 0,
-        "gameSplitDisjoint": train_games.isdisjoint(validation_games),
         "unsafeCandidateTargetsExcluded": all(
             sample.get("policySource") != "PUCT_VISITS" for sample in selected
         ),
@@ -155,7 +154,7 @@ def main() -> None:
         "stage": "M3.3_CURRICULUM",
         "sourceSamples": str(args.samples),
         "sourceGames": str(args.games),
-        "availableTeacherSamples": {
+        "availableTrainTeacherSamples": {
             "A": len(by_seat["A"]),
             "B": len(by_seat["B"]),
         },
@@ -163,13 +162,14 @@ def main() -> None:
         "selectedPerSeat": seat_counts,
         "lateCapturePerSeat": late_capture_counts,
         "earlyPerSeat": early_counts,
-        "trainGames": len(train_games),
-        "validationGames": len(validation_games),
+        "trainGames": len({sample["gameId"] for sample in selected}),
+        "validationGames": 0,
         "acceptance": acceptance,
         "note": (
-            "M3.3 duplicates only verified CURRENT teacher decisions. B-seat late-capture and "
+            "M3.3 upweights only train-split CURRENT teacher decisions. B-seat late-capture and "
             "early-survival states are prioritised, while an equal A-seat control set prevents "
-            "seat imbalance. Candidate fallback actions are never used as curriculum labels."
+            "seat imbalance. Candidate fallback actions are never used as curriculum labels, "
+            "and curriculum clones never enter validation."
         ),
     }
     (output_dir / "summary.json").write_text(
