@@ -71,7 +71,7 @@ jobs:
           python -m py_compile ml/train_katacat_m342.py
           node --check scripts/gate-katacat-m342.mjs
 
-      - name: Download successful M3.4.1 artifacts
+      - name: Download successful M3.4.1 artifacts and frozen M3.3 sources
         id: source
         shell: bash
         env:
@@ -89,7 +89,8 @@ jobs:
             echo "No successful KataCat M3.4.1 workflow run was found" >&2
             exit 1
           fi
-          mkdir -p prepared-artifact development-artifact
+
+          mkdir -p prepared-artifact development-artifact m33-source-artifact
           gh run download "$SOURCE_RUN_ID" \
             --repo "$GITHUB_REPOSITORY" \
             --name "katacat-m341-prepared-${SOURCE_RUN_ID}" \
@@ -98,17 +99,31 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --name "katacat-m341-development-${SOURCE_RUN_ID}" \
             --dir development-artifact
+
+          test -f prepared-artifact/katacat-m341-manifest.json
+          M33_RUN_ID=$(jq -r '.sourceM33RunId // empty' prepared-artifact/katacat-m341-manifest.json)
+          if [ -z "$M33_RUN_ID" ]; then
+            echo "M3.4.1 manifest does not contain sourceM33RunId" >&2
+            exit 1
+          fi
+          gh run download "$M33_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m33-${M33_RUN_ID}" \
+            --dir m33-source-artifact
+
           test -f prepared-artifact/katacat-m341-model/katacat-m341.pt
           test -f prepared-artifact/katacat-m341-hard-negative/katacat-m341-hard-negative-samples.jsonl
           test -f prepared-artifact/katacat-m341-hard-negative/katacat-m341-regression-fixtures.json
-          test -f prepared-artifact/source-artifact/katacat-m0-output/katacat-samples.jsonl
-          test -f prepared-artifact/source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
-          test -f prepared-artifact/source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
-          test -f prepared-artifact/source-artifact/katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
+          test -f m33-source-artifact/katacat-m0-output/katacat-samples.jsonl
+          test -f m33-source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
+          test -f m33-source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
+          test -f m33-source-artifact/katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
           test -f development-artifact/katacat-m341-development/loss-replays.jsonl
           test -f development-artifact/katacat-m341-development/arena-summary.json
           cp development-artifact/katacat-m341-development/arena-summary.json katacat-m342-source-development.json
           echo "KATACAT_M342_SOURCE_RUN_ID=$SOURCE_RUN_ID" >> "$GITHUB_ENV"
+          echo "KATACAT_M342_SOURCE_M33_RUN_ID=$M33_RUN_ID" >> "$GITHUB_ENV"
+          echo "Using M3.4.1 run $SOURCE_RUN_ID and M3.3 run $M33_RUN_ID"
 
       - name: Mine 2/4/6-ply pre-collapse ancestors
         env:
@@ -132,10 +147,10 @@ jobs:
       - name: Fine-tune from M3.4.1 with epoch zero retained
         run: >-
           python ml/train_katacat_m342.py
-          --bootstrap-data=prepared-artifact/source-artifact/katacat-m0-output/katacat-samples.jsonl
-          --selfplay-data=prepared-artifact/source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
-          --mixed-data=prepared-artifact/source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
-          --curriculum-data=prepared-artifact/source-artifact/katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
+          --bootstrap-data=m33-source-artifact/katacat-m0-output/katacat-samples.jsonl
+          --selfplay-data=m33-source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
+          --mixed-data=m33-source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
+          --curriculum-data=m33-source-artifact/katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
           --hard-negative-data=prepared-artifact/katacat-m341-hard-negative/katacat-m341-hard-negative-samples.jsonl
           --precollapse-data=katacat-m342-precollapse/katacat-m342-precollapse-samples.jsonl
           --init-checkpoint=prepared-artifact/katacat-m341-model/katacat-m341.pt
@@ -182,6 +197,7 @@ jobs:
               'schemaVersion': 1,
               'stage': 'M3.4.2_MANIFEST',
               'sourceM341RunId': '${KATACAT_M342_SOURCE_RUN_ID}',
+              'sourceM33RunId': '${KATACAT_M342_SOURCE_M33_RUN_ID}',
               'commitSha': '${KATACAT_M342_COMMIT_SHA}',
               'parentCheckpointSha256': '$PARENT_SHA',
               'candidateCheckpointSha256': '$CANDIDATE_SHA',
@@ -217,6 +233,7 @@ jobs:
           echo "## KataCat M3.4.2 Prepare + Smoke" >> "$GITHUB_STEP_SUMMARY"
           echo "- commit: ${KATACAT_M342_COMMIT_SHA:-unknown}" >> "$GITHUB_STEP_SUMMARY"
           echo "- source M3.4.1 run: ${KATACAT_M342_SOURCE_RUN_ID:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- source M3.3 run: ${KATACAT_M342_SOURCE_M33_RUN_ID:-unknown}" >> "$GITHUB_STEP_SUMMARY"
           echo "- smoke pass: ${{ steps.smoke_gate.outputs.passed }}" >> "$GITHUB_STEP_SUMMARY"
           for report in \
             katacat-m342-precollapse/summary.json \
