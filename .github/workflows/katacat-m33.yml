@@ -67,12 +67,21 @@ jobs:
       - name: Generate expanded mixed CURRENT curriculum source
         run: npm run katacat:m31-mixed -- --latest=katacat-m3-model/katacat-m3.pt --champion=katacat-m1-output/katacat-m1.pt --games=20 --simulations=48 --current-ms=50 --max-moves=90 --capture-depth=7 --capture-attack-ms=25 --capture-defense-ms=50 --capture-defense-limit=12 --output=katacat-m31-output
 
+      - name: Create M3.3 game-level mixed split
+        run: >-
+          python ml/resplit_katacat_m33_mixed.py
+          --samples=katacat-m31-output/katacat-m31-samples.jsonl
+          --games=katacat-m31-output/katacat-m31-games.jsonl
+          --out=katacat-m33-mixed
+          --validation-modulo=6
+          --validation-offset=0
+
       - name: Train frozen absolute M3.1 champion
         run: >-
           python ml/train_katacat_m3.py
           --bootstrap-data=katacat-m0-output/katacat-samples.jsonl
           --selfplay-data=katacat-m3-output/katacat-selfplay-samples.jsonl
-          --mixed-data=katacat-m31-output/katacat-m31-samples.jsonl
+          --mixed-data=katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
           --init-checkpoint=katacat-m3-model/katacat-m3.pt
           --out=katacat-m31-model
           --epochs=4
@@ -82,8 +91,8 @@ jobs:
       - name: Build balanced B-seat tactical curriculum
         run: >-
           python ml/build_katacat_m33_curriculum.py
-          --samples=katacat-m31-output/katacat-m31-samples.jsonl
-          --games=katacat-m31-output/katacat-m31-games.jsonl
+          --samples=katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
+          --games=katacat-m33-mixed/katacat-m33-mixed-games.jsonl
           --out=katacat-m33-curriculum
           --max-per-seat=96
           --late-window=8
@@ -93,7 +102,7 @@ jobs:
           python ml/train_katacat_m33.py
           --bootstrap-data=katacat-m0-output/katacat-samples.jsonl
           --selfplay-data=katacat-m3-output/katacat-selfplay-samples.jsonl
-          --mixed-data=katacat-m31-output/katacat-m31-samples.jsonl
+          --mixed-data=katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
           --curriculum-data=katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
           --out=katacat-m33-model
           --epochs=8
@@ -131,11 +140,13 @@ jobs:
           echo "## KataCat M3.3" >> "$GITHUB_STEP_SUMMARY"
           echo >> "$GITHUB_STEP_SUMMARY"
           echo "- Encoding: player-relative v1" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Curriculum: balanced CURRENT teacher, B-seat tactical priority" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Seat balance: deterministic downsampling of real recorded positions" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Curriculum: train-only CURRENT teacher, B-seat tactical priority" >> "$GITHUB_STEP_SUMMARY"
           echo "- Candidate: fresh 96×8 network, no incompatible absolute checkpoint init" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Previous champion: frozen M3.1 absolute model trained on the same expanded mixed source" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Previous champion: frozen M3.1 absolute model trained on the same resplit mixed source" >> "$GITHUB_STEP_SUMMARY"
           echo "- Arena: 16 mirrored games/opponent with identical tactical rescue" >> "$GITHUB_STEP_SUMMARY"
           for report in \
+            katacat-m33-mixed/summary.json \
             katacat-m33-curriculum/summary.json \
             katacat-m31-model/summary.json \
             katacat-m33-model/summary.json \
@@ -158,6 +169,7 @@ jobs:
             katacat-m3-output/
             katacat-m3-model/
             katacat-m31-output/
+            katacat-m33-mixed/
             katacat-m31-model/
             katacat-m33-curriculum/
             katacat-m33-model/
