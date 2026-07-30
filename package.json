@@ -26,6 +26,8 @@
     "katacat:m33-curriculum": "python ml/build_katacat_m33_curriculum.py",
     "katacat:m33-arena": "vitest run src/games/alley-boss-cats/engine/katacatM33Arena.test.ts",
     "katacat:m331-summarize": "node scripts/summarize-katacat-m331.mjs",
+    "katacat:m34-hard-negative": "vitest run src/games/alley-boss-cats/engine/katacatM34HardNegative.test.ts",
+    "katacat:m34-arena": "vitest run src/games/alley-boss-cats/engine/katacatM34Arena.test.ts",
     "generate-icons": "node scripts/generate-icons.mjs",
     "postinstall": "npm run generate-icons"
   },
