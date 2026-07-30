@@ -39,6 +39,7 @@ katacat-m341-promotion/
 katacat-m341-gates/
 katacat-m341-manifest.json
 katacat-m342-precollapse/
+katacat-m342-regression/
 katacat-m342-model/
 katacat-m342-smoke/
 katacat-m342-development/
