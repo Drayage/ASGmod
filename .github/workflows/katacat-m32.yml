@@ -1,0 +1,14 @@
+name: KataCat M3.2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  katacat-m32:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "KataCat M3.2 workflow scaffold"
