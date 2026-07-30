@@ -33,6 +33,16 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm ci
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+
+      - name: Install Python inference dependencies
+        run: pip install -r ml/requirements-katacat.txt
+
       - name: Type-check and build
         run: npm run build
 
@@ -44,16 +54,6 @@ jobs:
 
       - name: Verify player-relative encoding
         run: npm run katacat:m33-relative
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: ml/requirements-katacat.txt
-
-      - name: Install Python inference dependencies
-        run: pip install -r ml/requirements-katacat.txt
 
       - name: Download frozen M3.3 artifact
         id: source
