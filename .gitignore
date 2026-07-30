@@ -27,6 +27,9 @@ katacat-m33-model/
 katacat-m33-output/
 katacat-m331-raw/
 katacat-m331-output/
+katacat-m34-hard-negative/
+katacat-m34-model/
+katacat-m34-output/
 
 # Scratch scripts used for one-off measurement runs.
 *.tmp.mts
