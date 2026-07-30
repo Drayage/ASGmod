@@ -8,7 +8,87 @@ permissions:
 
 jobs:
   katacat-m32:
+    name: Rebuild candidate and run fair final-choice arena
     runs-on: ubuntu-latest
+    timeout-minutes: 480
+
     steps:
-      - uses: actions/checkout@v4
-      - run: echo "KataCat M3.2 workflow scaffold"
+      - name: Checkout M3.2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m32
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Verify PUCT tactical floor
+        run: npm run katacat:m2-core
+
+      - name: Verify final action guard
+        run: npm run katacat:m32-final-guard
+
+      - name: Generate M0 bootstrap data
+        run: npm run katacat:generate -- --games=20 --teacher-ms=100 --max-per-bucket=24 --territory-pass-ply=56 --output=katacat-m0-output
+
+      - name: Validate M0 replay and coverage
+        run: npm run katacat:validate -- --output=katacat-m0-output --strict=true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+
+      - name: Install Python dependencies
+        run: pip install -r ml/requirements-katacat.txt
+
+      - name: Train previous champion bootstrap
+        run: python ml/train_katacat_m1.py --data=katacat-m0-output/katacat-samples.jsonl --out=katacat-m1-output --epochs=8 --channels=96 --blocks=8 --device=cpu --augment=on
+
+      - name: Generate original M3 self-play
+        run: npm run katacat:m3-selfplay -- --checkpoint=katacat-m1-output/katacat-m1.pt --games=4 --simulations=64 --max-moves=90 --temperature-moves=12 --noise-alpha=0.3 --noise-fraction=0.25 --output=katacat-m3-output
+
+      - name: Train initial M3 candidate
+        run: python ml/train_katacat_m3.py --bootstrap-data=katacat-m0-output/katacat-samples.jsonl --selfplay-data=katacat-m3-output/katacat-selfplay-samples.jsonl --init-checkpoint=katacat-m1-output/katacat-m1.pt --out=katacat-m3-model --epochs=4 --device=cpu --augment=on
+
+      - name: Generate M3.1 mixed tactical data
+        run: npm run katacat:m31-mixed -- --latest=katacat-m3-model/katacat-m3.pt --champion=katacat-m1-output/katacat-m1.pt --games=5 --simulations=48 --current-ms=50 --max-moves=90 --capture-depth=7 --capture-attack-ms=25 --capture-defense-ms=50 --capture-defense-limit=12 --output=katacat-m31-output
+
+      - name: Train M3.1 mixed candidate
+        run: python ml/train_katacat_m3.py --bootstrap-data=katacat-m0-output/katacat-samples.jsonl --selfplay-data=katacat-m3-output/katacat-selfplay-samples.jsonl --mixed-data=katacat-m31-output/katacat-m31-samples.jsonl --init-checkpoint=katacat-m3-model/katacat-m3.pt --out=katacat-m31-model --epochs=4 --device=cpu --augment=on
+
+      - name: Run M3.2 fair tactical-shell arena
+        env:
+          RUN_KATACAT_M32_ARENA: "1"
+          KATACAT_M32_CANDIDATE_CHECKPOINT: katacat-m31-model/katacat-m3.pt
+          KATACAT_M32_CHAMPION_CHECKPOINT: katacat-m1-output/katacat-m1.pt
+          KATACAT_M32_GAMES_PER_OPPONENT: "8"
+          KATACAT_M32_SIMULATIONS: "32"
+          KATACAT_M32_CURRENT_MS: "50"
+          KATACAT_M32_MAX_MOVES: "90"
+          KATACAT_M32_CAPTURE_DEPTH: "7"
+          KATACAT_M32_CAPTURE_ATTACK_MS: "25"
+          KATACAT_M32_CAPTURE_DEFENSE_MS: "50"
+          KATACAT_M32_CAPTURE_DEFENSE_LIMIT: "12"
+          KATACAT_M32_FINAL_VERIFY_MS: "75"
+          KATACAT_M32_FINAL_VERIFY_LIMIT: "5"
+          KATACAT_M32_OUTPUT_DIR: katacat-m32-output
+        run: npm run katacat:m32-arena
+
+      - name: Add arena report to summary
+        if: always()
+        run: |
+          echo "## KataCat M3.2" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          test -f katacat-m32-output/arena-summary.json && cat katacat-m32-output/arena-summary.json >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
