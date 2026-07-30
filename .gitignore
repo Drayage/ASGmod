@@ -30,6 +30,16 @@ katacat-m331-output/
 katacat-m34-hard-negative/
 katacat-m34-model/
 katacat-m34-output/
+katacat-m341-hard-negative/
+katacat-m341-regression/
+katacat-m341-model/
+katacat-m341-smoke/
+katacat-m341-development/
+katacat-m341-promotion/
+katacat-m341-gates/
+katacat-m341-manifest.json
+source-artifact/
+prepared-artifact/
 
 # Scratch scripts used for one-off measurement runs.
 *.tmp.mts
