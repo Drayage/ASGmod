@@ -1,0 +1,180 @@
+name: KataCat M3.4
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful KataCat M3.3 run ID to reuse; blank selects the latest successful run"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  katacat-m34:
+    name: Mine tactical hard negatives, fine-tune M3.3, and run controlled arena
+    runs-on: ubuntu-latest
+    timeout-minutes: 480
+
+    steps:
+      - name: Checkout M3.4 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m34
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+
+      - name: Install Python dependencies
+        run: pip install -r ml/requirements-katacat.txt
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Verify existing tactical and relative invariants
+        run: |
+          npm run katacat:m2-core
+          npm run katacat:m32-final-guard
+          npm run katacat:m33-relative
+          python -m py_compile ml/train_katacat_m34.py
+
+      - name: Download frozen M3.3 source artifact
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+          SOURCE_RUN_ID="$REQUESTED_RUN_ID"
+          if [ -z "$SOURCE_RUN_ID" ]; then
+            SOURCE_RUN_ID=$(gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/katacat-m33.yml/runs?status=success&per_page=20" \
+              --jq '.workflow_runs[0].id')
+          fi
+          if [ -z "$SOURCE_RUN_ID" ] || [ "$SOURCE_RUN_ID" = "null" ]; then
+            echo "No successful KataCat M3.3 workflow run was found" >&2
+            exit 1
+          fi
+          mkdir -p source-artifact
+          gh run download "$SOURCE_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m33-${SOURCE_RUN_ID}" \
+            --dir source-artifact
+          test -f source-artifact/katacat-m33-model/katacat-m33.pt
+          test -f source-artifact/katacat-m0-output/katacat-samples.jsonl
+          test -f source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
+          test -f source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
+          test -f source-artifact/katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
+          echo "run_id=$SOURCE_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "KATACAT_M34_SOURCE_RUN_ID=$SOURCE_RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Collect verified tactical hard negatives
+        env:
+          RUN_KATACAT_M34_HARD_NEGATIVE: "1"
+          KATACAT_M34_SOURCE_CHECKPOINT: source-artifact/katacat-m33-model/katacat-m33.pt
+          KATACAT_M34_GAMES: "16"
+          KATACAT_M34_SIMULATIONS: "32"
+          KATACAT_M34_CURRENT_MS: "75"
+          KATACAT_M34_MAX_MOVES: "90"
+          KATACAT_M34_CAPTURE_DEPTH: "7"
+          KATACAT_M34_CAPTURE_ATTACK_MS: "25"
+          KATACAT_M34_CAPTURE_DEFENSE_MS: "50"
+          KATACAT_M34_CAPTURE_DEFENSE_LIMIT: "12"
+          KATACAT_M34_NEGATIVE_SCAN_LIMIT: "8"
+          KATACAT_M34_NEGATIVE_SCAN_MS: "50"
+          KATACAT_M34_TEACHER_VERIFY_MS: "100"
+          KATACAT_M34_FINAL_VERIFY_MS: "75"
+          KATACAT_M34_FINAL_VERIFY_LIMIT: "5"
+          KATACAT_M34_RESCUE_VERIFY_MS: "50"
+          KATACAT_M34_RESCUE_VERIFY_LIMIT: "8"
+          KATACAT_M34_RESCUE_TOTAL_MS: "450"
+          KATACAT_M34_OUTPUT_DIR: katacat-m34-hard-negative
+        run: npm run katacat:m34-hard-negative
+
+      - name: Fine-tune M3.3 with masked PUCT and pairwise hard-negative loss
+        run: >-
+          python ml/train_katacat_m34.py
+          --bootstrap-data=source-artifact/katacat-m0-output/katacat-samples.jsonl
+          --selfplay-data=source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
+          --mixed-data=source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
+          --curriculum-data=source-artifact/katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
+          --hard-negative-data=katacat-m34-hard-negative/katacat-m34-hard-negative-samples.jsonl
+          --init-checkpoint=source-artifact/katacat-m33-model/katacat-m33.pt
+          --out=katacat-m34-model
+          --epochs=4
+          --learning-rate=0.0001
+          --pairwise-weight=0.5
+          --pairwise-margin=0.5
+          --device=cpu
+          --augment=on
+
+      - name: Run controlled M3.4 arena
+        env:
+          RUN_KATACAT_M34_ARENA: "1"
+          KATACAT_M34_CANDIDATE_CHECKPOINT: katacat-m34-model/katacat-m34.pt
+          KATACAT_M34_PREVIOUS_CHECKPOINT: source-artifact/katacat-m33-model/katacat-m33.pt
+          KATACAT_M34_GAMES_PER_OPPONENT: "32"
+          KATACAT_M34_SIMULATIONS: "32"
+          KATACAT_M34_CURRENT_MS: "50"
+          KATACAT_M34_MAX_MOVES: "90"
+          KATACAT_M34_CAPTURE_DEPTH: "7"
+          KATACAT_M34_CAPTURE_ATTACK_MS: "25"
+          KATACAT_M34_CAPTURE_DEFENSE_MS: "50"
+          KATACAT_M34_CAPTURE_DEFENSE_LIMIT: "12"
+          KATACAT_M34_FINAL_VERIFY_MS: "75"
+          KATACAT_M34_FINAL_VERIFY_LIMIT: "5"
+          KATACAT_M34_RESCUE_CURRENT_MS: "50"
+          KATACAT_M34_RESCUE_VERIFY_MS: "50"
+          KATACAT_M34_RESCUE_VERIFY_LIMIT: "8"
+          KATACAT_M34_RESCUE_TOTAL_MS: "450"
+          KATACAT_M34_ARENA_OUTPUT_DIR: katacat-m34-output
+        run: npm run katacat:m34-arena
+
+      - name: Add M3.4 reports to summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## KataCat M3.4 Tactical Hard Negatives" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source M3.3 run: ${KATACAT_M34_SOURCE_RUN_ID:-not resolved}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source checkpoint: frozen PLAYER_RELATIVE_V1" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Hard-negative targets: proved losing actions masked; verified CURRENT action positive" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Training: 4-epoch low-LR fine-tune with auxiliary pairwise ranking loss" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Arena: 32 games/opponent, identical tactical budgets for M3.4 and frozen M3.3" >> "$GITHUB_STEP_SUMMARY"
+          for report in \
+            katacat-m34-hard-negative/summary.json \
+            katacat-m34-model/summary.json \
+            katacat-m34-output/arena-summary.json; do
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo "### $report" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            test -f "$report" && cat "$report" >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Upload M3.4 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m34-${{ github.run_id }}
+          path: |
+            katacat-m34-hard-negative/
+            katacat-m34-model/
+            katacat-m34-output/
+          if-no-files-found: warn
