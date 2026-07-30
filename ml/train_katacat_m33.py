@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -11,11 +12,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from katacat_m33_relative import (
-    RelativeKataCatDataset,
-    expand_seat_balanced,
-    relative_ownership_target,
-)
+from katacat_m33_relative import RelativeKataCatDataset, relative_ownership_target
 from train_katacat_m1 import (
     BOARD_SIZE,
     MAX_MARGIN,
@@ -33,7 +30,7 @@ from train_katacat_m1 import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Train KataCat M3.3 with player-relative features and balanced seat twins."
+        description="Train KataCat M3.3 with player-relative features and real-state seat balancing."
     )
     parser.add_argument("--bootstrap-data", required=True)
     parser.add_argument("--selfplay-data", required=True)
@@ -55,6 +52,10 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def tagged_samples(name: str, path: str) -> list[dict[str, Any]]:
+    return [{**sample, "trainingSource": name} for sample in load_jsonl(Path(path))]
+
+
 def unique_samples(samples: list[dict[str, Any]]) -> list[dict[str, Any]]:
     seen: set[str] = set()
     result: list[dict[str, Any]] = []
@@ -67,6 +68,52 @@ def unique_samples(samples: list[dict[str, Any]]) -> list[dict[str, Any]]:
         seen.add(sample_id)
         result.append(sample)
     return result
+
+
+def stable_rank(sample: dict[str, Any], seed: int) -> tuple[int, str]:
+    # Preserve the dedicated curriculum first; deterministically sample the rest.
+    curriculum_priority = 0 if sample.get("trainingSource") == "curriculum" else 1
+    digest = hashlib.sha256(f"{seed}:{sample['sampleId']}".encode("utf-8")).hexdigest()
+    return curriculum_priority, digest
+
+
+def balance_real_seats(
+    samples: list[dict[str, Any]], seed: int
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    selected: list[dict[str, Any]] = []
+    report: dict[str, Any] = {}
+    for split in ("train", "validation"):
+        split_rows = [sample for sample in samples if sample.get("split") == split]
+        by_seat = {
+            seat: sorted(
+                [sample for sample in split_rows if sample.get("currentPlayer") == seat],
+                key=lambda sample: stable_rank(sample, seed),
+            )
+            for seat in ("A", "B")
+        }
+        per_seat = min(len(by_seat["A"]), len(by_seat["B"]))
+        if per_seat <= 0:
+            raise ValueError(
+                f"M3.3 {split} split needs both seats; A={len(by_seat['A'])}, B={len(by_seat['B'])}"
+            )
+        kept_a = by_seat["A"][:per_seat]
+        kept_b = by_seat["B"][:per_seat]
+        selected.extend(kept_a)
+        selected.extend(kept_b)
+        report[split] = {
+            "available": {"A": len(by_seat["A"]), "B": len(by_seat["B"])},
+            "selected": {"A": len(kept_a), "B": len(kept_b)},
+            "dropped": {
+                "A": len(by_seat["A"]) - len(kept_a),
+                "B": len(by_seat["B"]) - len(kept_b),
+            },
+        }
+    selected.sort(key=lambda sample: str(sample["sampleId"]))
+    report["selectedBySource"] = {
+        source: sum(sample.get("trainingSource") == source for sample in selected)
+        for source in sorted({str(sample.get("trainingSource")) for sample in samples})
+    }
+    return unique_samples(selected), report
 
 
 def required_metrics_are_finite(metrics: dict[str, float]) -> bool:
@@ -96,7 +143,11 @@ def evaluate(
 ) -> dict[str, float]:
     model.eval()
     total_examples = 0
-    totals = {"loss": 0.0, "policy": 0.0, "value": 0.0, "score": 0.0, "ownership": 0.0}
+    total_loss = 0.0
+    policy_loss_total = 0.0
+    value_loss_total = 0.0
+    score_loss_total = 0.0
+    ownership_loss_total = 0.0
     policy_correct = 0
     value_correct = 0
     score_errors: list[torch.Tensor] = []
@@ -117,11 +168,11 @@ def evaluate(
             loss = p_loss + value_weight * v_loss + score_weight * s_loss + ownership_weight * o_loss
             batch_size = features.shape[0]
             total_examples += batch_size
-            totals["loss"] += loss.item() * batch_size
-            totals["policy"] += p_loss.item() * batch_size
-            totals["value"] += v_loss.item() * batch_size
-            totals["score"] += s_loss.item() * batch_size
-            totals["ownership"] += o_loss.item() * batch_size
+            total_loss += loss.item() * batch_size
+            policy_loss_total += p_loss.item() * batch_size
+            value_loss_total += v_loss.item() * batch_size
+            score_loss_total += s_loss.item() * batch_size
+            ownership_loss_total += o_loss.item() * batch_size
             policy_correct += (policy_logits.argmax(dim=1) == policy.argmax(dim=1)).sum().item()
             value_correct += ((predicted_value >= 0) == (value >= 0)).sum().item()
             score_errors.append((predicted_score - score).abs().cpu() * MAX_MARGIN)
@@ -132,25 +183,24 @@ def evaluate(
     prediction = torch.cat(ownership_predictions)
     target = torch.cat(ownership_targets)
     metrics = ownership_metrics(prediction, target)
-    # The inherited metric names iouA/iouB now mean self/opponent territory.
     metrics["iouSelf"] = metrics.pop("iouA")
     metrics["iouOpponent"] = metrics.pop("iouB")
     metrics.update(
         {
-            "loss": totals["loss"] / total_examples,
-            "policyLoss": totals["policy"] / total_examples,
+            "loss": total_loss / total_examples,
+            "policyLoss": policy_loss_total / total_examples,
             "policyTop1": policy_correct / total_examples,
-            "valueLoss": totals["value"] / total_examples,
+            "valueLoss": value_loss_total / total_examples,
             "valueAccuracy": value_correct / total_examples,
-            "scoreLoss": totals["score"] / total_examples,
+            "scoreLoss": score_loss_total / total_examples,
             "scoreMaeCells": float(torch.cat(score_errors).mean().item()),
-            "ownershipLoss": totals["ownership"] / total_examples,
+            "ownershipLoss": ownership_loss_total / total_examples,
         }
     )
     return {key: float(value) for key, value in metrics.items()}
 
 
-def loader_for(samples: list[dict[str, Any]], batch_size: int) -> DataLoader:
+def evaluation_loader(samples: list[dict[str, Any]], batch_size: int) -> DataLoader:
     return DataLoader(
         RelativeKataCatDataset(samples, augment=False),
         batch_size=batch_size,
@@ -207,17 +257,17 @@ def main() -> None:
     args = parse_args()
     seed_everything(args.seed)
     sources = {
-        "bootstrap": load_jsonl(Path(args.bootstrap_data)),
-        "selfplay": load_jsonl(Path(args.selfplay_data)),
-        "mixed": load_jsonl(Path(args.mixed_data)),
-        "curriculum": load_jsonl(Path(args.curriculum_data)),
+        "bootstrap": tagged_samples("bootstrap", args.bootstrap_data),
+        "selfplay": tagged_samples("selfplay", args.selfplay_data),
+        "mixed": tagged_samples("mixed", args.mixed_data),
+        "curriculum": tagged_samples("curriculum", args.curriculum_data),
     }
     originals = unique_samples(
         [*sources["bootstrap"], *sources["selfplay"], *sources["mixed"], *sources["curriculum"]]
     )
-    expanded = unique_samples(expand_seat_balanced(originals))
-    train_samples = [sample for sample in expanded if sample["split"] == "train"]
-    validation_samples = [sample for sample in expanded if sample["split"] == "validation"]
+    balanced, balance_report = balance_real_seats(originals, args.seed)
+    train_samples = [sample for sample in balanced if sample["split"] == "train"]
+    validation_samples = [sample for sample in balanced if sample["split"] == "validation"]
     if not train_samples or not validation_samples:
         raise ValueError("Both train and validation samples are required")
     train_games = {sample["gameId"] for sample in train_samples}
@@ -316,7 +366,7 @@ def main() -> None:
         seat_metrics = {
             seat: evaluate(
                 model,
-                loader_for(rows, args.batch_size),
+                evaluation_loader(rows, args.batch_size),
                 device,
                 ownership_loss,
                 args.value_weight,
@@ -362,13 +412,17 @@ def main() -> None:
     acceptance = {
         "playerRelativeEncoding": True,
         "freshRelativeModel": True,
-        "seatSwapExpandedEverySample": len(expanded) == len(originals) * 2,
+        "realRecordedStatesOnly": not any(sample.get("seatSwapped") for sample in balanced),
+        "deterministicSeatBalancing": True,
         "exactTrainSeatBalance": seat_counts["train"]["A"] == seat_counts["train"]["B"],
         "exactValidationSeatBalance": seat_counts["validation"]["A"] == seat_counts["validation"]["B"],
         "bSeatCurriculumPresent": any(
             sample.get("currentPlayer") == "B" for sample in sources["curriculum"]
         ),
         "safeTeacherCurriculumOnly": curriculum_sources == {"CURRENT_TACTICAL_TEACHER"},
+        "curriculumTrainingOnly": all(
+            sample.get("split") == "train" for sample in sources["curriculum"]
+        ),
         "gameSplitDisjoint": train_games.isdisjoint(validation_games),
         "allMetricsFinite": required_metrics_are_finite(initial_metrics)
         and required_metrics_are_finite(best_metrics)
@@ -383,9 +437,10 @@ def main() -> None:
         "device": str(device),
         "encodingVersion": "PLAYER_RELATIVE_V1",
         "freshModel": True,
-        "sources": {name: len(rows) for name, rows in sources.items()},
-        "originalSamples": len(originals),
-        "expandedSamples": len(expanded),
+        "sourceSamples": {name: len(rows) for name, rows in sources.items()},
+        "availableSamples": len(originals),
+        "balancedSamples": len(balanced),
+        "balance": balance_report,
         "trainSamples": len(train_samples),
         "validationSamples": len(validation_samples),
         "seatCounts": seat_counts,
@@ -412,9 +467,10 @@ def main() -> None:
         "acceptance": acceptance,
         "epochHistory": history,
         "note": (
-            "M3.3 trains a fresh network because absolute A/B input weights are not compatible "
-            "with mover-relative planes. Every sample receives a color-swapped twin, and the "
-            "extra curriculum contains only CURRENT teacher actions with B-seat tactical priority."
+            "M3.3 trains a fresh player-relative network. Exact A/B counts are obtained by "
+            "deterministically downsampling the larger seat within each split; no unreachable "
+            "color-swapped states or synthetic terminal labels are added. The extra curriculum "
+            "contains only train-split CURRENT teacher actions with B-seat tactical priority."
         ),
     }
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
