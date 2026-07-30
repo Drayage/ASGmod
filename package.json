@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "arena:mcts": "node scripts/run-mcts-arena.mjs",
     "generate-icons": "node scripts/generate-icons.mjs",
     "postinstall": "npm run generate-icons"
   },
