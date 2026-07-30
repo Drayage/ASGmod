@@ -67,6 +67,18 @@ jobs:
       - name: Generate expanded mixed CURRENT curriculum source
         run: npm run katacat:m31-mixed -- --latest=katacat-m3-model/katacat-m3.pt --champion=katacat-m1-output/katacat-m1.pt --games=20 --simulations=48 --current-ms=50 --max-moves=90 --capture-depth=7 --capture-attack-ms=25 --capture-defense-ms=50 --capture-defense-limit=12 --output=katacat-m31-output
 
+      - name: Train frozen absolute M3.1 champion
+        run: >-
+          python ml/train_katacat_m3.py
+          --bootstrap-data=katacat-m0-output/katacat-samples.jsonl
+          --selfplay-data=katacat-m3-output/katacat-selfplay-samples.jsonl
+          --mixed-data=katacat-m31-output/katacat-m31-samples.jsonl
+          --init-checkpoint=katacat-m3-model/katacat-m3.pt
+          --out=katacat-m31-model
+          --epochs=4
+          --device=cpu
+          --augment=on
+
       - name: Build balanced B-seat tactical curriculum
         run: >-
           python ml/build_katacat_m33_curriculum.py
@@ -94,7 +106,7 @@ jobs:
         env:
           RUN_KATACAT_M33_ARENA: "1"
           KATACAT_M33_CANDIDATE_CHECKPOINT: katacat-m33-model/katacat-m33.pt
-          KATACAT_M33_CHAMPION_CHECKPOINT: katacat-m3-model/katacat-m3.pt
+          KATACAT_M33_CHAMPION_CHECKPOINT: katacat-m31-model/katacat-m3.pt
           KATACAT_M33_GAMES_PER_OPPONENT: "16"
           KATACAT_M33_SIMULATIONS: "32"
           KATACAT_M33_CURRENT_MS: "50"
@@ -121,9 +133,11 @@ jobs:
           echo "- Encoding: player-relative v1" >> "$GITHUB_STEP_SUMMARY"
           echo "- Curriculum: balanced CURRENT teacher, B-seat tactical priority" >> "$GITHUB_STEP_SUMMARY"
           echo "- Candidate: fresh 96×8 network, no incompatible absolute checkpoint init" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Previous champion: frozen M3.1 absolute model trained on the same expanded mixed source" >> "$GITHUB_STEP_SUMMARY"
           echo "- Arena: 16 mirrored games/opponent with identical tactical rescue" >> "$GITHUB_STEP_SUMMARY"
           for report in \
             katacat-m33-curriculum/summary.json \
+            katacat-m31-model/summary.json \
             katacat-m33-model/summary.json \
             katacat-m33-output/arena-summary.json; do
             echo >> "$GITHUB_STEP_SUMMARY"
@@ -144,6 +158,7 @@ jobs:
             katacat-m3-output/
             katacat-m3-model/
             katacat-m31-output/
+            katacat-m31-model/
             katacat-m33-curriculum/
             katacat-m33-model/
             katacat-m33-output/
