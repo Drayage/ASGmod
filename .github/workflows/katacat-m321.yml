@@ -1,0 +1,115 @@
+name: KataCat M3.2.1
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  katacat-m321:
+    name: Rebuild unchanged candidate and test zero-visit fallback fix
+    runs-on: ubuntu-latest
+    timeout-minutes: 480
+
+    steps:
+      - name: Checkout M3.2.1 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m321
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Verify PUCT tactical floor
+        run: npm run katacat:m2-core
+
+      - name: Verify zero-visit final-guard behavior
+        run: npm run katacat:m32-final-guard
+
+      - name: Generate unchanged M0 bootstrap data
+        run: npm run katacat:generate -- --games=20 --teacher-ms=100 --max-per-bucket=24 --territory-pass-ply=56 --output=katacat-m0-output
+
+      - name: Validate M0 replay and coverage
+        run: npm run katacat:validate -- --output=katacat-m0-output --strict=true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+
+      - name: Install Python dependencies
+        run: pip install -r ml/requirements-katacat.txt
+
+      - name: Train unchanged previous champion bootstrap
+        run: python ml/train_katacat_m1.py --data=katacat-m0-output/katacat-samples.jsonl --out=katacat-m1-output --epochs=8 --channels=96 --blocks=8 --device=cpu --augment=on
+
+      - name: Generate unchanged M3 self-play
+        run: npm run katacat:m3-selfplay -- --checkpoint=katacat-m1-output/katacat-m1.pt --games=4 --simulations=64 --max-moves=90 --temperature-moves=12 --noise-alpha=0.3 --noise-fraction=0.25 --output=katacat-m3-output
+
+      - name: Train unchanged M3 candidate
+        run: python ml/train_katacat_m3.py --bootstrap-data=katacat-m0-output/katacat-samples.jsonl --selfplay-data=katacat-m3-output/katacat-selfplay-samples.jsonl --init-checkpoint=katacat-m1-output/katacat-m1.pt --out=katacat-m3-model --epochs=4 --device=cpu --augment=on
+
+      - name: Generate unchanged M3.1 mixed tactical data
+        run: npm run katacat:m31-mixed -- --latest=katacat-m3-model/katacat-m3.pt --champion=katacat-m1-output/katacat-m1.pt --games=5 --simulations=48 --current-ms=50 --max-moves=90 --capture-depth=7 --capture-attack-ms=25 --capture-defense-ms=50 --capture-defense-limit=12 --output=katacat-m31-output
+
+      - name: Train unchanged M3.1 mixed candidate
+        run: python ml/train_katacat_m3.py --bootstrap-data=katacat-m0-output/katacat-samples.jsonl --selfplay-data=katacat-m3-output/katacat-selfplay-samples.jsonl --mixed-data=katacat-m31-output/katacat-m31-samples.jsonl --init-checkpoint=katacat-m3-model/katacat-m3.pt --out=katacat-m31-model --epochs=4 --device=cpu --augment=on
+
+      - name: Run M3.2.1 controlled fair arena
+        env:
+          RUN_KATACAT_M321_ARENA: "1"
+          KATACAT_M321_CANDIDATE_CHECKPOINT: katacat-m31-model/katacat-m3.pt
+          KATACAT_M321_CHAMPION_CHECKPOINT: katacat-m1-output/katacat-m1.pt
+          KATACAT_M321_GAMES_PER_OPPONENT: "16"
+          KATACAT_M321_SIMULATIONS: "32"
+          KATACAT_M321_CURRENT_MS: "50"
+          KATACAT_M321_MAX_MOVES: "90"
+          KATACAT_M321_CAPTURE_DEPTH: "7"
+          KATACAT_M321_CAPTURE_ATTACK_MS: "25"
+          KATACAT_M321_CAPTURE_DEFENSE_MS: "50"
+          KATACAT_M321_CAPTURE_DEFENSE_LIMIT: "12"
+          KATACAT_M321_FINAL_VERIFY_MS: "75"
+          KATACAT_M321_FINAL_VERIFY_LIMIT: "5"
+          KATACAT_M321_OUTPUT_DIR: katacat-m321-output
+        run: npm run katacat:m321-arena
+
+      - name: Add arena report to summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## KataCat M3.2.1" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "- Candidate recipe: unchanged from M3.2" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Games per opponent: 16" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Final verification: 5 candidates × 75 ms" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          test -f katacat-m321-output/arena-summary.json && cat katacat-m321-output/arena-summary.json >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload M3.2.1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m321-${{ github.run_id }}
+          path: |
+            katacat-m0-output/
+            katacat-m1-output/
+            katacat-m3-output/
+            katacat-m3-model/
+            katacat-m31-output/
+            katacat-m31-model/
+            katacat-m321-output/
+          if-no-files-found: warn
