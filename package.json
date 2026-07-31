@@ -33,7 +33,9 @@
     "katacat:m341-arena": "vitest run src/games/alley-boss-cats/engine/katacatM341Arena.test.ts",
     "katacat:m341-gate": "node scripts/gate-katacat-m341.mjs",
     "generate-icons": "node scripts/generate-icons.mjs",
-    "postinstall": "npm run generate-icons"
+    "postinstall": "npm run generate-icons",
+    "katacat:m35-arena": "vitest run src/games/alley-boss-cats/engine/katacatM35Arena.test.ts",
+    "katacat:m35-gate": "node scripts/gate-katacat-m35.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.2",
