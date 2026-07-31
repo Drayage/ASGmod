@@ -68,7 +68,7 @@ jobs:
           npm run katacat:m32-final-guard
           npm run katacat:m33-relative
           npm run katacat:m341-fallback
-          python -m py_compile ml/train_katacat_m342.py
+          python -m py_compile ml/train_katacat_m342.py ml/run_train_katacat_m342.py
           node --check scripts/gate-katacat-m342.mjs
 
       - name: Download successful M3.4.1 artifacts and frozen M3.3 sources
@@ -146,7 +146,7 @@ jobs:
 
       - name: Fine-tune from M3.4.1 with epoch zero retained
         run: >-
-          python ml/train_katacat_m342.py
+          python ml/run_train_katacat_m342.py
           --bootstrap-data=m33-source-artifact/katacat-m0-output/katacat-samples.jsonl
           --selfplay-data=m33-source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
           --mixed-data=m33-source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
