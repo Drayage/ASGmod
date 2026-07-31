@@ -83,32 +83,16 @@ jobs:
               "repos/${GITHUB_REPOSITORY}/actions/workflows/katacat-m341.yml/runs?status=success&per_page=20" \
               --jq '.workflow_runs[0].id')
           fi
-          if [ -z "$SOURCE_RUN_ID" ] || [ "$SOURCE_RUN_ID" = "null" ]; then
-            echo "No successful KataCat M3.4.1 workflow run was found" >&2
-            exit 1
-          fi
+          test -n "$SOURCE_RUN_ID"
           mkdir -p prepared-artifact development-artifact m33-source-artifact
-          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name "katacat-m341-prepared-${SOURCE_RUN_ID}" --dir prepared-artifact
-          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name "katacat-m341-development-${SOURCE_RUN_ID}" --dir development-artifact
-          test -f prepared-artifact/katacat-m341-manifest.json
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "katacat-m341-prepared-${SOURCE_RUN_ID}" --dir prepared-artifact
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "katacat-m341-development-${SOURCE_RUN_ID}" --dir development-artifact
           M33_RUN_ID=$(jq -r '.sourceM33RunId // empty' prepared-artifact/katacat-m341-manifest.json)
           test -n "$M33_RUN_ID"
-          gh run download "$M33_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name "katacat-m33-${M33_RUN_ID}" --dir m33-source-artifact
-          test -f prepared-artifact/katacat-m341-model/katacat-m341.pt
-          test -f prepared-artifact/katacat-m341-hard-negative/katacat-m341-hard-negative-samples.jsonl
-          test -f prepared-artifact/katacat-m341-hard-negative/katacat-m341-regression-fixtures.json
-          test -f development-artifact/katacat-m341-development/all-replays.jsonl
-          test -f m33-source-artifact/katacat-m0-output/katacat-samples.jsonl
-          test -f m33-source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
-          test -f m33-source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
-          test -f m33-source-artifact/katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
+          gh run download "$M33_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "katacat-m33-${M33_RUN_ID}" --dir m33-source-artifact
           echo "KATACAT_M3431_SOURCE_M341_RUN_ID=$SOURCE_RUN_ID" >> "$GITHUB_ENV"
-          echo "KATACAT_M3431_SOURCE_M33_RUN_ID=$M33_RUN_ID" >> "$GITHUB_ENV"
 
-      - name: Rebuild balanced terminal and bounded-reader contrast
+      - name: Mine balanced contrasts
         env:
           RUN_KATACAT_M343_CONTRAST: "1"
           KATACAT_M343_SOURCE_CHECKPOINT: prepared-artifact/katacat-m341-model/katacat-m341.pt
@@ -183,7 +167,6 @@ jobs:
             ID=$(jq -r '.id' <<<"$candidate")
             CHECKPOINT=$(jq -r '.path' <<<"$candidate")
             SHA=$(jq -r '.sha256' <<<"$candidate")
-            echo "Running diagnostic for $ID ($SHA)"
             RUN_KATACAT_M343_ARENA=1 \
             KATACAT_M343_CANDIDATE_CHECKPOINT="$CHECKPOINT" \
             KATACAT_M343_PARENT_CHECKPOINT="$PARENT" \
@@ -218,7 +201,7 @@ jobs:
             echo "- selected epoch: $(jq -r .checkpointSelection.selectedEpoch katacat-m3431-summary.json)" >> "$GITHUB_STEP_SUMMARY"
             echo >> "$GITHUB_STEP_SUMMARY"
             echo '```json' >> "$GITHUB_STEP_SUMMARY"
-            jq '{recommendation,reasons,checkpointSelection,deterministicCore,fallbackRegression,promisingCandidates,candidates:[.candidates[]|{id,epoch,roles,sameAsParent,validation,vsParent:{games,wins,losses,winRate,captureLossRate},vsCurrent:{games,wins,losses,winRate,captureLossRate}}]}' katacat-m3431-summary.json >> "$GITHUB_STEP_SUMMARY"
+            jq '{recommendation,reasons,checkpointSelection,deterministicCore,fallbackRegression,promisingCandidates,candidates:[.candidates[]|{id,epoch,roles,sameAsParent,validation,vsParent:(.vsParent|{games,wins,losses,winRate,captureLossRate}),vsCurrent:(.vsCurrent|{games,wins,losses,winRate,captureLossRate})}]}' katacat-m3431-summary.json >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
 
