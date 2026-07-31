@@ -29,7 +29,7 @@
     "katacat:m34-hard-negative": "vitest run src/games/alley-boss-cats/engine/katacatM34HardNegative.test.ts",
     "katacat:m34-arena": "vitest run src/games/alley-boss-cats/engine/katacatM34Arena.test.ts",
     "katacat:m341-fallback": "vitest run src/games/alley-boss-cats/engine/katacatM341Fallback.test.ts",
-    "katacat:m341-hard-negative": "vitest run src/games/alley-boss-cats/engine/katacatM341HardNegative.test.ts",
+    "katacat:m341-hard-negative": "node scripts/run-katacat-m36-hard-negative.mjs",
     "katacat:m341-arena": "vitest run src/games/alley-boss-cats/engine/katacatM341Arena.test.ts",
     "katacat:m341-gate": "node scripts/gate-katacat-m341.mjs",
     "katacat:m36-arena": "vitest run src/games/alley-boss-cats/engine/katacatM36Arena.test.ts",
