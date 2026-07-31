@@ -35,6 +35,9 @@
     "katacat:m342-precollapse": "vitest run src/games/alley-boss-cats/engine/katacatM342Precollapse.test.ts",
     "katacat:m342-arena": "vitest run src/games/alley-boss-cats/engine/katacatM342Arena.test.ts",
     "katacat:m342-gate": "node scripts/gate-katacat-m342.mjs",
+    "katacat:m343-contrast": "vitest run src/games/alley-boss-cats/engine/katacatM343Contrast.test.ts",
+    "katacat:m343-arena": "vitest run src/games/alley-boss-cats/engine/katacatM343Arena.test.ts",
+    "katacat:m343-gate": "node scripts/gate-katacat-m343.mjs",
     "generate-icons": "node scripts/generate-icons.mjs",
     "postinstall": "npm run generate-icons"
   },
