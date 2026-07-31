@@ -1,0 +1,221 @@
+name: KataCat M3.4.3.1
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_m341_run_id:
+        description: "Successful KataCat M3.4.1 run ID; blank selects the latest successful run"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  KATACAT_M343_SIMULATIONS: "32"
+  KATACAT_M343_CURRENT_MS: "50"
+  KATACAT_M343_MAX_MOVES: "90"
+  KATACAT_M343_CAPTURE_DEPTH: "7"
+  KATACAT_M343_FINAL_VERIFY_MS: "75"
+  KATACAT_M343_FINAL_VERIFY_LIMIT: "5"
+  KATACAT_M343_RESCUE_VERIFY_MS: "50"
+  KATACAT_M343_RESCUE_VERIFY_LIMIT: "8"
+  KATACAT_M343_RESCUE_TOTAL_MS: "450"
+  KATACAT_M343_EXHAUSTIVE_VERIFY_MS: "25"
+
+jobs:
+  diagnose:
+    name: Preserve rejected epochs and run deterministic diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout M3.4.3.1 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m3431
+
+      - name: Record commit SHA
+        shell: bash
+        run: echo "KATACAT_M3431_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+
+      - name: Install Python dependencies
+        run: pip install -r ml/requirements-katacat.txt
+
+      - name: Build and verify static contracts
+        run: |
+          npm run build
+          npm run katacat:m2-core
+          npm run katacat:m32-final-guard
+          npm run katacat:m33-relative
+          npm run katacat:m341-fallback
+          python -m py_compile ml/train_katacat_m343.py ml/train_katacat_m3431.py
+          node --check scripts/summarize-katacat-m3431.mjs
+
+      - name: Download successful M3.4.1 artifacts and frozen M3.3 sources
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_RUN_ID: ${{ inputs.source_m341_run_id }}
+        run: |
+          set -euo pipefail
+          SOURCE_RUN_ID="$REQUESTED_RUN_ID"
+          if [ -z "$SOURCE_RUN_ID" ]; then
+            SOURCE_RUN_ID=$(gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/katacat-m341.yml/runs?status=success&per_page=20" \
+              --jq '.workflow_runs[0].id')
+          fi
+          test -n "$SOURCE_RUN_ID"
+          mkdir -p prepared-artifact development-artifact m33-source-artifact
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "katacat-m341-prepared-${SOURCE_RUN_ID}" --dir prepared-artifact
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "katacat-m341-development-${SOURCE_RUN_ID}" --dir development-artifact
+          M33_RUN_ID=$(jq -r '.sourceM33RunId // empty' prepared-artifact/katacat-m341-manifest.json)
+          test -n "$M33_RUN_ID"
+          gh run download "$M33_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "katacat-m33-${M33_RUN_ID}" --dir m33-source-artifact
+          echo "KATACAT_M3431_SOURCE_M341_RUN_ID=$SOURCE_RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Mine balanced contrasts
+        env:
+          RUN_KATACAT_M343_CONTRAST: "1"
+          KATACAT_M343_SOURCE_CHECKPOINT: prepared-artifact/katacat-m341-model/katacat-m341.pt
+          KATACAT_M343_REPLAY_PATH: development-artifact/katacat-m341-development/all-replays.jsonl
+          KATACAT_M343_OUTPUT_DIR: katacat-m3431-contrast
+          KATACAT_M343_DISTANCES: "2,4,6"
+          KATACAT_M343_MAX_READER_PAIRS_PER_GAME: "2"
+        run: npm run katacat:m343-contrast
+
+      - name: Re-run real-loss fallback regressions
+        env:
+          KATACAT_M341_REGRESSION_FIXTURE: prepared-artifact/katacat-m341-hard-negative/katacat-m341-regression-fixtures.json
+          KATACAT_M341_REGRESSION_OUTPUT: katacat-m3431-regression/summary.json
+        run: |
+          mkdir -p katacat-m3431-regression
+          npm run katacat:m341-fallback
+
+      - name: Train value head and preserve every epoch
+        run: >-
+          python ml/train_katacat_m3431.py
+          --bootstrap-data=m33-source-artifact/katacat-m0-output/katacat-samples.jsonl
+          --selfplay-data=m33-source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
+          --mixed-data=m33-source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
+          --curriculum-data=m33-source-artifact/katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
+          --hard-negative-data=prepared-artifact/katacat-m341-hard-negative/katacat-m341-hard-negative-samples.jsonl
+          --balanced-data=katacat-m3431-contrast/katacat-m343-balanced-samples.jsonl
+          --reader-pairs=katacat-m3431-contrast/katacat-m343-reader-pairs.jsonl
+          --init-checkpoint=prepared-artifact/katacat-m341-model/katacat-m341.pt
+          --out=katacat-m3431-model
+          --epochs=8
+          --learning-rate=0.000025
+          --replay-weight=0.5
+          --contrast-weight=1.0
+          --pairwise-weight=0.5
+          --pairwise-margin=0.25
+          --commit-sha=${KATACAT_M3431_COMMIT_SHA}
+          --device=cpu
+          --augment=on
+
+      - name: Validate checkpoint preservation
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(Path('katacat-m3431-model/summary.json').read_text())
+          assert summary['acceptance']['passed'] is True
+          assert summary['trainableScope'] == 'VALUE_HEAD_ONLY'
+          assert len(summary['saved_epoch_checkpoints']) == 9
+          assert len(summary['diagnostic_candidates']) >= 2
+          for row in summary['saved_epoch_checkpoints']:
+              assert Path(row['path']).is_file()
+              assert len(row['sha256']) == 64
+          PY
+
+      - name: Audit identical-checkpoint deterministic core
+        env:
+          RUN_KATACAT_M3431_DETERMINISM: "1"
+          KATACAT_M3431_LEFT_CHECKPOINT: prepared-artifact/katacat-m341-model/katacat-m341.pt
+          KATACAT_M3431_RIGHT_CHECKPOINT: prepared-artifact/katacat-m341-model/katacat-m341.pt
+          KATACAT_M3431_DETERMINISM_OUTPUT_DIR: katacat-m3431-determinism
+        run: npm run katacat:m3431-determinism
+
+      - name: Run 16-game diagnostics for each unique checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p katacat-m3431-diagnostic
+          PARENT=prepared-artifact/katacat-m341-model/katacat-m341.pt
+          PARENT_SHA=$(sha256sum "$PARENT" | awk '{print $1}')
+          while IFS= read -r candidate; do
+            ID=$(jq -r '.id' <<<"$candidate")
+            CHECKPOINT=$(jq -r '.path' <<<"$candidate")
+            SHA=$(jq -r '.sha256' <<<"$candidate")
+            RUN_KATACAT_M343_ARENA=1 \
+            KATACAT_M343_CANDIDATE_CHECKPOINT="$CHECKPOINT" \
+            KATACAT_M343_PARENT_CHECKPOINT="$PARENT" \
+            KATACAT_M343_CANDIDATE_CHECKPOINT_SHA256="$SHA" \
+            KATACAT_M343_PARENT_CHECKPOINT_SHA256="$PARENT_SHA" \
+            KATACAT_M343_COMMIT_SHA="$KATACAT_M3431_COMMIT_SHA" \
+            KATACAT_M343_PHASE="m3431-${ID}" \
+            KATACAT_M343_GAMES_PER_COMPARISON=16 \
+            KATACAT_M343_ARENA_OUTPUT_DIR="katacat-m3431-diagnostic/${ID}" \
+            npm run katacat:m343-arena
+          done < <(jq -c '.diagnostic_candidates[]' katacat-m3431-model/summary.json)
+
+      - name: Summarize diagnostic evidence
+        run: >-
+          npm run katacat:m3431-summarize --
+          --training=katacat-m3431-model/summary.json
+          --determinism=katacat-m3431-determinism/summary.json
+          --regression=katacat-m3431-regression/summary.json
+          --root=katacat-m3431-diagnostic
+          --output=katacat-m3431-summary.json
+
+      - name: Add diagnostic report
+        if: always()
+        shell: bash
+        run: |
+          echo "## KataCat M3.4.3.1 Diagnostic" >> "$GITHUB_STEP_SUMMARY"
+          echo "- commit: ${KATACAT_M3431_COMMIT_SHA:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- source M3.4.1 run: ${KATACAT_M3431_SOURCE_M341_RUN_ID:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f katacat-m3431-summary.json ]; then
+            echo "- recommendation: $(jq -r .recommendation katacat-m3431-summary.json)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- deterministic core: $(jq -r .deterministicCore.passed katacat-m3431-summary.json)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- selected epoch: $(jq -r .checkpointSelection.selectedEpoch katacat-m3431-summary.json)" >> "$GITHUB_STEP_SUMMARY"
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            jq '{recommendation,reasons,checkpointSelection,deterministicCore,fallbackRegression,promisingCandidates,candidates:[.candidates[]|{id,epoch,roles,sameAsParent,validation,vsParent:(.vsParent|{games,wins,losses,winRate,captureLossRate}),vsCurrent:(.vsCurrent|{games,wins,losses,winRate,captureLossRate})}]}' katacat-m3431-summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload M3.4.3.1 diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m3431-diagnostic-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            katacat-m3431-contrast/
+            katacat-m3431-regression/
+            katacat-m3431-model/
+            katacat-m3431-determinism/
+            katacat-m3431-diagnostic/
+            katacat-m3431-summary.json
+          if-no-files-found: warn
