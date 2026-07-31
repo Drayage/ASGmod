@@ -1,25 +1,34 @@
-# KataCat M3.4.3.1 — deterministic-core and rejected-epoch diagnosis
+# KataCat M3.4.3.1 — deterministic diagnostics
 
-M3.4.3 selected epoch 0, so the candidate checkpoint was byte-identical to the M3.4.1 parent. The old smoke gate nevertheless compared live `ALL_ROOT_ACTIONS_REFUTED` rates from candidate and parent turns. Those turns occur on different state distributions, so that comparison is not a paired regression test and must not be treated as proof of nondeterminism.
+M3.4.3 selected epoch 0, so its candidate checkpoint was byte-identical to the M3.4.1 parent. M3.4.3.1 separates deterministic core verification from live wall-clock tactical-reader behavior and preserves rejected value-head epochs for diagnostic comparison.
 
-M3.4.3.1 is a diagnostic stage, not a promotion stage.
+## Scope
 
-## Changes
+- Preserve parent and every value-head-only epoch checkpoint.
+- Select unique diagnostic roles: parent, best general validation, best balanced validation, best reader margin, and final epoch.
+- Verify two evaluator processes loaded from the same checkpoint produce identical neural outputs, fixed-simulation PUCT actions, and visit distributions on fixed states.
+- Run each unique checkpoint against the parent and CURRENT VERY_HARD with the existing M3.4.1 fallback.
+- Treat 16-game arenas as diagnostics only, never promotion evidence.
+- Keep actual HARD/VERY_HARD, UI, browser inference, and shipped gameplay unchanged.
 
-- Retains the strict M3.4.3 checkpoint selector.
-- Saves parent and every trained value-head epoch with SHA-256 and validation metrics.
-- Selects unique diagnostic checkpoints for best general loss, best balanced loss, best reader margin, and final epoch.
-- Runs an exact deterministic-core audit on identical checkpoint bytes:
-  - identical neural outputs on eight fixed positions;
-  - identical actions and visit distributions under fixed-simulation neural PUCT;
-  - tactical shell disabled because its capture reader is wall-clock bounded.
-- Re-runs the existing seven real-loss fallback regressions separately.
-- Runs 16-game-per-opponent diagnostic arenas for each unique checkpoint.
-- Treats same-SHA head-to-head results as sanity information only.
-- Does not use unmatched live collapse-rate differences as regression evidence.
+## Result
+
+The GitHub Actions diagnostic completed successfully.
+
+- all static and regression Vitest suites passed
+- deterministic core passed on 8 fixed positions
+- neural maximum absolute delta: `0`
+- action mismatches: `0`
+- visit-distribution mismatches: `0`
+- fallback regression: `7/7` passed
+- strict selector retained epoch `0`
+- no rejected epoch met the diagnostic signal gate
+- recommendation: `STOP_VALUE_HEAD_ONLY_AND_RETURN_TO_POLICY_TRUNK_TRAINING`
+
+The displayed GitHub job-summary table initially showed `null` for nested arena fields because the `jq` projection read `games`, `wins`, and related fields from the candidate object instead of `.vsParent` / `.vsCurrent`. The underlying diagnostic summary and recommendation used the real arena objects; only the compact display was wrong. The workflow display projection has been corrected.
 
 ## Interpretation
 
-The diagnostic summary recommends continuing value-head-only work only when a rejected epoch has a positive point-estimate signal against both the parent and CURRENT. Sixteen-game results are exploratory and cannot promote a checkpoint. If no rejected epoch has such a signal, the output explicitly recommends stopping value-head-only tuning and returning to policy/trunk training.
+The evaluation core is reproducible when wall-clock tactical readers are excluded from the exact paired-state audit. The experiment therefore does not support continuing isolated value-head-only fine-tuning. Future model work should return to policy/trunk training with balanced tactical data and preserve the M3.4.1 reader-checked fallback as an independent search safeguard.
 
-The shipped HARD/VERY_HARD agents, UI, and browser inference remain unchanged.
+Do not merge this stacked diagnostic PR into the shipped game branch.
