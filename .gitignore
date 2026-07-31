@@ -46,9 +46,18 @@ katacat-m342-development/
 katacat-m342-promotion/
 katacat-m342-gates/
 katacat-m342-manifest.json
+katacat-m343-contrast/
+katacat-m343-regression/
+katacat-m343-model/
+katacat-m343-smoke/
+katacat-m343-development/
+katacat-m343-promotion/
+katacat-m343-gates/
+katacat-m343-manifest.json
 source-artifact/
 prepared-artifact/
 development-artifact/
+m33-source-artifact/
 
 # Scratch scripts used for one-off measurement runs.
 *.tmp.mts
