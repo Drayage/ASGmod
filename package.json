@@ -32,6 +32,9 @@
     "katacat:m341-hard-negative": "vitest run src/games/alley-boss-cats/engine/katacatM341HardNegative.test.ts",
     "katacat:m341-arena": "vitest run src/games/alley-boss-cats/engine/katacatM341Arena.test.ts",
     "katacat:m341-gate": "node scripts/gate-katacat-m341.mjs",
+    "katacat:m342-precollapse": "vitest run src/games/alley-boss-cats/engine/katacatM342Precollapse.test.ts",
+    "katacat:m342-arena": "vitest run src/games/alley-boss-cats/engine/katacatM342Arena.test.ts",
+    "katacat:m342-gate": "node scripts/gate-katacat-m342.mjs",
     "generate-icons": "node scripts/generate-icons.mjs",
     "postinstall": "npm run generate-icons"
   },
