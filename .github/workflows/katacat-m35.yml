@@ -1,0 +1,354 @@
+name: KataCat M3.5
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_m341_run_id:
+        description: "Successful KataCat M3.4.1 run ID; blank selects the latest successful run"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  KATACAT_M35_SIMULATIONS: "32"
+  KATACAT_M35_CURRENT_MS: "50"
+  KATACAT_M35_MAX_MOVES: "90"
+  KATACAT_M35_CAPTURE_DEPTH: "7"
+  KATACAT_M35_FINAL_VERIFY_MS: "75"
+  KATACAT_M35_FINAL_VERIFY_LIMIT: "5"
+  KATACAT_M35_RESCUE_VERIFY_MS: "50"
+  KATACAT_M35_RESCUE_VERIFY_LIMIT: "8"
+  KATACAT_M35_RESCUE_TOTAL_MS: "450"
+  KATACAT_M35_EXHAUSTIVE_VERIFY_MS: "25"
+
+jobs:
+  prepare_smoke:
+    name: Train trunk+policy candidate and run smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    outputs:
+      smoke_pass: ${{ steps.smoke_gate.outputs.passed }}
+
+    steps:
+      - name: Checkout M3.5 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m35
+
+      - name: Record commit SHA
+        run: echo "KATACAT_M35_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+      - run: pip install -r ml/requirements-katacat.txt
+
+      - name: Build and verify static contracts
+        run: |
+          npm run build
+          npm run katacat:m2-core
+          npm run katacat:m32-final-guard
+          npm run katacat:m33-relative
+          npm run katacat:m341-fallback
+          python -m py_compile ml/train_katacat_m35.py
+          node --check scripts/gate-katacat-m35.mjs
+
+      - name: Download M3.4.1 artifacts and frozen M3.3 data
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_RUN_ID: ${{ inputs.source_m341_run_id }}
+        run: |
+          set -euo pipefail
+          SOURCE_RUN_ID="$REQUESTED_RUN_ID"
+          if [ -z "$SOURCE_RUN_ID" ]; then
+            SOURCE_RUN_ID=$(gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/katacat-m341.yml/runs?status=success&per_page=20" \
+              --jq '.workflow_runs[0].id')
+          fi
+          if [ -z "$SOURCE_RUN_ID" ] || [ "$SOURCE_RUN_ID" = "null" ]; then
+            echo "No successful KataCat M3.4.1 run found" >&2
+            exit 1
+          fi
+          mkdir -p prepared-artifact development-artifact m33-source-artifact
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m341-prepared-${SOURCE_RUN_ID}" --dir prepared-artifact
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m341-development-${SOURCE_RUN_ID}" --dir development-artifact
+          test -f prepared-artifact/katacat-m341-manifest.json
+          M33_RUN_ID=$(jq -r '.sourceM33RunId // empty' prepared-artifact/katacat-m341-manifest.json)
+          test -n "$M33_RUN_ID"
+          gh run download "$M33_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m33-${M33_RUN_ID}" --dir m33-source-artifact
+          test -f prepared-artifact/katacat-m341-model/katacat-m341.pt
+          test -f prepared-artifact/katacat-m341-hard-negative/katacat-m341-hard-negative-samples.jsonl
+          test -f prepared-artifact/katacat-m341-hard-negative/katacat-m341-regression-fixtures.json
+          test -f development-artifact/katacat-m341-development/arena-summary.json
+          test -f m33-source-artifact/katacat-m0-output/katacat-samples.jsonl
+          test -f m33-source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
+          test -f m33-source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
+          test -f m33-source-artifact/katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
+          cp development-artifact/katacat-m341-development/arena-summary.json katacat-m35-source-development.json
+          echo "KATACAT_M35_SOURCE_M341_RUN_ID=$SOURCE_RUN_ID" >> "$GITHUB_ENV"
+          echo "KATACAT_M35_SOURCE_M33_RUN_ID=$M33_RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Re-run actual-loss fallback regressions
+        env:
+          KATACAT_M341_REGRESSION_FIXTURE: prepared-artifact/katacat-m341-hard-negative/katacat-m341-regression-fixtures.json
+          KATACAT_M341_REGRESSION_OUTPUT: katacat-m35-regression/summary.json
+        run: |
+          mkdir -p katacat-m35-regression
+          npm run katacat:m341-fallback
+
+      - name: Train trunk and policy with auxiliary-head distillation
+        run: >-
+          python ml/train_katacat_m35.py
+          --bootstrap-data=m33-source-artifact/katacat-m0-output/katacat-samples.jsonl
+          --selfplay-data=m33-source-artifact/katacat-m3-output/katacat-selfplay-samples.jsonl
+          --mixed-data=m33-source-artifact/katacat-m33-mixed/katacat-m33-mixed-samples.jsonl
+          --curriculum-data=m33-source-artifact/katacat-m33-curriculum/katacat-m33-curriculum-samples.jsonl
+          --hard-negative-data=prepared-artifact/katacat-m341-hard-negative/katacat-m341-hard-negative-samples.jsonl
+          --init-checkpoint=prepared-artifact/katacat-m341-model/katacat-m341.pt
+          --out=katacat-m35-model
+          --epochs=8
+          --learning-rate=0.00004
+          --pairwise-weight=1.0
+          --negative-mass-weight=0.5
+          --anchor-weight=0.75
+          --hard-sampling-multiplier=4.0
+          --commit-sha=${KATACAT_M35_COMMIT_SHA}
+          --device=cpu
+          --augment=on
+
+      - name: Validate selected checkpoint
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          summary = json.loads(Path("katacat-m35-model/summary.json").read_text())
+          assert summary["acceptance"]["passed"] is True
+          assert summary["trainableScope"] == "TRUNK_AND_POLICY"
+          assert summary["selected"]["frozenTacticalValidation"]["regressionFailuresVsParent"] == 0
+          candidate = Path("katacat-m35-model/katacat-m35.pt")
+          assert hashlib.sha256(candidate.read_bytes()).hexdigest() == summary["selected_checkpoint_sha256"]
+          PY
+
+      - name: Record manifest and checkpoint hashes
+        shell: bash
+        run: |
+          PARENT_SHA=$(sha256sum prepared-artifact/katacat-m341-model/katacat-m341.pt | awk '{print $1}')
+          CANDIDATE_SHA=$(sha256sum katacat-m35-model/katacat-m35.pt | awk '{print $1}')
+          echo "KATACAT_M35_PARENT_CHECKPOINT_SHA256=$PARENT_SHA" >> "$GITHUB_ENV"
+          echo "KATACAT_M35_CANDIDATE_CHECKPOINT_SHA256=$CANDIDATE_SHA" >> "$GITHUB_ENV"
+          python - <<PY
+          import json
+          from pathlib import Path
+          Path("katacat-m35-manifest.json").write_text(json.dumps({
+              "schemaVersion": 1,
+              "stage": "M3.5_MANIFEST",
+              "sourceM341RunId": "${KATACAT_M35_SOURCE_M341_RUN_ID}",
+              "sourceM33RunId": "${KATACAT_M35_SOURCE_M33_RUN_ID}",
+              "commitSha": "${KATACAT_M35_COMMIT_SHA}",
+              "parentCheckpointSha256": "$PARENT_SHA",
+              "candidateCheckpointSha256": "$CANDIDATE_SHA",
+          }, indent=2) + "\n")
+          PY
+
+      - name: Run 32-game smoke per opponent
+        env:
+          RUN_KATACAT_M35_ARENA: "1"
+          KATACAT_M35_CANDIDATE_CHECKPOINT: katacat-m35-model/katacat-m35.pt
+          KATACAT_M35_PARENT_CHECKPOINT: prepared-artifact/katacat-m341-model/katacat-m341.pt
+          KATACAT_M35_PHASE: smoke
+          KATACAT_M35_GAMES_PER_COMPARISON: "32"
+          KATACAT_M35_ARENA_OUTPUT_DIR: katacat-m35-smoke
+        run: npm run katacat:m35-arena
+
+      - name: Evaluate smoke gate
+        id: smoke_gate
+        run: >-
+          npm run katacat:m35-gate --
+          --phase=smoke
+          --training=katacat-m35-model/summary.json
+          --regression=katacat-m35-regression/summary.json
+          --arena=katacat-m35-smoke/arena-summary.json
+          --source-development=katacat-m35-source-development.json
+          --output=katacat-m35-gates/smoke.json
+
+      - name: Add smoke summary
+        if: always()
+        run: |
+          echo "## KataCat M3.5 Prepare + Smoke" >> "$GITHUB_STEP_SUMMARY"
+          echo "- commit: ${KATACAT_M35_COMMIT_SHA:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- source M3.4.1 run: ${KATACAT_M35_SOURCE_M341_RUN_ID:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- smoke pass: ${{ steps.smoke_gate.outputs.passed }}" >> "$GITHUB_STEP_SUMMARY"
+          for report in katacat-m35-regression/summary.json katacat-m35-model/summary.json \
+            katacat-m35-manifest.json katacat-m35-smoke/arena-summary.json katacat-m35-gates/smoke.json; do
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo "### $report" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            test -f "$report" && cat "$report" >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Upload prepared M3.5 artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m35-prepared-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            prepared-artifact/katacat-m341-model/katacat-m341.pt
+            katacat-m35-source-development.json
+            katacat-m35-regression/
+            katacat-m35-model/
+            katacat-m35-manifest.json
+            katacat-m35-smoke/
+            katacat-m35-gates/smoke.json
+          if-no-files-found: warn
+
+  development:
+    name: Run 128-game M3.5 development evaluation
+    needs: prepare_smoke
+    if: needs.prepare_smoke.outputs.smoke_pass == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    outputs:
+      development_pass: ${{ steps.development_gate.outputs.passed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m35
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+      - run: pip install -r ml/requirements-katacat.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: katacat-m35-prepared-${{ github.run_id }}
+          path: .
+      - name: Restore manifest environment
+        run: |
+          echo "KATACAT_M35_COMMIT_SHA=$(jq -r .commitSha katacat-m35-manifest.json)" >> "$GITHUB_ENV"
+          echo "KATACAT_M35_PARENT_CHECKPOINT_SHA256=$(jq -r .parentCheckpointSha256 katacat-m35-manifest.json)" >> "$GITHUB_ENV"
+          echo "KATACAT_M35_CANDIDATE_CHECKPOINT_SHA256=$(jq -r .candidateCheckpointSha256 katacat-m35-manifest.json)" >> "$GITHUB_ENV"
+      - name: Run 128 games per opponent
+        env:
+          RUN_KATACAT_M35_ARENA: "1"
+          KATACAT_M35_CANDIDATE_CHECKPOINT: katacat-m35-model/katacat-m35.pt
+          KATACAT_M35_PARENT_CHECKPOINT: prepared-artifact/katacat-m341-model/katacat-m341.pt
+          KATACAT_M35_PHASE: development
+          KATACAT_M35_GAMES_PER_COMPARISON: "128"
+          KATACAT_M35_ARENA_OUTPUT_DIR: katacat-m35-development
+        run: npm run katacat:m35-arena
+      - name: Evaluate development gate
+        id: development_gate
+        run: >-
+          npm run katacat:m35-gate --
+          --phase=development
+          --training=katacat-m35-model/summary.json
+          --regression=katacat-m35-regression/summary.json
+          --arena=katacat-m35-development/arena-summary.json
+          --source-development=katacat-m35-source-development.json
+          --output=katacat-m35-gates/development.json
+      - name: Add development summary
+        if: always()
+        run: |
+          echo "## KataCat M3.5 Development" >> "$GITHUB_STEP_SUMMARY"
+          echo "- pass: ${{ steps.development_gate.outputs.passed }}" >> "$GITHUB_STEP_SUMMARY"
+          cat katacat-m35-development/arena-summary.json >> "$GITHUB_STEP_SUMMARY" || true
+          cat katacat-m35-gates/development.json >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: katacat-m35-development-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            katacat-m35-development/
+            katacat-m35-gates/development.json
+          if-no-files-found: warn
+
+  promotion:
+    name: Run 400-game M3.5 promotion evaluation
+    needs: [prepare_smoke, development]
+    if: needs.development.outputs.development_pass == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m35
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+      - run: pip install -r ml/requirements-katacat.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: katacat-m35-prepared-${{ github.run_id }}
+          path: .
+      - name: Restore manifest environment
+        run: |
+          echo "KATACAT_M35_COMMIT_SHA=$(jq -r .commitSha katacat-m35-manifest.json)" >> "$GITHUB_ENV"
+          echo "KATACAT_M35_PARENT_CHECKPOINT_SHA256=$(jq -r .parentCheckpointSha256 katacat-m35-manifest.json)" >> "$GITHUB_ENV"
+          echo "KATACAT_M35_CANDIDATE_CHECKPOINT_SHA256=$(jq -r .candidateCheckpointSha256 katacat-m35-manifest.json)" >> "$GITHUB_ENV"
+      - name: Run 400 games per opponent
+        env:
+          RUN_KATACAT_M35_ARENA: "1"
+          KATACAT_M35_CANDIDATE_CHECKPOINT: katacat-m35-model/katacat-m35.pt
+          KATACAT_M35_PARENT_CHECKPOINT: prepared-artifact/katacat-m341-model/katacat-m341.pt
+          KATACAT_M35_PHASE: promotion
+          KATACAT_M35_GAMES_PER_COMPARISON: "400"
+          KATACAT_M35_ARENA_OUTPUT_DIR: katacat-m35-promotion
+        run: npm run katacat:m35-arena
+      - name: Evaluate promotion gate
+        id: promotion_gate
+        run: >-
+          npm run katacat:m35-gate --
+          --phase=promotion
+          --training=katacat-m35-model/summary.json
+          --regression=katacat-m35-regression/summary.json
+          --arena=katacat-m35-promotion/arena-summary.json
+          --source-development=katacat-m35-source-development.json
+          --output=katacat-m35-gates/promotion.json
+      - name: Add promotion summary
+        if: always()
+        run: |
+          echo "## KataCat M3.5 Promotion" >> "$GITHUB_STEP_SUMMARY"
+          echo "- pass: ${{ steps.promotion_gate.outputs.passed }}" >> "$GITHUB_STEP_SUMMARY"
+          cat katacat-m35-promotion/arena-summary.json >> "$GITHUB_STEP_SUMMARY" || true
+          cat katacat-m35-gates/promotion.json >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: katacat-m35-promotion-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            katacat-m35-promotion/
+            katacat-m35-gates/promotion.json
+          if-no-files-found: warn
