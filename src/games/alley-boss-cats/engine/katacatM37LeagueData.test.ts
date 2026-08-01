@@ -554,11 +554,10 @@ suite("KataCat M3.7 fresh M3.4.1-vs-CURRENT league source", () => {
         selectedHashes: samples.length,
       },
       acceptance,
-      note: (
+      note:
         "M3.7 records every trusted executed decision from fresh mirrored M3.4.1-vs-CURRENT games. "
-        "M3.4.1 actions are included only when the bounded reader did not fall back to an unverified move; "
-        "CURRENT actions are direct teacher labels. Splits are game-level and position hashes are globally deduplicated."
-      ),
+        + "M3.4.1 actions are included only when the bounded reader did not fall back to an unverified move; "
+        + "CURRENT actions are direct teacher labels. Splits are game-level and position hashes are globally deduplicated.",
     };
 
     mkdirSync(outputDir, { recursive: true });
