@@ -93,8 +93,12 @@ def load_m36_checkpoint(path: Path, device: torch.device | str = "cpu") -> Loade
         raise ValueError(
             f"Expected PLAYER_RELATIVE_V1, got {checkpoint.get('encodingVersion')}"
         )
-    if checkpoint.get("stage") != "M3.6_RESIDUAL_POLICY_ADAPTER":
-        raise ValueError(f"Unexpected M3.6 checkpoint stage: {checkpoint.get('stage')}")
+    allowed_stages = {
+        "M3.6_RESIDUAL_POLICY_ADAPTER",
+        "M3.6.2_TARGETED_RESIDUAL_POLICY_ADAPTER",
+    }
+    if checkpoint.get("stage") not in allowed_stages:
+        raise ValueError(f"Unexpected residual-adapter checkpoint stage: {checkpoint.get('stage')}")
     channels = int(checkpoint["channels"])
     blocks = int(checkpoint["blocks"])
     base = KataCatNet(channels, blocks)
