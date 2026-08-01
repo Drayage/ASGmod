@@ -1,0 +1,172 @@
+name: KataCat M3.6.1
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_m36_run_id:
+        description: "Successful KataCat M3.6 run ID; blank selects latest"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  KATACAT_M36_SIMULATIONS: "32"
+  KATACAT_M36_CURRENT_MS: "50"
+  KATACAT_M36_MAX_MOVES: "90"
+  KATACAT_M36_CAPTURE_DEPTH: "7"
+  KATACAT_M36_FINAL_VERIFY_MS: "75"
+  KATACAT_M36_FINAL_VERIFY_LIMIT: "5"
+  KATACAT_M36_RESCUE_VERIFY_MS: "50"
+  KATACAT_M36_RESCUE_VERIFY_LIMIT: "8"
+  KATACAT_M36_RESCUE_TOTAL_MS: "450"
+  KATACAT_M36_EXHAUSTIVE_VERIFY_MS: "25"
+
+jobs:
+  diagnostic:
+    name: Diagnose rejected residual-adapter epochs
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+
+    steps:
+      - name: Checkout M3.6.1 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m361
+
+      - name: Record commit SHA
+        run: echo "KATACAT_M361_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+      - run: pip install -r ml/requirements-katacat.txt
+
+      - name: Build and verify diagnostic contracts
+        run: |
+          npm run build
+          npm run katacat:m2-core
+          npm run katacat:m32-final-guard
+          npm run katacat:m33-relative
+          npm run katacat:m341-fallback
+          python -m py_compile ml/diagnose_katacat_m361.py ml/katacat_m36_adapter.py ml/katacat_m36_infer.py
+          node --check scripts/summarize-katacat-m361.mjs
+
+      - name: Download successful M3.6 prepared artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_RUN_ID: ${{ inputs.source_m36_run_id }}
+        run: |
+          set -euo pipefail
+          SOURCE_RUN_ID="$REQUESTED_RUN_ID"
+          if [ -z "$SOURCE_RUN_ID" ]; then
+            SOURCE_RUN_ID=$(gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/katacat-m36.yml/runs?status=success&per_page=20" \
+              --jq '.workflow_runs[0].id')
+          fi
+          if [ -z "$SOURCE_RUN_ID" ] || [ "$SOURCE_RUN_ID" = "null" ]; then
+            echo "No successful KataCat M3.6 run found" >&2
+            exit 1
+          fi
+          mkdir -p source-artifact
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m36-prepared-${SOURCE_RUN_ID}" --dir source-artifact
+          test -f source-artifact/katacat-m36-model/summary.json
+          test -f source-artifact/katacat-m36-model/epochs/epoch-000.pt
+          test -f source-artifact/katacat-m36-model/epochs/epoch-008.pt
+          test -f source-artifact/katacat-m36-model/epochs/epoch-013.pt
+          test -f source-artifact/katacat-m36-model/epochs/epoch-016.pt
+          test -f source-artifact/katacat-m36-hard-negative/katacat-m341-hard-negative-samples.jsonl
+          test -f source-artifact/katacat-m36-hard-negative/katacat-m341-regression-fixtures.json
+          test -f source-artifact/prepared-artifact/katacat-m341-model/katacat-m341.pt
+          test -f source-artifact/katacat-m36-source-development.json
+          echo "KATACAT_M361_SOURCE_M36_RUN_ID=$SOURCE_RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Re-run actual-loss fallback regressions
+        env:
+          KATACAT_M341_REGRESSION_FIXTURE: source-artifact/katacat-m36-hard-negative/katacat-m341-regression-fixtures.json
+          KATACAT_M341_REGRESSION_OUTPUT: katacat-m361-regression/summary.json
+        run: |
+          mkdir -p katacat-m361-regression
+          npm run katacat:m341-fallback
+
+      - name: Diagnose repeated tactical regression positions
+        run: >-
+          python ml/diagnose_katacat_m361.py
+          --training-summary=source-artifact/katacat-m36-model/summary.json
+          --hard-negative-data=source-artifact/katacat-m36-hard-negative/katacat-m341-hard-negative-samples.jsonl
+          --checkpoint=parent-zero=source-artifact/katacat-m36-model/epochs/epoch-000.pt
+          --checkpoint=epoch-008=source-artifact/katacat-m36-model/epochs/epoch-008.pt
+          --checkpoint=epoch-013=source-artifact/katacat-m36-model/epochs/epoch-013.pt
+          --checkpoint=epoch-016=source-artifact/katacat-m36-model/epochs/epoch-016.pt
+          --epochs=8,13,16
+          --top-regressions=3
+          --output=katacat-m361-position-diagnostic/summary.json
+
+      - name: Run 16-game diagnostic arenas per opponent
+        shell: bash
+        run: |
+          set -euo pipefail
+          PARENT=source-artifact/prepared-artifact/katacat-m341-model/katacat-m341.pt
+          PARENT_SHA=$(sha256sum "$PARENT" | awk '{print $1}')
+          for EPOCH in 008 013 016; do
+            CANDIDATE="source-artifact/katacat-m36-model/epochs/epoch-${EPOCH}.pt"
+            OUTPUT="katacat-m361-arenas/epoch-${EPOCH}"
+            export RUN_KATACAT_M36_ARENA=1
+            export KATACAT_M36_CANDIDATE_CHECKPOINT="$CANDIDATE"
+            export KATACAT_M36_PARENT_CHECKPOINT="$PARENT"
+            export KATACAT_M36_PARENT_CHECKPOINT_SHA256="$PARENT_SHA"
+            export KATACAT_M36_CANDIDATE_CHECKPOINT_SHA256="$(sha256sum "$CANDIDATE" | awk '{print $1}')"
+            export KATACAT_M36_PHASE="diagnostic-epoch-${EPOCH}"
+            export KATACAT_M36_GAMES_PER_COMPARISON=16
+            export KATACAT_M36_ARENA_OUTPUT_DIR="$OUTPUT"
+            npm run katacat:m36-arena
+          done
+
+      - name: Summarize diagnostic signal
+        run: >-
+          npm run katacat:m361-summarize --
+          --training=source-artifact/katacat-m36-model/summary.json
+          --positions=katacat-m361-position-diagnostic/summary.json
+          --source-development=source-artifact/katacat-m36-source-development.json
+          --arena-root=katacat-m361-arenas
+          --output=katacat-m361-summary/summary.json
+
+      - name: Add diagnostic summary
+        if: always()
+        run: |
+          echo "## KataCat M3.6.1 Diagnostic" >> "$GITHUB_STEP_SUMMARY"
+          echo "- commit: ${KATACAT_M361_COMMIT_SHA:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- source M3.6 run: ${KATACAT_M361_SOURCE_M36_RUN_ID:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f katacat-m361-summary/summary.json ]; then
+            echo "- recommendation: $(jq -r .recommendation katacat-m361-summary/summary.json)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- best diagnostic candidate: $(jq -r .bestDiagnosticCandidate katacat-m361-summary/summary.json)" >> "$GITHUB_STEP_SUMMARY"
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            jq '{recommendation,reasons,bestDiagnosticCandidate,promisingCandidateIds,candidates:[.candidates[]|{id,validation,vsParent:{games,wins,losses,winRate,captureLossRate},vsCurrent:{games,wins,losses,winRate,captureLossRate},positiveSignal}],repeatedRegressionPositions:[.repeatedRegressionPositions[]|{positionHash,sampleId,occurrencesAcrossSelectedEpochs,models:[.models[]|{id,topLegalActionIsNegative,positiveRank,bestNegativeRank,positiveMinusBestNegative,positiveResidual,bestNegativeResidual}]}],acceptance}' katacat-m361-summary/summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload M3.6.1 diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m361-diagnostic-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            katacat-m361-regression/
+            katacat-m361-position-diagnostic/
+            katacat-m361-arenas/
+            katacat-m361-summary/
+          if-no-files-found: warn
