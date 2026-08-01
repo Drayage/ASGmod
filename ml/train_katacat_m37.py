@@ -71,7 +71,10 @@ def parse_args() -> argparse.Namespace:
         "--commit-sha",
         default=os.environ.get("KATACAT_M37_COMMIT_SHA", "unknown"),
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    # Shared M3.4.1 tactical evaluation expects this compatibility name.
+    args.pairwise_margin = args.hard_pairwise_margin
+    return args
 
 
 class M37TrainDataset(Dataset):
