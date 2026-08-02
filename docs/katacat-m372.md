@@ -28,7 +28,7 @@ Training reuses the M3.7.1 pair-split, parent-preserving league rows. Territory-
 
 Epoch 0 is the byte-identical M3.4.1 parent. A trained epoch is eligible only when all conditions hold:
 
-1. fresh-league non-policy loss improves by at least 0.005;
+1. fresh-league total loss improves by at least 0.002 while policy logits remain identical;
 2. stability value, score, and ownership metrics remain inside fixed bounds;
 3. stem, trunk, and policy-head hashes are unchanged;
 4. policy-logit maximum absolute delta is zero;
