@@ -26,8 +26,8 @@ function coreComparison(comparison) {
   };
 }
 
-function sameJson(left, right) {
-  return JSON.stringify(left) === JSON.stringify(right);
+function mean(values) {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 const options = parseArgs();
@@ -41,7 +41,7 @@ if (!build.acceptance?.passed || !Array.isArray(build.variants) || build.variant
 
 const arenaRoot = resolve(options["arena-root"]);
 const rows = [];
-let baseline = null;
+const controls = [];
 for (const variant of build.variants) {
   const arena = readJson(`${arenaRoot}/${variant.name}/arena-summary.json`);
   if (!arena.acceptance?.passed) throw new Error(`${variant.name}: arena acceptance failed`);
@@ -54,17 +54,13 @@ for (const variant of build.variants) {
   if (parent.games !== 32 || current.games !== 32 || parentCurrent.games !== 32) {
     throw new Error(`${variant.name}: expected 32 games per comparison`);
   }
-  const baselineCore = coreComparison(parentCurrent);
-  if (baseline === null) baseline = baselineCore;
-  else if (!sameJson(baseline, baselineCore)) {
-    throw new Error(`${variant.name}: parent-vs-CURRENT control differs across paired ablations`);
-  }
 
+  const parentCurrentCore = coreComparison(parentCurrent);
+  controls.push({ name: variant.name, ...parentCurrentCore });
   const currentDelta = current.winRate - parentCurrent.winRate;
   const captureDelta = current.captureLossRate - parentCurrent.captureLossRate;
   const promising = parent.winRate >= 0.5
-    && current.winRate >= 0.5
-    && currentDelta >= -0.02
+    && currentDelta >= 0
     && captureDelta <= 0.02;
   const clearRegression = parent.winRate < 0.45 || currentDelta <= -0.1;
   rows.push({
@@ -75,8 +71,8 @@ for (const variant of build.variants) {
     parentHeadToHead: parent,
     currentVeryHard: current,
     parentVsCurrent: parentCurrent,
-    currentWinRateDeltaVsParent: currentDelta,
-    captureLossRateDeltaVsParent: captureDelta,
+    currentWinRateDeltaVsPairedControl: currentDelta,
+    captureLossRateDeltaVsPairedControl: captureDelta,
     status: promising
       ? "PROMISING_FOR_INDEPENDENT_128_DIAGNOSTIC"
       : clearRegression
@@ -89,11 +85,23 @@ rows.sort((left, right) => {
   if (right.parentHeadToHead.winRate !== left.parentHeadToHead.winRate) {
     return right.parentHeadToHead.winRate - left.parentHeadToHead.winRate;
   }
-  if (right.currentVeryHard.winRate !== left.currentVeryHard.winRate) {
-    return right.currentVeryHard.winRate - left.currentVeryHard.winRate;
+  if (right.currentWinRateDeltaVsPairedControl !== left.currentWinRateDeltaVsPairedControl) {
+    return right.currentWinRateDeltaVsPairedControl - left.currentWinRateDeltaVsPairedControl;
   }
+  if (left.sourceEpoch !== right.sourceEpoch) return left.sourceEpoch - right.sourceEpoch;
   return left.name.localeCompare(right.name);
 });
+
+const controlWinRates = controls.map((control) => control.winRate);
+const controlDiagnostics = {
+  perVariant: controls,
+  meanWinRate: mean(controlWinRates),
+  minWinRate: Math.min(...controlWinRates),
+  maxWinRate: Math.max(...controlWinRates),
+  spread: Math.max(...controlWinRates) - Math.min(...controlWinRates),
+  identical: new Set(controls.map((control) => JSON.stringify(control))).size === 1,
+  interpretation: "CURRENT is wall-clock-budgeted, so controls from separate runners may differ. Each candidate is normalized only against the control from its own job; direct candidate-vs-parent remains the primary comparison.",
+};
 
 const byHead = {};
 for (const head of ["value_head", "score_head"]) {
@@ -101,21 +109,24 @@ for (const head of ["value_head", "score_head"]) {
   byHead[head] = {
     variants: selected.map((row) => row.name),
     meanParentHeadToHeadWinRate:
-      selected.reduce((sum, row) => sum + row.parentHeadToHead.winRate, 0) / selected.length,
+      mean(selected.map((row) => row.parentHeadToHead.winRate)),
     meanCurrentWinRate:
-      selected.reduce((sum, row) => sum + row.currentVeryHard.winRate, 0) / selected.length,
-    meanCurrentDeltaVsParent:
-      selected.reduce((sum, row) => sum + row.currentWinRateDeltaVsParent, 0) / selected.length,
+      mean(selected.map((row) => row.currentVeryHard.winRate)),
+    meanCurrentDeltaVsPairedControl:
+      mean(selected.map((row) => row.currentWinRateDeltaVsPairedControl)),
+    meanCaptureLossDeltaVsPairedControl:
+      mean(selected.map((row) => row.captureLossRateDeltaVsPairedControl)),
   };
 }
+
 let likelyCulprit = "MIXED_OR_INCONCLUSIVE";
-const valueWeak = byHead.value_head.meanParentHeadToHeadWinRate < 0.5
-  && byHead.value_head.meanCurrentDeltaVsParent < 0;
-const scoreWeak = byHead.score_head.meanParentHeadToHeadWinRate < 0.5
-  && byHead.score_head.meanCurrentDeltaVsParent < 0;
-if (valueWeak && !scoreWeak) likelyCulprit = "VALUE_HEAD";
-else if (scoreWeak && !valueWeak) likelyCulprit = "SCORE_HEAD";
-else if (valueWeak && scoreWeak) likelyCulprit = "BOTH_HEADS_OR_SHARED_TARGETS";
+const valueDelta = byHead.value_head.meanCurrentDeltaVsPairedControl;
+const scoreDelta = byHead.score_head.meanCurrentDeltaVsPairedControl;
+if (valueDelta <= -0.05 && scoreDelta >= 0) likelyCulprit = "VALUE_HEAD";
+else if (scoreDelta <= -0.05 && valueDelta >= 0) likelyCulprit = "SCORE_HEAD";
+else if (valueDelta <= -0.05 && scoreDelta <= -0.05) {
+  likelyCulprit = "BOTH_HEADS_OR_SHARED_TARGETS";
+}
 
 const promisingRows = rows.filter(
   (row) => row.status === "PROMISING_FOR_INDEPENDENT_128_DIAGNOSTIC",
@@ -124,20 +135,22 @@ const recommendation = promisingRows.length > 0
   ? `RUN_INDEPENDENT_128_${promisingRows[0].name.toUpperCase().replaceAll("-", "_")}`
   : "STOP_M38_ABLATION_AND_REDESIGN_SEARCH_ALIGNED_TARGETS";
 const summary = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   stage: "M3.8_HEAD_ABLATION_DIAGNOSTIC",
   sourceBuild: {
     commitSha: build.commitSha,
     parentCheckpointSha256: build.parent?.checkpointSha256,
   },
   gamesPerComparison: 32,
-  sharedParentVsCurrentControl: baseline,
+  controlDiagnostics,
   variants: rows,
   aggregateByHead: byHead,
   likelyCulprit,
   recommendation,
   interpretationLimits: [
     "This is a diagnostic multiple-comparison screen, not an official smoke/development/promotion gate.",
+    "CURRENT uses a wall-clock budget; cross-runner control equality is not a valid deterministic contract.",
+    "Direct candidate-vs-parent is primary; candidate-vs-CURRENT is interpreted as a within-job delta from its paired control.",
     "No variant may be merged or promoted from 32-game evidence.",
     "A favorable variant requires an independent 128-game diagnostic before any fresh official pipeline.",
   ],
@@ -145,17 +158,19 @@ const summary = {
     buildAccepted: true,
     fourVariantsPresent: rows.length === 4,
     allArenaContractsPassed: true,
-    sharedControlIdentical: baseline !== null,
+    pairedControlRecordedPerVariant: controls.length === 4,
+    controlVarianceExplicitlyReported: Number.isFinite(controlDiagnostics.spread),
     noTrainingOrCheckpointMutationDuringArena: true,
-    passed: rows.length === 4 && baseline !== null,
+    passed: rows.length === 4 && controls.length === 4,
   },
 };
 const output = resolve(options.output);
 mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, JSON.stringify(summary, null, 2) + "\n");
-console.log(JSON.stringify({ recommendation, likelyCulprit, variants: rows.map((row) => ({
+console.log(JSON.stringify({ recommendation, likelyCulprit, controlSpread: controlDiagnostics.spread, variants: rows.map((row) => ({
   name: row.name,
   parent: row.parentHeadToHead.winRate,
   current: row.currentVeryHard.winRate,
+  currentDelta: row.currentWinRateDeltaVsPairedControl,
   status: row.status,
 })) }));
