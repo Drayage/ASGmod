@@ -117,21 +117,36 @@ def max_policy_delta(
     candidate_path: Path,
     data_paths: list[tuple[str, str]],
     batch_size: int,
-) -> float:
+) -> tuple[float, dict[str, Any]]:
     parent = load_model(parent_path)
     candidate = load_model(candidate_path)
     maximum = 0.0
+    audit: dict[str, Any] = {
+        "totalValidationRows": 0,
+        "sources": [],
+    }
     for path, source in data_paths:
         rows = validation_rows(path, source)
+        audit["sources"].append(
+            {
+                "source": source,
+                "path": path,
+                "validationRows": len(rows),
+                "audited": bool(rows),
+            }
+        )
         if not rows:
-            raise ValueError(f"M3.7.2 policy audit found no validation rows in {path}")
+            continue
+        audit["totalValidationRows"] += len(rows)
         dataset = M341Dataset(rows, augment=False)
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0)
         for batch in loader:
             features = batch[0]
             delta = (candidate(features)[0] - parent(features)[0]).abs().max().item()
             maximum = max(maximum, float(delta))
-    return maximum
+    if audit["totalValidationRows"] <= 0:
+        raise ValueError("M3.7.2 policy audit found no validation rows across all sources")
+    return maximum, audit
 
 
 def rewrite_summary(args: argparse.Namespace) -> None:
@@ -149,7 +164,7 @@ def rewrite_summary(args: argparse.Namespace) -> None:
     candidate = load_model(new_checkpoint)
     parent_frozen_sha = module_group_sha(parent, FROZEN_MODULES)
     candidate_frozen_sha = module_group_sha(candidate, FROZEN_MODULES)
-    policy_delta = max_policy_delta(
+    policy_delta, policy_audit = max_policy_delta(
         parent_path,
         new_checkpoint,
         [
@@ -186,6 +201,7 @@ def rewrite_summary(args: argparse.Namespace) -> None:
         "selected": candidate_frozen_sha,
     }
     summary["maxPolicyLogitDelta"] = policy_delta
+    summary["policyAudit"] = policy_audit
     summary["selected"]["maxPolicyLogitDelta"] = policy_delta
     summary["selectionPolicy"].update(
         {
@@ -205,6 +221,7 @@ def rewrite_summary(args: argparse.Namespace) -> None:
         {
             "stemTrunkPolicyHeadByteStable": frozen_exact,
             "policyLogitsExactAcrossAllValidationSources": policy_exact,
+            "policyAuditHasValidationRows": policy_audit["totalValidationRows"] > 0,
             "onlyValueScoreOwnershipHeadsTrainable": only_non_policy_heads,
         }
     )
@@ -217,7 +234,8 @@ def rewrite_summary(args: argparse.Namespace) -> None:
         "M3.7.2 reuses the strict M3.7 selector with a patched optimizer scope. "
         "Stem, every trunk block, and the policy head are byte-identical to M3.4.1; "
         "only value, score, and ownership heads receive gradients. Policy logits are "
-        "audited across every validation source and must have exactly zero delta."
+        "audited on every source that has validation rows and must have exactly zero "
+        "delta; intentionally train-only sources are recorded as not audited."
     )
     summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
 
