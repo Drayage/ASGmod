@@ -1,0 +1,125 @@
+name: KataCat M3.9.2 full-candidate reader replay
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_m39_run_id:
+        description: Successful KataCat M3.9 trace workflow run ID
+        required: true
+        default: "30823684908"
+        type: string
+      source_m391_run_id:
+        description: Successful KataCat M3.9.1 recorded proof replay run ID
+        required: true
+        default: "30832461940"
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  replay:
+    name: Execute full-candidate real-reader replay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout M3.9.2 diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m392-full-candidate-replay
+
+      - name: Record diagnostic commit
+        shell: bash
+        run: echo "KATACAT_M392_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Download and validate source diagnostics
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_M39_RUN_ID: ${{ inputs.source_m39_run_id }}
+          SOURCE_M391_RUN_ID: ${{ inputs.source_m391_run_id }}
+        run: |
+          set -euo pipefail
+          test -n "$SOURCE_M39_RUN_ID"
+          test -n "$SOURCE_M391_RUN_ID"
+          mkdir -p source-m39 source-m391
+
+          gh run download "$SOURCE_M39_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m39-search-trace-${SOURCE_M39_RUN_ID}" \
+            --dir source-m39
+          gh run download "$SOURCE_M391_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m391-offline-replay-${SOURCE_M391_RUN_ID}" \
+            --dir source-m391
+
+          TRACE=source-m39/katacat-m39-search-trace
+          M391=source-m391/katacat-m391-offline-replay/summary.json
+          test -f "$TRACE/summary.json"
+          test -f "$TRACE/diagnostic-summary.json"
+          test -f "$TRACE/games.jsonl"
+          test -f "$TRACE/decision-traces.jsonl"
+          test -f "$M391"
+
+          jq -e '.acceptance.passed == true' "$TRACE/summary.json" >/dev/null
+          jq -e '.acceptance.passed == true' "$TRACE/diagnostic-summary.json" >/dev/null
+          jq -e '.acceptance.passed == true' "$M391" >/dev/null
+          jq -e '.selectedStrategy.name == "PHASE_PRIOR_ASC"' "$M391" >/dev/null
+          jq -e '.nextGate.allowed == true and .nextGate.scope == "FULL_CANDIDATE_OFFLINE_READER_REPLAY_ONLY"' "$M391" >/dev/null
+
+          EXPECTED_PARENT="9e799363d0ade028ab1059aadd1fd7666c574e5c725ef00b46b7a180f143b07b"
+          test "$(jq -r '.parentCheckpoint.sha256' "$TRACE/summary.json")" = "$EXPECTED_PARENT"
+          test "$(jq -r '.parentCheckpoint.sha256' "$M391")" = "$EXPECTED_PARENT"
+
+          echo "KATACAT_M392_SOURCE_M39_RUN_ID=$SOURCE_M39_RUN_ID" >> "$GITHUB_ENV"
+          echo "KATACAT_M392_SOURCE_M391_RUN_ID=$SOURCE_M391_RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Run full-candidate real-reader replay
+        shell: bash
+        env:
+          RUN_KATACAT_M392: "1"
+          KATACAT_M392_TRACE_DIR: source-m39/katacat-m39-search-trace
+          KATACAT_M392_OUTPUT_DIR: katacat-m392-full-candidate-replay
+        run: |
+          set -euo pipefail
+          npx vitest run src/games/alley-boss-cats/engine/katacatM392FullCandidateReplay.test.ts
+          jq -e '.diagnosticAcceptance.passed == true' katacat-m392-full-candidate-replay/summary.json >/dev/null
+
+      - name: Add M3.9.2 diagnostic summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## KataCat M3.9.2 full-candidate real-reader replay" >> "$GITHUB_STEP_SUMMARY"
+          echo "- source M3.9 run: ${KATACAT_M392_SOURCE_M39_RUN_ID:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- source M3.9.1 run: ${KATACAT_M392_SOURCE_M391_RUN_ID:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- diagnostic commit: ${KATACAT_M392_COMMIT_SHA:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- training: none" >> "$GITHUB_STEP_SUMMARY"
+          echo "- gameplay change: none" >> "$GITHUB_STEP_SUMMARY"
+          echo "- promotion state change: none" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f katacat-m392-full-candidate-replay/summary.json ]; then
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat katacat-m392-full-candidate-replay/summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload M3.9.2 replay artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m392-full-candidate-replay-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            katacat-m392-full-candidate-replay/
+            source-m391/katacat-m391-offline-replay/summary.json
+            source-m39/katacat-m39-search-trace/summary.json
+            source-m39/katacat-m39-search-trace/diagnostic-summary.json
