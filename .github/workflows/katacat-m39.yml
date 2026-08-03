@@ -47,6 +47,7 @@ jobs:
           npm run katacat:m32-final-guard
           npm run katacat:m341-fallback
           npm run katacat:m39-contract
+          node --check scripts/summarize-katacat-m39.mjs
 
       - name: Download exact M3.4.1 parent checkpoint
         shell: bash
@@ -104,6 +105,12 @@ jobs:
           KATACAT_M39_OUTPUT_DIR: katacat-m39-search-trace
         run: npm run katacat:m39-trace
 
+      - name: Summarize actionable search-alignment evidence
+        run: >-
+          node scripts/summarize-katacat-m39.mjs
+          --trace=katacat-m39-search-trace
+          --output=katacat-m39-search-trace/diagnostic-summary.json
+
       - name: Add M3.9 diagnostic summary
         if: always()
         shell: bash
@@ -114,12 +121,17 @@ jobs:
           echo "- parent SHA: ${KATACAT_M39_PARENT_CHECKPOINT_SHA256:-unknown}" >> "$GITHUB_STEP_SUMMARY"
           echo "- training: none" >> "$GITHUB_STEP_SUMMARY"
           echo "- promotion state change: none" >> "$GITHUB_STEP_SUMMARY"
-          if [ -f katacat-m39-search-trace/summary.json ]; then
-            echo >> "$GITHUB_STEP_SUMMARY"
-            echo '```json' >> "$GITHUB_STEP_SUMMARY"
-            cat katacat-m39-search-trace/summary.json >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-          fi
+          for report in \
+            katacat-m39-search-trace/summary.json \
+            katacat-m39-search-trace/diagnostic-summary.json; do
+            if [ -f "$report" ]; then
+              echo >> "$GITHUB_STEP_SUMMARY"
+              echo "### $report" >> "$GITHUB_STEP_SUMMARY"
+              echo '```json' >> "$GITHUB_STEP_SUMMARY"
+              cat "$report" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
 
       - name: Upload M3.9 trace artifact
         if: always()
