@@ -1,0 +1,99 @@
+name: KataCat M3.9.1 recorded proof replay
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful KataCat M3.9 trace workflow run ID
+        required: true
+        default: "30823684908"
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  replay:
+    name: Replay recorded M3.9 reader proofs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout M3.9.1 diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m391-offline-replay
+
+      - name: Record diagnostic commit
+        shell: bash
+        run: echo "KATACAT_M391_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Download successful M3.9 trace artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+          test -n "$SOURCE_RUN_ID"
+          mkdir -p source-m39
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m39-search-trace-${SOURCE_RUN_ID}" \
+            --dir source-m39
+
+          TRACE=source-m39/katacat-m39-search-trace
+          test -f "$TRACE/summary.json"
+          test -f "$TRACE/diagnostic-summary.json"
+          test -f "$TRACE/decision-traces.jsonl"
+          test -f "$TRACE/pairwise-examples.jsonl"
+          jq -e '.acceptance.passed == true' "$TRACE/summary.json" >/dev/null
+          jq -e '.acceptance.passed == true' "$TRACE/diagnostic-summary.json" >/dev/null
+
+          EXPECTED_PARENT="9e799363d0ade028ab1059aadd1fd7666c574e5c725ef00b46b7a180f143b07b"
+          test "$(jq -r '.parentCheckpoint.sha256' "$TRACE/summary.json")" = "$EXPECTED_PARENT"
+          echo "KATACAT_M391_SOURCE_RUN_ID=$SOURCE_RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Replay recorded proof ordering
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/replay-katacat-m391.mjs
+          mkdir -p katacat-m391-offline-replay
+          node scripts/replay-katacat-m391.mjs \
+            --trace=source-m39/katacat-m39-search-trace \
+            --output=katacat-m391-offline-replay/summary.json
+          jq -e '.acceptance.passed == true' katacat-m391-offline-replay/summary.json >/dev/null
+
+      - name: Add M3.9.1 diagnostic summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## KataCat M3.9.1 recorded proof replay" >> "$GITHUB_STEP_SUMMARY"
+          echo "- source M3.9 run: ${KATACAT_M391_SOURCE_RUN_ID:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- diagnostic commit: ${KATACAT_M391_COMMIT_SHA:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- training: none" >> "$GITHUB_STEP_SUMMARY"
+          echo "- gameplay change: none" >> "$GITHUB_STEP_SUMMARY"
+          echo "- promotion state change: none" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f katacat-m391-offline-replay/summary.json ]; then
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat katacat-m391-offline-replay/summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload M3.9.1 replay artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m391-offline-replay-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            katacat-m391-offline-replay/
+            source-m39/katacat-m39-search-trace/summary.json
+            source-m39/katacat-m39-search-trace/diagnostic-summary.json
