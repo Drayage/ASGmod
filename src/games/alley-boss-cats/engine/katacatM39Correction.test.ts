@@ -16,9 +16,9 @@ function action(
 }
 
 describe("KataCat M3.9 deterministic correction contract", () => {
-  it("never displaces a parent verified-safe action", () => {
+  it("never displaces a parent verified-safe action and audits the raw PUCT correction", () => {
     const result = applyKataCatM39DeterministicCorrection([
-      action(4, 1, "REFUTED", false, { meanValue: 0.9 }),
+      action(4, 1, "REFUTED", false, { selectedByPuct: true, meanValue: 0.9 }),
       action(7, 2, "VERIFIED_SAFE", true, { meanValue: 0.1 }),
       action(9, 3, "UNVERIFIED"),
     ]);
@@ -26,7 +26,10 @@ describe("KataCat M3.9 deterministic correction contract", () => {
     expect(result).toEqual({
       actionIndex: 7,
       parentActionIndex: 7,
+      baselinePuctActionIndex: 4,
       changed: false,
+      changedFromPuct: true,
+      matchesParent: true,
       safetyLocked: true,
       allActionsRefuted: false,
       reason: "PARENT_VERIFIED_SAFE_LOCK",
@@ -35,25 +38,29 @@ describe("KataCat M3.9 deterministic correction contract", () => {
 
   it("removes proved-refuted choices without inventing safety", () => {
     const result = applyKataCatM39DeterministicCorrection([
-      action(4, 1, "REFUTED", true),
+      action(4, 1, "REFUTED", true, { selectedByPuct: true }),
       action(7, 2, "UNVERIFIED"),
       action(9, 3, "REFUTED"),
     ]);
 
     expect(result.actionIndex).toBe(7);
     expect(result.changed).toBe(true);
+    expect(result.changedFromPuct).toBe(true);
+    expect(result.matchesParent).toBe(false);
     expect(result.safetyLocked).toBe(false);
     expect(result.reason).toBe("TOP_NON_REFUTED_PARENT_RANK");
   });
 
   it("keeps the parent choice when every root is proved losing", () => {
     const result = applyKataCatM39DeterministicCorrection([
-      action(4, 1, "REFUTED", true),
+      action(4, 1, "REFUTED", true, { selectedByPuct: true }),
       action(7, 2, "REFUTED"),
     ]);
 
     expect(result.actionIndex).toBe(4);
     expect(result.changed).toBe(false);
+    expect(result.changedFromPuct).toBe(false);
+    expect(result.matchesParent).toBe(true);
     expect(result.allActionsRefuted).toBe(true);
     expect(result.reason).toBe("ALL_ACTIONS_REFUTED_KEEP_PARENT");
   });
@@ -67,6 +74,7 @@ describe("KataCat M3.9 deterministic correction contract", () => {
         childRawValue: 0.1,
       }),
       action(4, 1, "REFUTED", false, {
+        selectedByPuct: true,
         visits: 20,
         meanValue: 0.8,
         childRawValue: 0.7,
@@ -82,6 +90,8 @@ describe("KataCat M3.9 deterministic correction contract", () => {
       pairType: "SAFE_SELECTION_OVER_HIGHER_RAW_VALUE_REFUTED",
       positiveParentRank: 2,
       negativeParentRank: 1,
+      negativeRankedAbovePositive: true,
+      negativeSelectedByPuct: true,
     });
   });
 
