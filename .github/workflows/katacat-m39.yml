@@ -1,0 +1,133 @@
+name: KataCat M3.9 search-aligned trace
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_m38_run_id:
+        description: "Successful KataCat M3.8 run ID containing the exact M3.4.1 parent; blank selects latest"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  trace:
+    name: Collect M3.4.1 search-aligned decision evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 480
+
+    steps:
+      - name: Checkout M3.9 diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m39-search-trace
+
+      - name: Record diagnostic commit
+        run: echo "KATACAT_M39_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+      - run: pip install -r ml/requirements-katacat.txt
+
+      - name: Verify unchanged search contracts and M3.9 safety contract
+        run: |
+          npm run build
+          npm run katacat:m2-core
+          npm run katacat:m32-final-guard
+          npm run katacat:m341-fallback
+          npm run katacat:m39-contract
+
+      - name: Download exact M3.4.1 parent checkpoint
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_RUN_ID: ${{ inputs.source_m38_run_id }}
+        run: |
+          set -euo pipefail
+          M38_RUN_ID="$REQUESTED_RUN_ID"
+          if [ -z "$M38_RUN_ID" ]; then
+            M38_RUN_ID=$(gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/katacat-m38.yml/runs?status=success&per_page=20" \
+              --jq '.workflow_runs[0].id')
+          fi
+          test -n "$M38_RUN_ID" && test "$M38_RUN_ID" != "null"
+          mkdir -p source-m38-checkpoints
+          gh run download "$M38_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m38-checkpoints-${M38_RUN_ID}" --dir source-m38-checkpoints
+
+          SUMMARY=source-m38-checkpoints/summary.json
+          PARENT=source-m38-checkpoints/katacat-m341-parent.pt
+          test -f "$SUMMARY" && test -f "$PARENT"
+          jq -e '.acceptance.passed == true' "$SUMMARY" >/dev/null
+
+          EXPECTED_PARENT="9e799363d0ade028ab1059aadd1fd7666c574e5c725ef00b46b7a180f143b07b"
+          DECLARED_PARENT=$(jq -r '.parent.checkpointSha256' "$SUMMARY")
+          ACTUAL_PARENT=$(sha256sum "$PARENT" | cut -d' ' -f1)
+          test "$DECLARED_PARENT" = "$EXPECTED_PARENT"
+          test "$ACTUAL_PARENT" = "$EXPECTED_PARENT"
+
+          echo "KATACAT_M39_SOURCE_M38_RUN_ID=$M38_RUN_ID" >> "$GITHUB_ENV"
+          echo "KATACAT_M39_PARENT_CHECKPOINT_SHA256=$ACTUAL_PARENT" >> "$GITHUB_ENV"
+
+      - name: Collect 32-game M3.9 search trace
+        env:
+          RUN_KATACAT_M39_TRACE: "1"
+          KATACAT_M39_PARENT_CHECKPOINT: source-m38-checkpoints/katacat-m341-parent.pt
+          KATACAT_M39_GAMES: "32"
+          KATACAT_M39_SIMULATIONS: "32"
+          KATACAT_M39_CURRENT_MS: "50"
+          KATACAT_M39_MAX_MOVES: "90"
+          KATACAT_M39_CAPTURE_DEPTH: "7"
+          KATACAT_M39_CAPTURE_ATTACK_MS: "25"
+          KATACAT_M39_CAPTURE_DEFENSE_MS: "50"
+          KATACAT_M39_CAPTURE_DEFENSE_LIMIT: "12"
+          KATACAT_M39_FINAL_VERIFY_MS: "75"
+          KATACAT_M39_FINAL_VERIFY_LIMIT: "5"
+          KATACAT_M39_RESCUE_VERIFY_MS: "50"
+          KATACAT_M39_RESCUE_VERIFY_LIMIT: "8"
+          KATACAT_M39_RESCUE_TOTAL_MS: "450"
+          KATACAT_M39_EXHAUSTIVE_VERIFY_MS: "25"
+          KATACAT_M39_CHILD_EVAL_LIMIT: "12"
+          KATACAT_M39_PAIR_NEGATIVE_LIMIT: "8"
+          KATACAT_M39_OPENING_SEED: "20260803"
+          KATACAT_M39_OUTPUT_DIR: katacat-m39-search-trace
+        run: npm run katacat:m39-trace
+
+      - name: Add M3.9 diagnostic summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## KataCat M3.9 search-aligned trace" >> "$GITHUB_STEP_SUMMARY"
+          echo "- source M3.8 run: ${KATACAT_M39_SOURCE_M38_RUN_ID:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- diagnostic commit: ${KATACAT_M39_COMMIT_SHA:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- parent SHA: ${KATACAT_M39_PARENT_CHECKPOINT_SHA256:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- training: none" >> "$GITHUB_STEP_SUMMARY"
+          echo "- promotion state change: none" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f katacat-m39-search-trace/summary.json ]; then
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat katacat-m39-search-trace/summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload M3.9 trace artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m39-search-trace-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            source-m38-checkpoints/summary.json
+            katacat-m39-search-trace/
+          if-no-files-found: warn
