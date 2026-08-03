@@ -477,7 +477,7 @@ suite("KataCat M3.9 search-aligned decision trace", () => {
           ownershipReturned: Array.isArray(result.rootEvaluation?.ownership),
           ownershipUsedByPuct: false,
           tactical: result.tactical,
-          rootShellRefutationIdentityComplete,
+          rootShellRefutationIdentityComplete: rootShellIdentityComplete,
         },
         finalDecision: {
           executedAction: selectedIndex,
