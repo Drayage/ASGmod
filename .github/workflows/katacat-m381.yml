@@ -1,0 +1,167 @@
+name: KataCat M3.8.1 e1-score-only 128-game diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_m38_run_id:
+        description: "Successful KataCat M3.8 run ID; blank selects latest"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  KATACAT_M341_SIMULATIONS: "32"
+  KATACAT_M341_CURRENT_MS: "50"
+  KATACAT_M341_MAX_MOVES: "90"
+  KATACAT_M341_CAPTURE_DEPTH: "7"
+  KATACAT_M341_CAPTURE_ATTACK_MS: "25"
+  KATACAT_M341_CAPTURE_DEFENSE_MS: "50"
+  KATACAT_M341_CAPTURE_DEFENSE_LIMIT: "12"
+  KATACAT_M341_FINAL_VERIFY_MS: "75"
+  KATACAT_M341_FINAL_VERIFY_LIMIT: "5"
+  KATACAT_M341_RESCUE_CURRENT_MS: "50"
+  KATACAT_M341_RESCUE_VERIFY_MS: "50"
+  KATACAT_M341_RESCUE_VERIFY_LIMIT: "8"
+  KATACAT_M341_RESCUE_TOTAL_MS: "450"
+  KATACAT_M341_EXHAUSTIVE_VERIFY_MS: "25"
+
+jobs:
+  diagnostic:
+    name: Run fixed e1-score-only 128-game diagnostic
+    runs-on: ubuntu-latest
+    timeout-minutes: 420
+
+    steps:
+      - name: Checkout M3.8.1 diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/katacat-m381-score-only-128
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ml/requirements-katacat.txt
+      - run: pip install -r ml/requirements-katacat.txt
+
+      - name: Verify diagnostic code
+        run: |
+          npm run build
+          node --check scripts/summarize-katacat-m381.mjs
+
+      - name: Download fixed M3.8 checkpoint and accepted screen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_RUN_ID: ${{ inputs.source_m38_run_id }}
+        run: |
+          set -euo pipefail
+          M38_RUN_ID="$REQUESTED_RUN_ID"
+          if [ -z "$M38_RUN_ID" ]; then
+            M38_RUN_ID=$(gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/katacat-m38.yml/runs?status=success&per_page=20" \
+              --jq '.workflow_runs[0].id')
+          fi
+          test -n "$M38_RUN_ID" && test "$M38_RUN_ID" != "null"
+          mkdir -p source-m38-checkpoints source-m38-diagnostic
+          gh run download "$M38_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m38-checkpoints-${M38_RUN_ID}" --dir source-m38-checkpoints
+          gh run download "$M38_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "katacat-m38-diagnostic-${M38_RUN_ID}" --dir source-m38-diagnostic
+
+          BUILD=source-m38-checkpoints/summary.json
+          SCREEN=source-m38-diagnostic/katacat-m38-diagnostic/summary.json
+          CANDIDATE=source-m38-checkpoints/katacat-m38-e1-score-only.pt
+          PARENT=source-m38-checkpoints/katacat-m341-parent.pt
+          test -f "$BUILD" && test -f "$SCREEN" && test -f "$CANDIDATE" && test -f "$PARENT"
+
+          jq -e '
+            .acceptance.passed == true
+            and .recommendation == "RUN_INDEPENDENT_128_E1_SCORE_ONLY"
+            and .likelyCulprit == "VALUE_HEAD"
+            and any(.variants[];
+              .name == "e1-score-only"
+              and .sourceEpoch == 1
+              and .copiedHeads == ["score_head"]
+              and .status == "PROMISING_FOR_INDEPENDENT_128_DIAGNOSTIC")
+          ' "$SCREEN" >/dev/null
+          jq -e '
+            .acceptance.passed == true
+            and any(.variants[];
+              .name == "e1-score-only"
+              and .sourceEpoch == 1
+              and .copiedHeads == ["score_head"]
+              and .changedKeyCount == 7
+              and .acceptance.passed == true
+              and .acceptance.onlyRequestedHeadChanged == true
+              and .acceptance.frozenModulesByteIdentical == true)
+          ' "$BUILD" >/dev/null
+
+          EXPECTED_CANDIDATE=$(jq -r '.variants[] | select(.name == "e1-score-only") | .checkpointSha256' "$BUILD")
+          SCREEN_CANDIDATE=$(jq -r '.variants[] | select(.name == "e1-score-only") | .checkpointSha256' "$SCREEN")
+          ACTUAL_CANDIDATE=$(sha256sum "$CANDIDATE" | cut -d' ' -f1)
+          EXPECTED_PARENT=$(jq -r '.parent.checkpointSha256' "$BUILD")
+          SCREEN_PARENT=$(jq -r '.sourceBuild.parentCheckpointSha256' "$SCREEN")
+          ACTUAL_PARENT=$(sha256sum "$PARENT" | cut -d' ' -f1)
+          test "$EXPECTED_CANDIDATE" = "$SCREEN_CANDIDATE"
+          test "$EXPECTED_CANDIDATE" = "$ACTUAL_CANDIDATE"
+          test "$EXPECTED_PARENT" = "$SCREEN_PARENT"
+          test "$EXPECTED_PARENT" = "$ACTUAL_PARENT"
+          echo "KATACAT_M381_SOURCE_RUN_ID=$M38_RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Run 128 games per comparison
+        env:
+          RUN_KATACAT_M341_ARENA: "1"
+          KATACAT_M341_CANDIDATE_CHECKPOINT: source-m38-checkpoints/katacat-m38-e1-score-only.pt
+          KATACAT_M341_PARENT_CHECKPOINT: source-m38-checkpoints/katacat-m341-parent.pt
+          KATACAT_M341_PHASE: m381-score-only-128
+          KATACAT_M341_GAMES_PER_COMPARISON: "128"
+          KATACAT_M341_ARENA_OUTPUT_DIR: katacat-m381-diagnostic
+        run: npm run katacat:m341-arena
+
+      - name: Summarize independent evidence
+        run: >-
+          node scripts/summarize-katacat-m381.mjs
+          --source=source-m38-diagnostic/katacat-m38-diagnostic/summary.json
+          --build=source-m38-checkpoints/summary.json
+          --arena=katacat-m381-diagnostic/arena-summary.json
+          --output=katacat-m381-diagnostic/diagnostic-summary.json
+
+      - name: Add M3.8.1 diagnostic summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## KataCat M3.8.1 e1-score-only 128-game diagnostic" >> "$GITHUB_STEP_SUMMARY"
+          echo "- source M3.8 run: ${KATACAT_M381_SOURCE_RUN_ID:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          for report in \
+            source-m38-checkpoints/summary.json \
+            source-m38-diagnostic/katacat-m38-diagnostic/summary.json \
+            katacat-m381-diagnostic/arena-summary.json \
+            katacat-m381-diagnostic/diagnostic-summary.json; do
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo "### $report" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            test -f "$report" && cat "$report" >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Upload M3.8.1 diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: katacat-m381-diagnostic-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            source-m38-checkpoints/summary.json
+            source-m38-diagnostic/katacat-m38-diagnostic/summary.json
+            katacat-m381-diagnostic/
+          if-no-files-found: warn
