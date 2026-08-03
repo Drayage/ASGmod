@@ -27,6 +27,22 @@ function countBy(rows, key) {
   }, {});
 }
 
+function finite(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function negativeHasHigherQ(pair) {
+  return finite(pair.negativeMeanValue)
+    && finite(pair.positiveMeanValue)
+    && pair.negativeMeanValue > pair.positiveMeanValue;
+}
+
+function negativeHasHigherRawValue(pair) {
+  return finite(pair.negativeChildRawValue)
+    && finite(pair.positiveChildRawValue)
+    && pair.negativeChildRawValue > pair.positiveChildRawValue;
+}
+
 const options = parseArgs();
 if (!options.trace || !options.output) {
   throw new Error("--trace and --output are required");
@@ -37,8 +53,8 @@ const source = readJson(resolve(traceDir, "summary.json"));
 const decisions = readJsonl(resolve(traceDir, "decision-traces.jsonl"));
 const pairs = readJsonl(resolve(traceDir, "pairwise-examples.jsonl"));
 
-const exactParent = source.parentCheckpoint?.sha256
-  === "9e799363d0ade028ab1059aadd1fd7666c574e5c725ef00b46b7a180f143b07b";
+const expectedParent = "9e799363d0ade028ab1059aadd1fd7666c574e5c725ef00b46b7a180f143b07b";
+const exactParent = source.parentCheckpoint?.sha256 === expectedParent;
 const safeLockViolations = decisions.filter((decision) => {
   const parent = decision.rootActions?.find((action) => action.selectedByParent);
   return parent?.verificationStatus === "VERIFIED_SAFE"
@@ -53,20 +69,20 @@ const guardCorrectedRefutedPuct = decisions.filter((decision) => {
     && puct.verificationStatus === "REFUTED"
     && parent.verificationStatus === "VERIFIED_SAFE";
 });
+
+// pairType is an exclusive display label whose later raw-value condition can
+// overwrite an earlier Q/rank label. Count overlapping evidence from the
+// numeric predicates instead of treating pairType as a set of disjoint facts.
+const higherRankPairs = pairs.filter((pair) => pair.negativeRankedAbovePositive === true);
+const higherQPairs = pairs.filter(negativeHasHigherQ);
+const higherRawValuePairs = pairs.filter(negativeHasHigherRawValue);
+const rawPuctNegativePairs = pairs.filter((pair) => pair.negativeSelectedByPuct === true);
 const actionablePairs = pairs.filter((pair) =>
-  pair.negativeSelectedByPuct
-  || pair.negativeRankedAbovePositive
-  || pair.pairType === "SAFE_SELECTION_OVER_HIGHER_Q_REFUTED"
-  || pair.pairType === "SAFE_SELECTION_OVER_HIGHER_RAW_VALUE_REFUTED"
+  pair.negativeSelectedByPuct === true
+  || pair.negativeRankedAbovePositive === true
+  || negativeHasHigherQ(pair)
+  || negativeHasHigherRawValue(pair)
 );
-const higherRankPairs = pairs.filter((pair) => pair.negativeRankedAbovePositive);
-const higherQPairs = pairs.filter(
-  (pair) => pair.pairType === "SAFE_SELECTION_OVER_HIGHER_Q_REFUTED",
-);
-const higherRawValuePairs = pairs.filter(
-  (pair) => pair.pairType === "SAFE_SELECTION_OVER_HIGHER_RAW_VALUE_REFUTED",
-);
-const rawPuctNegativePairs = pairs.filter((pair) => pair.negativeSelectedByPuct);
 const unverifiedFallbacks = decisions.filter(
   (decision) => decision.finalDecision?.fallbackToUnverified,
 );
@@ -115,6 +131,18 @@ const acceptance = {
       && positive?.verificationStatus === "VERIFIED_SAFE"
       && negative?.verificationStatus === "REFUTED";
   }),
+  pairDisplayLabelsConsistent: pairs.every((pair) => {
+    if (pair.pairType === "SAFE_SELECTION_OVER_HIGHER_Q_REFUTED") {
+      return negativeHasHigherQ(pair);
+    }
+    if (pair.pairType === "SAFE_SELECTION_OVER_HIGHER_RAW_VALUE_REFUTED") {
+      return negativeHasHigherRawValue(pair);
+    }
+    if (pair.pairType === "SAFE_SELECTION_OVER_HIGHER_RANK_REFUTED") {
+      return pair.negativeRankedAbovePositive === true;
+    }
+    return true;
+  }),
   parentVerifiedSafeNeverDisplaced: safeLockViolations.length === 0,
   correctionNeverChangesParentAction: correctionChangedFromParent.length === 0,
   diagnosticOnly: source.diagnosticOnly === true && source.changesPromotionState === false,
@@ -147,11 +175,19 @@ const summary = {
     allRootActionsRefuted: allRootActionsRefuted.length,
   },
   pairEvidence: {
-    byType: countBy(pairs, "pairType"),
+    byExclusiveDisplayType: countBy(pairs, "pairType"),
     higherParentRankRefuted: higherRankPairs.length,
     higherQRefuted: higherQPairs.length,
     higherRawValueRefuted: higherRawValuePairs.length,
     rawPuctSelectionRefuted: rawPuctNegativePairs.length,
+    qAndRawValueBothHigher: pairs.filter(
+      (pair) => negativeHasHigherQ(pair) && negativeHasHigherRawValue(pair),
+    ).length,
+    rankQAndRawValueAllHigher: pairs.filter(
+      (pair) => pair.negativeRankedAbovePositive
+        && negativeHasHigherQ(pair)
+        && negativeHasHigherRawValue(pair),
+    ).length,
     actionablePairShare: actionablePairs.length / Math.max(1, pairs.length),
   },
   deterministicAssessment: {
@@ -179,6 +215,7 @@ const summary = {
     "Reader-proved capture refutations are valid local negatives, but they do not prove that the selected safe action is globally optimal.",
     "Pairs already resolved by the current final guard do not by themselves justify changing shipped gameplay.",
     "A neural correction head requires unresolved repeated decision errors after deterministic replay, not merely a nonzero pair count.",
+    "pairType is an exclusive display label; overlapping rank, Q, and raw-value predicates are counted separately in pairEvidence.",
   ],
   acceptance,
 };
