@@ -5,6 +5,7 @@ export interface KataCatM39RankedAction {
   parentRank: number;
   verificationStatus: KataCatM39VerificationStatus;
   selectedByParent: boolean;
+  selectedByPuct?: boolean;
   selectionOutcome?: string | null;
   visits?: number | null;
   meanValue?: number | null;
@@ -17,7 +18,10 @@ export interface KataCatM39RankedAction {
 export interface KataCatM39CorrectionResult {
   actionIndex: number;
   parentActionIndex: number;
+  baselinePuctActionIndex: number;
   changed: boolean;
+  changedFromPuct: boolean;
+  matchesParent: boolean;
   safetyLocked: boolean;
   allActionsRefuted: boolean;
   reason:
@@ -34,10 +38,13 @@ export interface KataCatM39PairwiseExample {
     | "VERIFIED_RESCUE_OVER_REFUTED"
     | "VERIFIED_ADAPTIVE_OVER_REFUTED"
     | "VERIFIED_EXHAUSTIVE_OVER_REFUTED"
+    | "SAFE_SELECTION_OVER_HIGHER_RANK_REFUTED"
     | "SAFE_SELECTION_OVER_HIGHER_Q_REFUTED"
     | "SAFE_SELECTION_OVER_HIGHER_RAW_VALUE_REFUTED";
   positiveParentRank: number;
   negativeParentRank: number;
+  negativeRankedAbovePositive: boolean;
+  negativeSelectedByPuct: boolean;
   positiveVisits: number | null;
   negativeVisits: number | null;
   positiveMeanValue: number | null;
@@ -53,6 +60,26 @@ function parentOrder(actions: KataCatM39RankedAction[]): KataCatM39RankedAction[
   });
 }
 
+function result(
+  actionIndex: number,
+  parentActionIndex: number,
+  baselinePuctActionIndex: number,
+  extra: Pick<
+    KataCatM39CorrectionResult,
+    "safetyLocked" | "allActionsRefuted" | "reason"
+  >,
+): KataCatM39CorrectionResult {
+  return {
+    actionIndex,
+    parentActionIndex,
+    baselinePuctActionIndex,
+    changed: actionIndex !== parentActionIndex,
+    changedFromPuct: actionIndex !== baselinePuctActionIndex,
+    matchesParent: actionIndex === parentActionIndex,
+    ...extra,
+  };
+}
+
 /**
  * Conservative deterministic correction contract for M3.9 diagnostics.
  *
@@ -60,7 +87,9 @@ function parentOrder(actions: KataCatM39RankedAction[]): KataCatM39RankedAction[
  * - A proved-refuted action is never promoted over an unrefuted action.
  * - If every action is proved losing, the parent choice is preserved.
  *
- * This helper is diagnostic-only and is not wired into shipped HARD/VERY_HARD play.
+ * `changedFromPuct` separately records whether the deterministic evidence would
+ * correct the raw network-search choice to the final parent-safe choice. The
+ * helper is diagnostic-only and is not wired into shipped HARD/VERY_HARD play.
  */
 export function applyKataCatM39DeterministicCorrection(
   actions: KataCatM39RankedAction[],
@@ -69,38 +98,30 @@ export function applyKataCatM39DeterministicCorrection(
   const ordered = parentOrder(actions);
   const parent = ordered.find((action) => action.selectedByParent);
   if (!parent) throw new Error("KataCat M3.9 correction could not find the parent selection");
+  const puct = ordered.find((action) => action.selectedByPuct) ?? parent;
 
   if (parent.verificationStatus === "VERIFIED_SAFE") {
-    return {
-      actionIndex: parent.actionIndex,
-      parentActionIndex: parent.actionIndex,
-      changed: false,
+    return result(parent.actionIndex, parent.actionIndex, puct.actionIndex, {
       safetyLocked: true,
       allActionsRefuted: false,
       reason: "PARENT_VERIFIED_SAFE_LOCK",
-    };
+    });
   }
 
   const nonRefuted = ordered.find((action) => action.verificationStatus !== "REFUTED");
   if (nonRefuted) {
-    return {
-      actionIndex: nonRefuted.actionIndex,
-      parentActionIndex: parent.actionIndex,
-      changed: nonRefuted.actionIndex !== parent.actionIndex,
+    return result(nonRefuted.actionIndex, parent.actionIndex, puct.actionIndex, {
       safetyLocked: false,
       allActionsRefuted: false,
       reason: "TOP_NON_REFUTED_PARENT_RANK",
-    };
+    });
   }
 
-  return {
-    actionIndex: parent.actionIndex,
-    parentActionIndex: parent.actionIndex,
-    changed: false,
+  return result(parent.actionIndex, parent.actionIndex, puct.actionIndex, {
     safetyLocked: false,
     allActionsRefuted: true,
     reason: "ALL_ACTIONS_REFUTED_KEEP_PARENT",
-  };
+  });
 }
 
 function outcomePairType(outcome?: string | null): KataCatM39PairwiseExample["pairType"] {
@@ -128,7 +149,11 @@ export function buildKataCatM39PairwiseExamples(
     .slice(0, Math.max(0, Math.floor(maximumNegatives)));
 
   return negatives.map((negative) => {
+    const negativeRankedAbovePositive = negative.parentRank < positive.parentRank;
     let pairType = outcomePairType(positive.selectionOutcome);
+    if (negativeRankedAbovePositive) {
+      pairType = "SAFE_SELECTION_OVER_HIGHER_RANK_REFUTED";
+    }
     if (
       negative.meanValue !== null
       && negative.meanValue !== undefined
@@ -153,6 +178,8 @@ export function buildKataCatM39PairwiseExamples(
       pairType,
       positiveParentRank: positive.parentRank,
       negativeParentRank: negative.parentRank,
+      negativeRankedAbovePositive,
+      negativeSelectedByPuct: negative.selectedByPuct ?? false,
       positiveVisits: positive.visits ?? null,
       negativeVisits: negative.visits ?? null,
       positiveMeanValue: positive.meanValue ?? null,
