@@ -51,9 +51,20 @@ jobs:
       - name: Dispatch the 32-game screen and 200-game pilot
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          gh workflow run alley-boss-cats-phase1.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            --ref main \
-            -f arena_mode=screen \
-            -f run_dataset=true
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            if gh workflow run alley-boss-cats-phase1.yml \
+              --repo "$GITHUB_REPOSITORY" \
+              --ref main \
+              -f arena_mode=screen \
+              -f run_dataset=true; then
+              echo "Phase 1 dispatched"
+              exit 0
+            fi
+            echo "workflow registration not ready (attempt ${attempt}/12)"
+            sleep 5
+          done
+          echo "failed to dispatch Phase 1 after registration retries" >&2
+          exit 1
