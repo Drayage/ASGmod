@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "stage": "PHASE_0_TERRITORY_ARENA_BASELINE",
+  "generatedAt": "2026-08-04T04:14:48.364Z",
+  "sourceCommit": "3f0564733f47782e3da6182bfafeca0196db1e65",
+  "workflowRun": "https://github.com/Drayage/ASGmod/actions/runs/30866664839",
+  "primaryMetric": "finalTerritoryMargin",
+  "config": {
+    "gamesPerMatch": 128,
+    "maxPlies": 160,
+    "openingPlies": 4,
+    "arenaSeed": 20260804,
+    "hardMs": 3000,
+    "veryHardMs": 3000,
+    "mirrored": true
+  },
+  "baseline": {
+    "label": "VERY_HARD self-play baseline",
+    "engines": {
+      "X": "VERY_HARD",
+      "Y": "VERY_HARD"
+    },
+    "timeBudgetMs": {
+      "X": 3000,
+      "Y": 3000
+    },
+    "aggregate": {
+      "games": 128,
+      "mirroredPairs": 64,
+      "primaryMetric": {
+        "name": "finalTerritoryMargin",
+        "positiveMeans": "engineX",
+        "summary": {
+          "count": 128,
+          "mean": 0.15625,
+          "standardDeviation": 4.237882,
+          "standardError": 0.374579,
+          "confidence95": {
+            "low": -0.577926,
+            "high": 0.890426,
+            "halfWidth": 0.734176
+          }
+        }
+      },
+      "outcomes": {
+        "wins": {
+          "X": 64,
+          "Y": 64
+        },
+        "winRatePercent": {
+          "X": 50,
+          "Y": 50
+        },
+        "reasons": {
+          "CAPTURE": 91,
+          "TERRITORY": 37,
+          "PLY_CAP": 0
+        },
+        "territoryDecisionRatePercent": 28.90625,
+        "captureDecisionRatePercent": 71.09375,
+        "plyCapRatePercent": 0
+      },
+      "plies": {
+        "count": 128,
+        "mean": 50.382813,
+        "standardDeviation": 14.769153,
+        "standardError": 1.305421,
+        "confidence95": {
+          "low": 47.824187,
+          "high": 52.941438,
+          "halfWidth": 2.558625
+        }
+      },
+      "firstTerritoryTurn": {
+        "X": {
+          "count": 108,
+          "mean": 22.296296,
+          "standardDeviation": 11.282489,
+          "standardError": 1.085658,
+          "confidence95": {
+            "low": 20.168407,
+            "high": 24.424186,
+            "halfWidth": 2.12789
+          },
+          "missing": 20
+        },
+        "Y": {
+          "count": 111,
+          "mean": 22.774775,
+          "standardDeviation": 11.687355,
+          "standardError": 1.109315,
+          "confidence95": {
+            "low": 20.600518,
+            "high": 24.949031,
+            "halfWidth": 2.174257
+          },
+          "missing": 17
+        }
+      },
+      "peakInfluence": {
+        "X": {
+          "count": 128,
+          "mean": 30.367188,
+          "standardDeviation": 5.959008,
+          "standardError": 0.526707,
+          "confidence95": {
+            "low": 29.334842,
+            "high": 31.399533,
+            "halfWidth": 1.032346
+          }
+        },
+        "Y": {
+          "count": 128,
+          "mean": 30.539063,
+          "standardDeviation": 6.052139,
+          "standardError": 0.534939,
+          "confidence95": {
+            "low": 29.490583,
+            "high": 31.587542,
+            "halfWidth": 1.04848
+          }
+        }
+      },
+      "finalTerritory": {
+        "X": {
+          "count": 128,
+          "mean": 5.03125,
+          "standardDeviation": 4.27396,
+          "standardError": 0.377768,
+          "confidence95": {
+            "low": 4.290824,
+            "high": 5.771676,
+            "halfWidth": 0.740426
+          }
+        },
+        "Y": {
+          "count": 128,
+          "mean": 4.875,
+          "standardDeviation": 4.099165,
+          "standardError": 0.362318,
+          "confidence95": {
+            "low": 4.164856,
+            "high": 5.585144,
+            "halfWidth": 0.710144
+          }
+        }
+      },
+      "influenceToTerritoryConversionPercent": {
+        "X": {
+          "count": 128,
+          "mean": 16.62211,
+          "standardDeviation": 13.693244,
+          "standardError": 1.210323,
+          "confidence95": {
+            "low": 14.249876,
+            "high": 18.994343,
+            "halfWidth": 2.372234
+          },
+          "ratioOfMeans": 16.568047
+        },
+        "Y": {
+          "count": 128,
+          "mean": 16.273105,
+          "standardDeviation": 13.397569,
+          "standardError": 1.184189,
+          "confidence95": {
+            "low": 13.952095,
+            "high": 18.594115,
+            "halfWidth": 2.32101
+          },
+          "ratioOfMeans": 15.963162
+        }
+      },
+      "safeMovesAtPly20": {
+        "X": {
+          "count": 126,
+          "mean": 58.531746,
+          "standardDeviation": 2.243877,
+          "standardError": 0.1999,
+          "confidence95": {
+            "low": 58.139941,
+            "high": 58.923551,
+            "halfWidth": 0.391805
+          },
+          "missing": 2
+        },
+        "Y": {
+          "count": 126,
+          "mean": 58.539683,
+          "standardDeviation": 2.240181,
+          "standardError": 0.199571,
+          "confidence95": {
+            "low": 58.148523,
+            "high": 58.930842,
+            "halfWidth": 0.39116
+          },
+          "missing": 2
+        }
+      }
+    }
+  }
+}
