@@ -1,0 +1,1437 @@
+{
+  "format": "alley-boss-cats-records",
+  "version": 1,
+  "exportedAt": 1785801752201,
+  "records": [
+    {
+      "mode": "AI",
+      "difficulty": "VERY_HARD",
+      "playerSide": "B",
+      "winner": "A",
+      "winReason": "CAPTURE",
+      "territoryA": 0,
+      "territoryB": 6,
+      "moveHistory": [
+        {
+          "turn": 1,
+          "player": "A",
+          "type": "PLACE",
+          "row": 1,
+          "col": 3
+        },
+        {
+          "turn": 2,
+          "player": "B",
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "turn": 3,
+          "player": "A",
+          "type": "PLACE",
+          "row": 7,
+          "col": 5
+        },
+        {
+          "turn": 4,
+          "player": "B",
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "turn": 5,
+          "player": "A",
+          "type": "PLACE",
+          "row": 4,
+          "col": 8
+        },
+        {
+          "turn": 6,
+          "player": "B",
+          "type": "PLACE",
+          "row": 8,
+          "col": 5
+        },
+        {
+          "turn": 7,
+          "player": "A",
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "turn": 8,
+          "player": "B",
+          "type": "PLACE",
+          "row": 5,
+          "col": 8
+        },
+        {
+          "turn": 9,
+          "player": "A",
+          "type": "PLACE",
+          "row": 4,
+          "col": 7
+        },
+        {
+          "turn": 10,
+          "player": "B",
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "turn": 11,
+          "player": "A",
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "turn": 12,
+          "player": "B",
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "turn": 13,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 8
+        },
+        {
+          "turn": 14,
+          "player": "B",
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "turn": 15,
+          "player": "A",
+          "type": "PLACE",
+          "row": 1,
+          "col": 1
+        },
+        {
+          "turn": 16,
+          "player": "B",
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "turn": 17,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "turn": 18,
+          "player": "B",
+          "type": "PLACE",
+          "row": 0,
+          "col": 2
+        },
+        {
+          "turn": 19,
+          "player": "A",
+          "type": "PLACE",
+          "row": 0,
+          "col": 1
+        },
+        {
+          "turn": 20,
+          "player": "B",
+          "type": "PLACE",
+          "row": 0,
+          "col": 4
+        },
+        {
+          "turn": 21,
+          "player": "A",
+          "type": "PLACE",
+          "row": 0,
+          "col": 3
+        }
+      ],
+      "aiTimings": [
+        {
+          "turn": 1,
+          "elapsedMs": 34,
+          "budgetMs": 3000,
+          "depth": 0
+        },
+        {
+          "turn": 3,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 5,
+          "elapsedMs": 2647,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 7,
+          "elapsedMs": 2681,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 9,
+          "elapsedMs": 2600,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 11,
+          "elapsedMs": 2600,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 13,
+          "elapsedMs": 2615,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 15,
+          "elapsedMs": 1985,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 17,
+          "elapsedMs": 31,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 19,
+          "elapsedMs": 53,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 21,
+          "elapsedMs": 6,
+          "budgetMs": 3000,
+          "depth": 7
+        }
+      ],
+      "id": "1785267248363-8f3pfu",
+      "finishedAt": 1785267248363,
+      "appVersion": "32293a1",
+      "buildTime": "2026-07-27T07:06:29.400Z"
+    },
+    {
+      "mode": "AI",
+      "difficulty": "VERY_HARD",
+      "playerSide": "B",
+      "winner": "B",
+      "winReason": "TERRITORY",
+      "territoryA": 8,
+      "territoryB": 18,
+      "moveHistory": [
+        {
+          "turn": 1,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "turn": 2,
+          "player": "B",
+          "type": "PLACE",
+          "row": 1,
+          "col": 1
+        },
+        {
+          "turn": 3,
+          "player": "A",
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "turn": 4,
+          "player": "B",
+          "type": "PLACE",
+          "row": 0,
+          "col": 2
+        },
+        {
+          "turn": 5,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 0
+        },
+        {
+          "turn": 6,
+          "player": "B",
+          "type": "PLACE",
+          "row": 1,
+          "col": 0
+        },
+        {
+          "turn": 7,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "turn": 8,
+          "player": "B",
+          "type": "PLACE",
+          "row": 1,
+          "col": 7
+        },
+        {
+          "turn": 9,
+          "player": "A",
+          "type": "PLACE",
+          "row": 3,
+          "col": 7
+        },
+        {
+          "turn": 10,
+          "player": "B",
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "turn": 11,
+          "player": "A",
+          "type": "PLACE",
+          "row": 7,
+          "col": 5
+        },
+        {
+          "turn": 12,
+          "player": "B",
+          "type": "PLACE",
+          "row": 7,
+          "col": 1
+        },
+        {
+          "turn": 13,
+          "player": "A",
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "turn": 14,
+          "player": "B",
+          "type": "PLACE",
+          "row": 6,
+          "col": 0
+        },
+        {
+          "turn": 15,
+          "player": "A",
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "turn": 16,
+          "player": "B",
+          "type": "PLACE",
+          "row": 8,
+          "col": 6
+        },
+        {
+          "turn": 17,
+          "player": "A",
+          "type": "PLACE",
+          "row": 5,
+          "col": 0
+        },
+        {
+          "turn": 18,
+          "player": "B",
+          "type": "PLACE",
+          "row": 8,
+          "col": 2
+        },
+        {
+          "turn": 19,
+          "player": "A",
+          "type": "PLACE",
+          "row": 4,
+          "col": 1
+        },
+        {
+          "turn": 20,
+          "player": "B",
+          "type": "PLACE",
+          "row": 0,
+          "col": 6
+        },
+        {
+          "turn": 21,
+          "player": "A",
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "turn": 22,
+          "player": "B",
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "turn": 23,
+          "player": "A",
+          "type": "PLACE",
+          "row": 8,
+          "col": 5
+        },
+        {
+          "turn": 24,
+          "player": "B",
+          "type": "PLACE",
+          "row": 6,
+          "col": 8
+        },
+        {
+          "turn": 25,
+          "player": "A",
+          "type": "PLACE",
+          "row": 3,
+          "col": 2
+        },
+        {
+          "turn": 26,
+          "player": "B",
+          "type": "PLACE",
+          "row": 8,
+          "col": 4
+        },
+        {
+          "turn": 27,
+          "player": "A",
+          "type": "PLACE",
+          "row": 6,
+          "col": 5
+        },
+        {
+          "turn": 28,
+          "player": "B",
+          "type": "PLACE",
+          "row": 1,
+          "col": 3
+        },
+        {
+          "turn": 29,
+          "player": "A",
+          "type": "PLACE",
+          "row": 5,
+          "col": 6
+        },
+        {
+          "turn": 30,
+          "player": "B",
+          "type": "PLACE",
+          "row": 2,
+          "col": 4
+        },
+        {
+          "turn": 31,
+          "player": "A",
+          "type": "PLACE",
+          "row": 5,
+          "col": 2
+        },
+        {
+          "turn": 32,
+          "player": "B",
+          "type": "PLACE",
+          "row": 1,
+          "col": 5
+        },
+        {
+          "turn": 33,
+          "player": "A",
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "turn": 34,
+          "player": "B",
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        },
+        {
+          "turn": 35,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "turn": 36,
+          "player": "B",
+          "type": "PLACE",
+          "row": 2,
+          "col": 8
+        },
+        {
+          "turn": 37,
+          "player": "A",
+          "type": "PLACE",
+          "row": 5,
+          "col": 8
+        },
+        {
+          "turn": 38,
+          "player": "B",
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "turn": 39,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 6
+        },
+        {
+          "turn": 40,
+          "player": "B",
+          "type": "PLACE",
+          "row": 4,
+          "col": 5
+        },
+        {
+          "turn": 41,
+          "player": "A",
+          "type": "PLACE",
+          "row": 4,
+          "col": 6
+        },
+        {
+          "turn": 42,
+          "player": "B",
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "turn": 43,
+          "player": "A",
+          "type": "PLACE",
+          "row": 3,
+          "col": 6
+        },
+        {
+          "turn": 44,
+          "player": "B",
+          "type": "PLACE",
+          "row": 4,
+          "col": 2
+        },
+        {
+          "turn": 45,
+          "player": "A",
+          "type": "PLACE",
+          "row": 3,
+          "col": 8
+        },
+        {
+          "turn": 46,
+          "player": "B",
+          "type": "PLACE",
+          "row": 5,
+          "col": 5
+        },
+        {
+          "turn": 47,
+          "player": "A",
+          "type": "PLACE",
+          "row": 6,
+          "col": 4
+        },
+        {
+          "turn": 48,
+          "player": "B",
+          "type": "PLACE",
+          "row": 5,
+          "col": 4
+        },
+        {
+          "turn": 49,
+          "player": "A",
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "turn": 50,
+          "player": "B",
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "turn": 51,
+          "player": "A",
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "turn": 52,
+          "player": "B",
+          "type": "PLACE",
+          "row": 2,
+          "col": 3
+        },
+        {
+          "turn": 53,
+          "player": "A",
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "turn": 54,
+          "player": "B",
+          "type": "PLACE",
+          "row": 2,
+          "col": 5
+        },
+        {
+          "turn": 55,
+          "player": "A",
+          "type": "PASS"
+        },
+        {
+          "turn": 56,
+          "player": "B",
+          "type": "PASS"
+        }
+      ],
+      "aiTimings": [
+        {
+          "turn": 1,
+          "elapsedMs": 34,
+          "budgetMs": 3000,
+          "depth": 0
+        },
+        {
+          "turn": 3,
+          "elapsedMs": 2620,
+          "budgetMs": 3000,
+          "depth": 6
+        },
+        {
+          "turn": 5,
+          "elapsedMs": 2613,
+          "budgetMs": 3000,
+          "depth": 6
+        },
+        {
+          "turn": 7,
+          "elapsedMs": 2616,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 9,
+          "elapsedMs": 2600,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 11,
+          "elapsedMs": 2600,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 13,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 15,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 17,
+          "elapsedMs": 133,
+          "budgetMs": 3000,
+          "depth": 3
+        },
+        {
+          "turn": 19,
+          "elapsedMs": 2602,
+          "budgetMs": 3000,
+          "depth": 6
+        },
+        {
+          "turn": 21,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 23,
+          "elapsedMs": 107,
+          "budgetMs": 3000,
+          "depth": 3
+        },
+        {
+          "turn": 25,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 6
+        },
+        {
+          "turn": 27,
+          "elapsedMs": 2600,
+          "budgetMs": 3000,
+          "depth": 6
+        },
+        {
+          "turn": 29,
+          "elapsedMs": 2600,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 31,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 33,
+          "elapsedMs": 2600,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 35,
+          "elapsedMs": 2600,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 37,
+          "elapsedMs": 2602,
+          "budgetMs": 3000,
+          "depth": 6
+        },
+        {
+          "turn": 39,
+          "elapsedMs": 2602,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 41,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 43,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 45,
+          "elapsedMs": 1083,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 47,
+          "elapsedMs": 127,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 49,
+          "elapsedMs": 48,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 51,
+          "elapsedMs": 24,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 53,
+          "elapsedMs": 12,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 55,
+          "elapsedMs": 10,
+          "budgetMs": 3000,
+          "depth": 8
+        }
+      ],
+      "id": "1785214954673-kw57rg",
+      "finishedAt": 1785214954673,
+      "appVersion": "32293a1",
+      "buildTime": "2026-07-27T07:06:29.400Z"
+    },
+    {
+      "mode": "AI",
+      "difficulty": "VERY_HARD",
+      "playerSide": "B",
+      "winner": "B",
+      "winReason": "CAPTURE",
+      "territoryA": 4,
+      "territoryB": 17,
+      "moveHistory": [
+        {
+          "turn": 1,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "turn": 2,
+          "player": "B",
+          "type": "PLACE",
+          "row": 1,
+          "col": 1
+        },
+        {
+          "turn": 3,
+          "player": "A",
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "turn": 4,
+          "player": "B",
+          "type": "PLACE",
+          "row": 0,
+          "col": 2
+        },
+        {
+          "turn": 5,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 0
+        },
+        {
+          "turn": 6,
+          "player": "B",
+          "type": "PLACE",
+          "row": 1,
+          "col": 0
+        },
+        {
+          "turn": 7,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "turn": 8,
+          "player": "B",
+          "type": "PLACE",
+          "row": 1,
+          "col": 3
+        },
+        {
+          "turn": 9,
+          "player": "A",
+          "type": "PLACE",
+          "row": 4,
+          "col": 7
+        },
+        {
+          "turn": 10,
+          "player": "B",
+          "type": "PLACE",
+          "row": 2,
+          "col": 4
+        },
+        {
+          "turn": 11,
+          "player": "A",
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "turn": 12,
+          "player": "B",
+          "type": "PLACE",
+          "row": 1,
+          "col": 7
+        },
+        {
+          "turn": 13,
+          "player": "A",
+          "type": "PLACE",
+          "row": 1,
+          "col": 5
+        },
+        {
+          "turn": 14,
+          "player": "B",
+          "type": "PLACE",
+          "row": 0,
+          "col": 6
+        },
+        {
+          "turn": 15,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 3
+        },
+        {
+          "turn": 16,
+          "player": "B",
+          "type": "PLACE",
+          "row": 0,
+          "col": 4
+        },
+        {
+          "turn": 17,
+          "player": "A",
+          "type": "PLACE",
+          "row": 6,
+          "col": 6
+        },
+        {
+          "turn": 18,
+          "player": "B",
+          "type": "PLACE",
+          "row": 2,
+          "col": 8
+        },
+        {
+          "turn": 19,
+          "player": "A",
+          "type": "PLACE",
+          "row": 5,
+          "col": 1
+        },
+        {
+          "turn": 20,
+          "player": "B",
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "turn": 21,
+          "player": "A",
+          "type": "PLACE",
+          "row": 3,
+          "col": 2
+        },
+        {
+          "turn": 22,
+          "player": "B",
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        },
+        {
+          "turn": 23,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 6
+        },
+        {
+          "turn": 24,
+          "player": "B",
+          "type": "PLACE",
+          "row": 4,
+          "col": 2
+        },
+        {
+          "turn": 25,
+          "player": "A",
+          "type": "PLACE",
+          "row": 3,
+          "col": 0
+        },
+        {
+          "turn": 26,
+          "player": "B",
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "turn": 27,
+          "player": "A",
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "turn": 28,
+          "player": "B",
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "turn": 29,
+          "player": "A",
+          "type": "PLACE",
+          "row": 6,
+          "col": 0
+        },
+        {
+          "turn": 30,
+          "player": "B",
+          "type": "PLACE",
+          "row": 7,
+          "col": 0
+        },
+        {
+          "turn": 31,
+          "player": "A",
+          "type": "PLACE",
+          "row": 7,
+          "col": 1
+        },
+        {
+          "turn": 32,
+          "player": "B",
+          "type": "PLACE",
+          "row": 8,
+          "col": 1
+        },
+        {
+          "turn": 33,
+          "player": "A",
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "turn": 34,
+          "player": "B",
+          "type": "PLACE",
+          "row": 8,
+          "col": 6
+        },
+        {
+          "turn": 35,
+          "player": "A",
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "turn": 36,
+          "player": "B",
+          "type": "PLACE",
+          "row": 6,
+          "col": 8
+        },
+        {
+          "turn": 37,
+          "player": "A",
+          "type": "PLACE",
+          "row": 4,
+          "col": 1
+        },
+        {
+          "turn": 38,
+          "player": "B",
+          "type": "PLACE",
+          "row": 5,
+          "col": 7
+        },
+        {
+          "turn": 39,
+          "player": "A",
+          "type": "PLACE",
+          "row": 4,
+          "col": 6
+        },
+        {
+          "turn": 40,
+          "player": "B",
+          "type": "PLACE",
+          "row": 4,
+          "col": 8
+        },
+        {
+          "turn": 41,
+          "player": "A",
+          "type": "PLACE",
+          "row": 5,
+          "col": 5
+        },
+        {
+          "turn": 42,
+          "player": "B",
+          "type": "PLACE",
+          "row": 3,
+          "col": 7
+        },
+        {
+          "turn": 43,
+          "player": "A",
+          "type": "PLACE",
+          "row": 4,
+          "col": 5
+        },
+        {
+          "turn": 44,
+          "player": "B",
+          "type": "PLACE",
+          "row": 7,
+          "col": 5
+        },
+        {
+          "turn": 45,
+          "player": "A",
+          "type": "PLACE",
+          "row": 6,
+          "col": 5
+        },
+        {
+          "turn": 46,
+          "player": "B",
+          "type": "PLACE",
+          "row": 8,
+          "col": 4
+        },
+        {
+          "turn": 47,
+          "player": "A",
+          "type": "PLACE",
+          "row": 5,
+          "col": 4
+        },
+        {
+          "turn": 48,
+          "player": "B",
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "turn": 49,
+          "player": "A",
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "turn": 50,
+          "player": "B",
+          "type": "PLACE",
+          "row": 6,
+          "col": 4
+        },
+        {
+          "turn": 51,
+          "player": "A",
+          "type": "PLACE",
+          "row": 3,
+          "col": 6
+        },
+        {
+          "turn": 52,
+          "player": "B",
+          "type": "PLACE",
+          "row": 8,
+          "col": 2
+        },
+        {
+          "turn": 53,
+          "player": "A",
+          "type": "PLACE",
+          "row": 5,
+          "col": 6
+        },
+        {
+          "turn": 54,
+          "player": "B",
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "turn": 55,
+          "player": "A",
+          "type": "PLACE",
+          "row": 5,
+          "col": 2
+        },
+        {
+          "turn": 56,
+          "player": "B",
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "turn": 57,
+          "player": "A",
+          "type": "PLACE",
+          "row": 2,
+          "col": 5
+        },
+        {
+          "turn": 58,
+          "player": "B",
+          "type": "PLACE",
+          "row": 0,
+          "col": 5
+        },
+        {
+          "turn": 59,
+          "player": "A",
+          "type": "PASS"
+        },
+        {
+          "turn": 60,
+          "player": "B",
+          "type": "PLACE",
+          "row": 1,
+          "col": 4
+        }
+      ],
+      "aiTimings": [
+        {
+          "turn": 1,
+          "elapsedMs": 30,
+          "budgetMs": 3000,
+          "depth": 0
+        },
+        {
+          "turn": 3,
+          "elapsedMs": 2619,
+          "budgetMs": 3000,
+          "depth": 6
+        },
+        {
+          "turn": 5,
+          "elapsedMs": 2610,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 7,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 9,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 11,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 13,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 15,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 6
+        },
+        {
+          "turn": 17,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 19,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 21,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 23,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 25,
+          "elapsedMs": 629,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 27,
+          "elapsedMs": 757,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 29,
+          "elapsedMs": 2602,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 31,
+          "elapsedMs": 113,
+          "budgetMs": 3000,
+          "depth": 3
+        },
+        {
+          "turn": 33,
+          "elapsedMs": 2603,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 35,
+          "elapsedMs": 230,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 37,
+          "elapsedMs": 2600,
+          "budgetMs": 3000,
+          "depth": 5
+        },
+        {
+          "turn": 39,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 41,
+          "elapsedMs": 2600,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 43,
+          "elapsedMs": 2600,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 45,
+          "elapsedMs": 17,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 45,
+          "elapsedMs": 2601,
+          "budgetMs": 3000,
+          "depth": 7
+        },
+        {
+          "turn": 45,
+          "elapsedMs": 2600,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 47,
+          "elapsedMs": 2572,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 49,
+          "elapsedMs": 524,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 51,
+          "elapsedMs": 228,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 53,
+          "elapsedMs": 80,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 55,
+          "elapsedMs": 20,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 57,
+          "elapsedMs": 28,
+          "budgetMs": 3000,
+          "depth": 8
+        },
+        {
+          "turn": 59,
+          "elapsedMs": 8,
+          "budgetMs": 3000,
+          "depth": 8
+        }
+      ],
+      "id": "1785199177883-whynnz",
+      "finishedAt": 1785199177883,
+      "appVersion": "32293a1",
+      "buildTime": "2026-07-27T07:06:29.400Z"
+    }
+  ]
+}
