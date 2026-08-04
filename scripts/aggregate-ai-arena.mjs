@@ -69,26 +69,53 @@ function marginBreakdown(games) {
 const inputDir = resolve(arg("input-dir", "arena-shards"));
 const output = resolve(arg("output", "arena-summary.json"));
 const expectedGames = Number(arg("expected-games", "32"));
-const mode = arg("mode", "SCREEN");
+const expectedShards = Number(arg("expected-shards", "8"));
+const mode = arg("mode", expectedGames === 32 ? "SCREEN" : "FINAL");
 
-const documents = filesUnder(inputDir).map((file) =>
-  JSON.parse(readFileSync(file, "utf8")),
-);
+const documents = filesUnder(inputDir).map((file) => ({
+  file,
+  payload: JSON.parse(readFileSync(file, "utf8")),
+}));
 if (documents.length === 0) throw new Error(`No shard JSON files under ${inputDir}`);
+if (documents.length !== expectedShards) {
+  throw new Error(`Expected ${expectedShards} shard files, found ${documents.length}`);
+}
 
-const games = documents.flatMap((doc) => doc.matches?.[0]?.games ?? []);
+const games = [];
+const ids = new Set();
+const seeds = new Set();
+for (const { file, payload } of documents) {
+  const seed = payload.config?.arenaSeed;
+  const match = payload.matches?.[0];
+  if (!Number.isInteger(seed) || !match || !Array.isArray(match.games)) {
+    throw new Error(`Malformed arena shard ${file}`);
+  }
+  if (seeds.has(seed)) throw new Error(`Duplicate arena seed ${seed}`);
+  seeds.add(seed);
+  for (const game of match.games) {
+    const id = `${seed}:${game.game}`;
+    if (ids.has(id)) throw new Error(`Duplicate game ${id}`);
+    ids.add(id);
+    games.push({ ...game, shardSeed: seed, shardGameId: id });
+  }
+}
+
 if (games.length !== expectedGames) {
   throw new Error(`Expected ${expectedGames} games, found ${games.length}`);
 }
-const ids = new Set(games.map((game) => game.globalGame));
-if (ids.size !== games.length) throw new Error("Duplicate globalGame IDs across shards");
-games.sort((a, b) => a.globalGame - b.globalGame);
+games.sort((a, b) => a.shardSeed - b.shardSeed || a.game - b.game);
 
 const reasons = { CAPTURE: 0, TERRITORY: 0, PLY_CAP: 0 };
-for (const game of games) reasons[game.winReason] += 1;
+for (const game of games) {
+  if (!(game.winReason in reasons)) throw new Error(`Unknown finish reason ${game.winReason}`);
+  reasons[game.winReason] += 1;
+}
 const margins = marginBreakdown(games);
 const territoryDecisionRatePercent = rounded(
   (reasons.TERRITORY / games.length) * 100,
+);
+const captureDecisionRatePercent = rounded(
+  (reasons.CAPTURE / games.length) * 100,
 );
 const xWins = games.filter((game) => game.winnerEngine === "X").length;
 
@@ -99,24 +126,24 @@ const summary = {
   mode,
   expectedGames,
   shards: documents.length,
+  seeds: [...seeds].sort((a, b) => a - b),
   config: {
-    mirrored: true,
-    maxPlies: documents[0].config.maxPlies,
-    hardMs: documents[0].config.hardMs,
-    veryHardMs: documents[0].config.veryHardMs,
-    arenaSeed: documents[0].config.arenaSeed,
+    mirroredWithinShard: true,
+    maxPlies: documents[0].payload.config.maxPlies,
+    hardMs: documents[0].payload.config.hardMs,
+    veryHardMs: documents[0].payload.config.veryHardMs,
   },
   gateMetrics: {
     finalTerritoryMarginByReason: margins,
     territoryDecisionRatePercent,
     interpretation:
-      "A clear territory improvement raises both the territory-only margin and territory-decision rate. A one-sided increase requires diagnosis.",
+      "A clear territory improvement raises both territory-only margin and territory-decision rate. A one-sided increase requires diagnosis.",
   },
   referenceMetrics: {
-    allEndingMargin: margins.all,
-    captureOnlyMargin: margins.captureOnly,
     outcomes: {
       reasons,
+      territoryDecisionRatePercent,
+      captureDecisionRatePercent,
       wins: { X: xWins, Y: games.length - xWins },
       winRatePercent: {
         X: rounded((xWins / games.length) * 100),
