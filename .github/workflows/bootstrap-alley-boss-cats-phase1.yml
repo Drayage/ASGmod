@@ -1,18 +1,14 @@
-# Registered before this push so the bootstrap trigger is guaranteed.
-name: Bootstrap Alley Boss Cats Phase 1 on main
+name: Bootstrap and run Alley Boss Cats Phase 1
 
 on:
-  push:
-    branches: [claude/abstract-strategy-games-setup-h93ot5]
-    paths:
-      - .github/workflows/bootstrap-alley-boss-cats-phase1.yml
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
-  install:
+  install-and-dispatch:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -47,10 +43,17 @@ jobs:
             scripts/aggregate-ownership-dataset.mjs \
             docs/newbuild-games-32293a1.json \
             .github/workflows/alley-boss-cats-phase1.yml
-          if git diff --cached --quiet; then
-            echo "Phase 1 files already installed"
-            exit 0
+          if ! git diff --cached --quiet; then
+            git commit -m "feat(ai): add Phase 1 arena and ownership data pipeline" \
+              -m "Adds reason-split territory margins, shard-aware arena output, 32-game screening, 8-way aggregation, 200-game ownership pilot generation, one-rollout-per-game capture-suppressed labels, D4 augmentation, heuristic baselines, and the isolated 20-game human validation set. No model training, minimax, guard, tuning, or gameplay-path changes."
+            git push origin HEAD:main
           fi
-          git commit -m "feat(ai): add Phase 1 arena and ownership data pipeline" \
-            -m "Adds reason-split territory margins, shard-aware arena output, 32-game screening, 8-way aggregation, 200-game ownership pilot generation, one-rollout-per-game capture-suppressed labels, D4 augmentation, heuristic baselines, and the isolated 20-game human validation set. No model training, minimax, guard, tuning, or gameplay-path changes."
-          git push origin HEAD:main
+      - name: Dispatch the 32-game screen and 200-game pilot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run alley-boss-cats-phase1.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f arena_mode=screen \
+            -f run_dataset=true
