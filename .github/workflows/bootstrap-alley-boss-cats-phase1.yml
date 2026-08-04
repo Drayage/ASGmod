@@ -1,3 +1,4 @@
+# Registered before this push so the bootstrap trigger is guaranteed.
 name: Bootstrap Alley Boss Cats Phase 1 on main
 
 on:
