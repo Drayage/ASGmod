@@ -1,0 +1,346 @@
+name: Alley Boss Cats Phase 1 arena and ownership pilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      arena_mode:
+        description: "32-game screen or 128-game final gate"
+        required: true
+        default: screen
+        type: choice
+        options:
+          - screen
+          - final
+      run_dataset:
+        description: "Run the 200-game ownership pilot after arena success"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+env:
+  SOURCE_REF: main
+  SHARDS: "8"
+
+jobs:
+  validate:
+    name: Validate Phase 1 implementation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Type-check and build
+        run: npm run build
+      - name: Confirm forbidden files are untouched by Phase 1 commits
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code 4eefcf22b2604b521cad4274d50ecb6172bfffd2 -- \
+            src/games/alley-boss-cats/engine/minimax.ts \
+            src/games/alley-boss-cats/ai.ts
+
+  arena-shard:
+    name: Arena shard ${{ matrix.shard }}
+    needs: validate
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Run equal-budget mirrored shard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.arena_mode }}" = "screen" ]; then
+            games=4
+          else
+            games=16
+          fi
+          seed=$((20260804 + ${{ matrix.shard }} * 100003))
+          mkdir -p out
+          ONLY=BASELINE \
+          GAMES="$games" \
+          HARD_MS=3000 \
+          VERY_HARD_MS=3000 \
+          MAX_PLIES=160 \
+          OPENING_PLIES=4 \
+          ARENA_SEED="$seed" \
+          OUTPUT_JSON="out/arena-shard-${{ matrix.shard }}.json" \
+            npx vite-node ai-arena.mts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase1-arena-shard-${{ matrix.shard }}
+          path: out/arena-shard-${{ matrix.shard }}.json
+          retention-days: 14
+          if-no-files-found: error
+
+  arena-summary:
+    name: Aggregate arena screen
+    needs: arena-shard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: phase1-arena-shard-*
+          path: arena-shards
+          merge-multiple: true
+      - name: Aggregate reason-split margins
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.arena_mode }}" = "screen" ]; then
+            expected=32
+          else
+            expected=128
+          fi
+          mkdir -p out
+          node scripts/aggregate-ai-arena.mjs \
+            --input-dir=arena-shards \
+            --output=out/arena-summary.json \
+            --expected-games="$expected" \
+            --expected-shards=8 \
+            --mode="${{ inputs.arena_mode }}"
+      - name: Arena job summary
+        shell: bash
+        run: |
+          {
+            echo "## Phase 1 arena (${{ inputs.arena_mode }})"
+            echo
+            echo "- games: $(jq -r '.expectedGames' out/arena-summary.json), shards: $(jq -r '.shards' out/arena-summary.json)"
+            echo "- territory decision rate: $(jq -r '.gateMetrics.territoryDecisionRatePercent' out/arena-summary.json)%"
+            echo "- all endings margin: $(jq -r '.gateMetrics.finalTerritoryMarginByReason.all.mean' out/arena-summary.json)"
+            echo "- TERRITORY-only margin: $(jq -r '.gateMetrics.finalTerritoryMarginByReason.territoryOnly.mean' out/arena-summary.json)"
+            echo "- CAPTURE-only margin: $(jq -r '.gateMetrics.finalTerritoryMarginByReason.captureOnly.mean' out/arena-summary.json)"
+            echo
+            echo '```json'
+            jq '.gateMetrics' out/arena-summary.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase1-arena-summary
+          path: out/arena-summary.json
+          retention-days: 14
+          if-no-files-found: error
+
+  dataset-shard:
+    name: Ownership pilot shard ${{ matrix.shard }}
+    if: ${{ inputs.run_dataset }}
+    needs: arena-summary
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Generate 25 normal-play games with one label rollout per game
+        run: |
+          npx vite-node scripts/generate-ownership-dataset.ts \
+            --mode=selfplay \
+            --games=25 \
+            --budget-ms=400 \
+            --seed=20260804 \
+            --shard-index=${{ matrix.shard }} \
+            --warmup-plies=4 \
+            --sample-every=2 \
+            --max-normal-plies=160 \
+            --max-label-plies=160 \
+            --output-dir=out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase1-ownership-shard-${{ matrix.shard }}
+          path: out/
+          retention-days: 14
+          if-no-files-found: error
+
+  human-validation:
+    name: Build held-out 20-game human validation set
+    if: ${{ inputs.run_dataset }}
+    needs: arena-summary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Generate validation-only labels
+        run: |
+          npx vite-node scripts/generate-ownership-dataset.ts \
+            --mode=human \
+            --games=20 \
+            --budget-ms=400 \
+            --seed=20260804 \
+            --warmup-plies=4 \
+            --sample-every=2 \
+            --max-label-plies=160 \
+            --sources=src/games/alley-boss-cats/testdata/humanGames.json,docs/newbuild-games-32293a1.json \
+            --output-dir=out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase1-human-validation
+          path: out/
+          retention-days: 14
+          if-no-files-found: error
+
+  dataset-summary:
+    name: Aggregate pilot and persist core numbers
+    if: ${{ inputs.run_dataset }}
+    needs: [dataset-shard, human-validation, arena-summary]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: phase1-ownership-shard-*
+          path: ownership-input
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase1-human-validation
+          path: ownership-input/human
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase1-arena-summary
+          path: arena-input
+      - name: Aggregate dataset and baseline statistics
+        run: |
+          node scripts/aggregate-ownership-dataset.mjs \
+            --input-dir=ownership-input \
+            --output-dir=out \
+            --expected-train-games=200 \
+            --expected-validation-games=20 \
+            --expected-train-shards=8
+      - name: Validate completion contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '
+            .acceptance.trainGames and
+            .acceptance.humanValidationGames and
+            .acceptance.gameLevelSplitDisjoint and
+            .acceptance.augmentationExactly8x and
+            .acceptance.noModelTraining and
+            .acceptance.passed and
+            .train.games == 200 and
+            .humanValidation.games == 20
+          ' out/ownership-pilot-summary.json >/dev/null
+      - name: Phase 1 job summary
+        shell: bash
+        run: |
+          {
+            echo "## 골목대냥 Phase 1 ownership pilot"
+            echo
+            echo "### Training pilot"
+            echo "- games: $(jq -r '.train.games' out/ownership-pilot-summary.json)"
+            echo "- positions: $(jq -r '.train.samplesBeforeAugmentation' out/ownership-pilot-summary.json) → $(jq -r '.train.samplesAfterAugmentation' out/ownership-pilot-summary.json)"
+            echo "- labels A/B/neutral: $(jq -r '.train.labelDistribution.percent.A' out/ownership-pilot-summary.json)% / $(jq -r '.train.labelDistribution.percent.B' out/ownership-pilot-summary.json)% / $(jq -r '.train.labelDistribution.percent.neutral' out/ownership-pilot-summary.json)%"
+            echo "- influence accuracy: $(jq -r '.train.baselines.influenceCountSignal.accuracy' out/ownership-pilot-summary.json)"
+            echo "- nearest-stone accuracy: $(jq -r '.train.baselines.nearestStoneOwner.accuracy' out/ownership-pilot-summary.json)"
+            echo "- always-neutral accuracy: $(jq -r '.train.baselines.alwaysNeutral.accuracy' out/ownership-pilot-summary.json)"
+            echo "- approximate parallel wall time: $(jq -r '.train.generationTime.maxShardSecondsApproxWallClock' out/ownership-pilot-summary.json)s"
+            echo
+            echo "### Human validation"
+            echo "- held-out games: $(jq -r '.humanValidation.games' out/ownership-pilot-summary.json)"
+            echo "- positions: $(jq -r '.humanValidation.samplesBeforeAugmentation' out/ownership-pilot-summary.json) → $(jq -r '.humanValidation.samplesAfterAugmentation' out/ownership-pilot-summary.json)"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload complete Phase 1 dataset
+        uses: actions/upload-artifact@v4
+        with:
+          name: alley-boss-cats-phase1-ownership-pilot-${{ github.run_id }}
+          path: |
+            out/
+            arena-input/arena-summary.json
+          retention-days: 14
+          if-no-files-found: error
+      - name: Persist core numbers in main commit
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs
+          cp out/ownership-pilot-summary.json docs/alley-boss-cats-phase1-pilot-summary.json
+          cp arena-input/arena-summary.json docs/alley-boss-cats-phase1-arena-summary.json
+
+          train_before=$(jq -r '.train.samplesBeforeAugmentation' out/ownership-pilot-summary.json)
+          train_after=$(jq -r '.train.samplesAfterAugmentation' out/ownership-pilot-summary.json)
+          label_a=$(jq -r '.train.labelDistribution.percent.A' out/ownership-pilot-summary.json)
+          label_b=$(jq -r '.train.labelDistribution.percent.B' out/ownership-pilot-summary.json)
+          label_n=$(jq -r '.train.labelDistribution.percent.neutral' out/ownership-pilot-summary.json)
+          influence=$(jq -r '.train.baselines.influenceCountSignal.accuracy' out/ownership-pilot-summary.json)
+          nearest=$(jq -r '.train.baselines.nearestStoneOwner.accuracy' out/ownership-pilot-summary.json)
+          neutral=$(jq -r '.train.baselines.alwaysNeutral.accuracy' out/ownership-pilot-summary.json)
+          wall=$(jq -r '.train.generationTime.maxShardSecondsApproxWallClock' out/ownership-pilot-summary.json)
+          territory_rate=$(jq -r '.gateMetrics.territoryDecisionRatePercent' arena-input/arena-summary.json)
+          margin_all=$(jq -r '.gateMetrics.finalTerritoryMarginByReason.all.mean' arena-input/arena-summary.json)
+          margin_territory=$(jq -r '.gateMetrics.finalTerritoryMarginByReason.territoryOnly.mean' arena-input/arena-summary.json)
+          margin_capture=$(jq -r '.gateMetrics.finalTerritoryMarginByReason.captureOnly.mean' arena-input/arena-summary.json)
+
+          cat > /tmp/phase1-message.txt <<EOF
+          chore(ai): record Phase 1 ownership pilot
+
+          Arena ${{ inputs.arena_mode }}: 8 shards, equal 3000ms budgets, 160-ply cap.
+          - territory decision rate: ${territory_rate}%
+          - final territory margin, all endings: ${margin_all}
+          - final territory margin, TERRITORY only: ${margin_territory}
+          - final territory margin, CAPTURE only: ${margin_capture}
+
+          Ownership pilot: 200 self-play games at 400ms per side.
+          - positions: ${train_before} before D4, ${train_after} after D4
+          - label distribution A/B/neutral: ${label_a}% / ${label_b}% / ${label_n}%
+          - influenceCount ownership accuracy: ${influence}
+          - nearest-stone ownership accuracy: ${nearest}
+          - always-neutral ownership accuracy: ${neutral}
+          - approximate parallel generation wall time: ${wall}s
+          - held-out human validation games: 20, game-level disjoint
+          - model training: none
+
+          Workflow: ${RUN_URL}
+          EOF
+          sed -i 's/^          //' /tmp/phase1-message.txt
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/alley-boss-cats-phase1-pilot-summary.json docs/alley-boss-cats-phase1-arena-summary.json
+          git commit -F /tmp/phase1-message.txt
+          git push origin HEAD:main
