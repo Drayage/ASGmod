@@ -20,9 +20,9 @@ on:
 permissions:
   contents: write
 
-env:
-  SOURCE_REF: main
-  SHARDS: "8"
+concurrency:
+  group: alley-boss-cats-phase1-${{ inputs.arena_mode }}
+  cancel-in-progress: false
 
 jobs:
   validate:
@@ -38,6 +38,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Normalize deterministic label rollout source
+        run: node scripts/normalize-phase1-generator.mjs
       - name: Type-check and build
         run: npm run build
       - name: Confirm forbidden files are untouched by Phase 1 commits
@@ -94,7 +96,7 @@ jobs:
           if-no-files-found: error
 
   arena-summary:
-    name: Aggregate arena screen
+    name: Aggregate arena ${{ inputs.arena_mode }}
     needs: arena-shard
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -165,6 +167,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Normalize deterministic label rollout source
+        run: node scripts/normalize-phase1-generator.mjs
       - name: Generate 25 normal-play games with one label rollout per game
         run: |
           npx vite-node scripts/generate-ownership-dataset.ts \
@@ -200,6 +204,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Normalize deterministic label rollout source
+        run: node scripts/normalize-phase1-generator.mjs
       - name: Generate validation-only labels
         run: |
           npx vite-node scripts/generate-ownership-dataset.ts \
@@ -298,6 +304,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node scripts/normalize-phase1-generator.mjs
           mkdir -p docs
           cp out/ownership-pilot-summary.json docs/alley-boss-cats-phase1-pilot-summary.json
           cp arena-input/arena-summary.json docs/alley-boss-cats-phase1-arena-summary.json
@@ -341,6 +348,9 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/alley-boss-cats-phase1-pilot-summary.json docs/alley-boss-cats-phase1-arena-summary.json
+          git add \
+            scripts/generate-ownership-dataset.ts \
+            docs/alley-boss-cats-phase1-pilot-summary.json \
+            docs/alley-boss-cats-phase1-arena-summary.json
           git commit -F /tmp/phase1-message.txt
           git push origin HEAD:main
