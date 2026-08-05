@@ -31,6 +31,14 @@ import {
 } from "./src/games/alley-boss-cats/rules";
 import { firstTerritoryTurn } from "./src/games/alley-boss-cats/arenaMetrics";
 import type { GameState, Player } from "./src/games/alley-boss-cats/types";
+import {
+  aggregateRecords,
+  rounded,
+  type ArenaGameRecord,
+  type EngineSeat,
+  type FinishReason,
+  type MatchAggregate,
+} from "./arena-aggregate";
 
 type Engine =
   | Difficulty
@@ -58,8 +66,6 @@ type Engine =
   | "VH_TT"
   | "VH_NOTT";
 
-type FinishReason = "CAPTURE" | "TERRITORY" | "PLY_CAP";
-type EngineSeat = "X" | "Y";
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
 const URGENT = process.env.URGENT ? Number(process.env.URGENT) : null;
@@ -74,6 +80,23 @@ const MAX_PLIES = Number(process.env.MAX_PLIES ?? 160);
 const RANDOM_OPENING_PLIES = Number(process.env.OPENING_PLIES ?? 4);
 const ARENA_SEED = Number(process.env.ARENA_SEED ?? 20260804);
 const OUTPUT_JSON = process.env.OUTPUT_JSON ?? null;
+
+/**
+ * Shard selection, so one match can be split across parallel jobs.
+ *
+ * The 128-game baseline took 3h27m in a single job at the shipped 3000ms
+ * budget, which leaves no room to compare candidates and none at all to
+ * generate a dataset. Sharding is by *pair*, never by game: a mirrored pair is
+ * the same opening played from both seats, and splitting one across jobs would
+ * leave each side of it in a different sample, reintroducing exactly the
+ * first-player bias the pairing exists to cancel.
+ *
+ * Shards write partial records that `arena-merge.mts` recombines; every shard
+ * keeps the global game numbering so the merged run is identical to an
+ * unsharded one.
+ */
+const SHARD_COUNT = Number(process.env.SHARD_COUNT ?? 1);
+const SHARD_INDEX = Number(process.env.SHARD_INDEX ?? 0);
 
 /** Third-line and star points: plausible openings that do not seed a tactical
  * collapse before the measured engines take over. */
@@ -245,74 +268,9 @@ function playGame(engineA: Engine, engineB: Engine, opening: Array<[number, numb
   return finish("PLY_CAP");
 }
 
-interface NumericSummary {
-  count: number;
-  mean: number | null;
-  standardDeviation: number | null;
-  standardError: number | null;
-  confidence95: {
-    low: number | null;
-    high: number | null;
-    halfWidth: number | null;
-  };
-}
-
-function rounded(value: number): number {
-  return Number(value.toFixed(6));
-}
-
-function summarize(values: number[]): NumericSummary {
-  if (values.length === 0) {
-    return {
-      count: 0,
-      mean: null,
-      standardDeviation: null,
-      standardError: null,
-      confidence95: { low: null, high: null, halfWidth: null },
-    };
-  }
-
-  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
-  const variance =
-    values.length > 1
-      ? values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (values.length - 1)
-      : 0;
-  const standardDeviation = Math.sqrt(variance);
-  const standardError = standardDeviation / Math.sqrt(values.length);
-  const halfWidth = 1.96 * standardError;
-  return {
-    count: values.length,
-    mean: rounded(mean),
-    standardDeviation: rounded(standardDeviation),
-    standardError: rounded(standardError),
-    confidence95: {
-      low: rounded(mean - halfWidth),
-      high: rounded(mean + halfWidth),
-      halfWidth: rounded(halfWidth),
-    },
-  };
-}
-
 function conversionRate(finalTerritory: number, peakInfluence: number): number | null {
   if (peakInfluence === 0) return null;
   return rounded((finalTerritory / peakInfluence) * 100);
-}
-
-interface ArenaGameRecord {
-  game: number;
-  pair: number;
-  engineXSide: Player;
-  engineYSide: Player;
-  winnerSide: Player;
-  winnerEngine: EngineSeat;
-  winReason: FinishReason;
-  plies: number;
-  finalTerritoryMargin: number;
-  firstTerritoryTurn: Record<EngineSeat, number | null> & Record<Player, number | null>;
-  peakInfluence: Record<EngineSeat, number> & Record<Player, number>;
-  finalTerritory: Record<EngineSeat, number> & Record<Player, number>;
-  influenceToTerritoryConversionPercent: Record<EngineSeat, number | null>;
-  safeMovesAtPly20: Record<EngineSeat, number | null>;
 }
 
 interface MatchOutput {
@@ -320,32 +278,7 @@ interface MatchOutput {
   engines: { X: Engine; Y: Engine };
   timeBudgetMs: { X: number | null; Y: number | null };
   games: ArenaGameRecord[];
-  aggregate: {
-    games: number;
-    mirroredPairs: number;
-    primaryMetric: {
-      name: "finalTerritoryMargin";
-      positiveMeans: "engineX";
-      summary: NumericSummary;
-    };
-    outcomes: {
-      wins: Record<EngineSeat, number>;
-      winRatePercent: Record<EngineSeat, number>;
-      reasons: Record<FinishReason, number>;
-      territoryDecisionRatePercent: number;
-      captureDecisionRatePercent: number;
-      plyCapRatePercent: number;
-    };
-    plies: NumericSummary;
-    firstTerritoryTurn: Record<EngineSeat, NumericSummary & { missing: number }>;
-    peakInfluence: Record<EngineSeat, NumericSummary>;
-    finalTerritory: Record<EngineSeat, NumericSummary>;
-    influenceToTerritoryConversionPercent: Record<
-      EngineSeat,
-      NumericSummary & { ratioOfMeans: number | null }
-    >;
-    safeMovesAtPly20: Record<EngineSeat, NumericSummary & { missing: number }>;
-  };
+  aggregate: MatchAggregate;
 }
 
 function timeBudgetFor(engine: Engine): number | null {
@@ -357,12 +290,25 @@ function timeBudgetFor(engine: Engine): number | null {
 function runMatch(label: string, engineX: Engine, engineY: Engine, games: number): MatchOutput {
   if (games <= 0 || !Number.isInteger(games)) throw new Error(`GAMES must be a positive integer, got ${games}`);
   if (games % 2 !== 0) throw new Error(`Mirrored arena requires an even GAMES count, got ${games}`);
+  if (!Number.isInteger(SHARD_COUNT) || SHARD_COUNT < 1) {
+    throw new Error(`SHARD_COUNT must be a positive integer, got ${SHARD_COUNT}`);
+  }
+  if (!Number.isInteger(SHARD_INDEX) || SHARD_INDEX < 0 || SHARD_INDEX >= SHARD_COUNT) {
+    throw new Error(`SHARD_INDEX must be in [0, ${SHARD_COUNT}), got ${SHARD_INDEX}`);
+  }
+  if (games / 2 < SHARD_COUNT) {
+    throw new Error(`${games} games is only ${games / 2} pairs, too few for ${SHARD_COUNT} shards`);
+  }
 
   const records: ArenaGameRecord[] = [];
 
   for (let index = 0; index < games; index += 1) {
-    const xIsA = index % 2 === 0;
     const pair = Math.floor(index / 2);
+    // Whole pairs only: the two games of a pair are the same opening from
+    // either seat, and they have to be counted in the same sample.
+    if (pair % SHARD_COUNT !== SHARD_INDEX) continue;
+
+    const xIsA = index % 2 === 0;
     const result = playGame(
       xIsA ? engineX : engineY,
       xIsA ? engineY : engineX,
@@ -376,6 +322,8 @@ function runMatch(label: string, engineX: Engine, engineY: Engine, games: number
     const yPeak = result.peakInfluence[ySide];
 
     records.push({
+      // Global numbering, so a merged shard set is indistinguishable from an
+      // unsharded run of the same seed.
       game: index + 1,
       pair: pair + 1,
       engineXSide: xSide,
@@ -414,80 +362,25 @@ function runMatch(label: string, engineX: Engine, engineY: Engine, games: number
     });
   }
 
-  const xWins = records.filter((game) => game.winnerEngine === "X").length;
-  const yWins = games - xWins;
-  const reasons: Record<FinishReason, number> = { CAPTURE: 0, TERRITORY: 0, PLY_CAP: 0 };
-  for (const game of records) reasons[game.winReason] += 1;
-
-  const firstTerritory = (seat: EngineSeat) =>
-    records
-      .map((game) => game.firstTerritoryTurn[seat])
-      .filter((value): value is number => value !== null);
-  const conversions = (seat: EngineSeat) =>
-    records
-      .map((game) => game.influenceToTerritoryConversionPercent[seat])
-      .filter((value): value is number => value !== null);
-  const safeMoves = (seat: EngineSeat) =>
-    records
-      .map((game) => game.safeMovesAtPly20[seat])
-      .filter((value): value is number => value !== null);
-  const ratioOfMeans = (seat: EngineSeat) => {
-    const peak = records.reduce((sum, game) => sum + game.peakInfluence[seat], 0);
-    if (peak === 0) return null;
-    const territory = records.reduce((sum, game) => sum + game.finalTerritory[seat], 0);
-    return rounded((territory / peak) * 100);
-  };
-
   const output: MatchOutput = {
     label,
     engines: { X: engineX, Y: engineY },
     timeBudgetMs: { X: timeBudgetFor(engineX), Y: timeBudgetFor(engineY) },
     games: records,
-    aggregate: {
-      games,
-      mirroredPairs: games / 2,
-      primaryMetric: {
-        name: "finalTerritoryMargin",
-        positiveMeans: "engineX",
-        summary: summarize(records.map((game) => game.finalTerritoryMargin)),
-      },
-      outcomes: {
-        wins: { X: xWins, Y: yWins },
-        winRatePercent: { X: rounded((xWins / games) * 100), Y: rounded((yWins / games) * 100) },
-        reasons,
-        territoryDecisionRatePercent: rounded((reasons.TERRITORY / games) * 100),
-        captureDecisionRatePercent: rounded((reasons.CAPTURE / games) * 100),
-        plyCapRatePercent: rounded((reasons.PLY_CAP / games) * 100),
-      },
-      plies: summarize(records.map((game) => game.plies)),
-      firstTerritoryTurn: {
-        X: { ...summarize(firstTerritory("X")), missing: games - firstTerritory("X").length },
-        Y: { ...summarize(firstTerritory("Y")), missing: games - firstTerritory("Y").length },
-      },
-      peakInfluence: {
-        X: summarize(records.map((game) => game.peakInfluence.X)),
-        Y: summarize(records.map((game) => game.peakInfluence.Y)),
-      },
-      finalTerritory: {
-        X: summarize(records.map((game) => game.finalTerritory.X)),
-        Y: summarize(records.map((game) => game.finalTerritory.Y)),
-      },
-      influenceToTerritoryConversionPercent: {
-        X: { ...summarize(conversions("X")), ratioOfMeans: ratioOfMeans("X") },
-        Y: { ...summarize(conversions("Y")), ratioOfMeans: ratioOfMeans("Y") },
-      },
-      safeMovesAtPly20: {
-        X: { ...summarize(safeMoves("X")), missing: games - safeMoves("X").length },
-        Y: { ...summarize(safeMoves("Y")), missing: games - safeMoves("Y").length },
-      },
-    },
+    aggregate: aggregateRecords(records),
   };
 
   const margin = output.aggregate.primaryMetric.summary;
+  const counted = output.aggregate.primaryMetric.byFinishReason.TERRITORY;
+  const shard = SHARD_COUNT > 1 ? ` [shard ${SHARD_INDEX + 1}/${SHARD_COUNT}]` : "";
   console.log(
-    `${label}: territory margin ${margin.mean} cells (SD ${margin.standardDeviation}, ` +
-      `95% CI [${margin.confidence95.low}, ${margin.confidence95.high}])\n` +
-      `  finish reasons ${JSON.stringify(reasons)}; territory decisions ` +
+    `${label}${shard}: territory margin ${margin.mean} cells over ${margin.count} games ` +
+      `(SD ${margin.standardDeviation}, 95% CI [${margin.confidence95.low}, ` +
+      `${margin.confidence95.high}])\n` +
+      `  counted games only: ${counted.mean} cells over ${counted.count} ` +
+      `(95% CI [${counted.confidence95.low}, ${counted.confidence95.high}])\n` +
+      `  finish reasons ${JSON.stringify(output.aggregate.outcomes.reasons)}; ` +
+      `territory decisions ` +
       `${output.aggregate.outcomes.territoryDecisionRatePercent}%\n` +
       `  first territory X ${output.aggregate.firstTerritoryTurn.X.mean} / ` +
       `Y ${output.aggregate.firstTerritoryTurn.Y.mean}; final territory X ` +

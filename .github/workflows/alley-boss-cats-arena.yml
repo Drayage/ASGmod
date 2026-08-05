@@ -1,0 +1,181 @@
+name: Alley Boss Cats territory arena (sharded)
+
+# The sharded, parameterised arena. The Phase 0 baseline workflow stays as it
+# is — it is the record of how the committed baseline was produced — and this
+# is what candidates are measured with from here on.
+#
+# Two things it fixes about a single-job run:
+#
+#   - 128 games took 3h27m in one job at the shipped 3000ms budget. Sharded
+#     across 8 jobs that is well under an hour, which is the difference between
+#     a gate you can run and one you avoid running.
+#   - 32 games is enough to screen. The measured margin SD is 4.238 cells, so
+#     32 games gives a 95% interval of about +/-1.47 — ample when the gap being
+#     closed against a human is 10 to 13 cells. Keep 128 for the final gate.
+
+on:
+  workflow_dispatch:
+    inputs:
+      engine_x:
+        description: "Engine under test"
+        required: true
+        default: "VERY_HARD"
+        type: string
+      engine_y:
+        description: "Engine it is measured against"
+        required: true
+        default: "VERY_HARD"
+        type: string
+      only:
+        description: "Arena mode selecting the matchup (BASELINE plays X vs Y self-play)"
+        required: true
+        default: "BASELINE"
+        type: string
+      games:
+        description: "32 to screen (~1.47 cell interval), 128 to gate (~0.73)"
+        required: true
+        default: "32"
+        type: string
+      shards:
+        description: "Parallel jobs. Must not exceed games/2, since pairs stay whole"
+        required: true
+        default: "8"
+        type: string
+      very_hard_ms:
+        description: "Budget per move. The SAME value is used for both sides"
+        required: true
+        default: "3000"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan shards
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - name: Build the shard index list
+        id: plan
+        run: |
+          set -euo pipefail
+          COUNT="${{ inputs.shards }}"
+          GAMES="${{ inputs.games }}"
+          if ! [[ "$GAMES" =~ ^[0-9]+$ ]] || [ $((GAMES % 2)) -ne 0 ]; then
+            echo "games must be an even integer, got '$GAMES'" >&2
+            exit 1
+          fi
+          if [ "$COUNT" -gt $((GAMES / 2)) ]; then
+            echo "$GAMES games is only $((GAMES / 2)) mirrored pairs, too few for $COUNT shards" >&2
+            exit 1
+          fi
+          LIST=$(seq 0 $((COUNT - 1)) | jq -R . | jq -sc 'map(tonumber)')
+          echo "shards=$LIST" >> "$GITHUB_OUTPUT"
+
+  play:
+    name: Shard ${{ matrix.shard }}
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Play this shard's pairs
+        env:
+          ONLY: ${{ inputs.only }}
+          GAMES: ${{ inputs.games }}
+          # Both seats get the same budget. An arena that handicaps one side
+          # measures the handicap, which is how an earlier neural line came to
+          # look competitive at a sixtieth of its opponent's thinking time.
+          VERY_HARD_MS: ${{ inputs.very_hard_ms }}
+          HARD_MS: ${{ inputs.very_hard_ms }}
+          MAX_PLIES: "160"
+          SHARD_COUNT: ${{ inputs.shards }}
+          SHARD_INDEX: ${{ matrix.shard }}
+          OUTPUT_JSON: artifacts/arena/shard-${{ matrix.shard }}.json
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/arena
+          npx vite-node ai-arena.mts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arena-shard-${{ matrix.shard }}
+          path: artifacts/arena/
+          retention-days: 14
+
+  merge:
+    name: Merge shards and report the margin
+    needs: [plan, play]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: arena-shard-*
+          path: shards
+          merge-multiple: true
+
+      - name: Merge
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/arena
+          # The merge refuses a set with a missing or repeated game number, so a
+          # silently failed shard cannot become a quietly smaller sample.
+          npx vite-node arena-merge.mts -- \
+            --out artifacts/arena/merged.json \
+            $(ls shards/shard-*.json | sort -V)
+
+      - name: Add arena result to summary
+        if: always()
+        run: |
+          {
+            echo "## Territory arena — ${{ inputs.engine_x }} vs ${{ inputs.engine_y }}"
+            echo
+            echo "- Mode \`${{ inputs.only }}\`, \`${{ inputs.games }}\` games, \`${{ inputs.shards }}\` shards"
+            echo "- Budget \`${{ inputs.very_hard_ms }} ms\` for **both** sides"
+            echo
+            echo "### Territory margin (positive favours engine X)"
+            echo
+            echo "The pooled row mixes counted games with games that stopped on a"
+            echo "capture, where the count is whatever happened to be walled in."
+            echo "A candidate can lift the pooled mean just by ending games early"
+            echo "while ahead, so read the counted row and the decision rate with it."
+            echo
+            echo '| sample | games | mean | 95% CI |'
+            echo '|---|---|---|---|'
+            jq -r '.matches[0].aggregate.primaryMetric as $m |
+              "| all games | \($m.summary.count) | \($m.summary.mean) | [\($m.summary.confidence95.low), \($m.summary.confidence95.high)] |",
+              "| counted only | \($m.byFinishReason.TERRITORY.count) | \($m.byFinishReason.TERRITORY.mean) | [\($m.byFinishReason.TERRITORY.confidence95.low), \($m.byFinishReason.TERRITORY.confidence95.high)] |",
+              "| capture-ended | \($m.byFinishReason.CAPTURE.count) | \($m.byFinishReason.CAPTURE.mean) | [\($m.byFinishReason.CAPTURE.confidence95.low), \($m.byFinishReason.CAPTURE.confidence95.high)] |"' \
+              artifacts/arena/merged.json
+            echo
+            jq -r '.matches[0].aggregate |
+              "- Territory decisions: **\(.outcomes.territoryDecisionRatePercent)%** (baseline 28.91%)",
+              "- First territory: X \(.firstTerritoryTurn.X.mean) / Y \(.firstTerritoryTurn.Y.mean) plies (baseline 22.30 / 22.77)",
+              "- Conversion: X \(.influenceToTerritoryConversionPercent.X.ratioOfMeans)% / Y \(.influenceToTerritoryConversionPercent.Y.ratioOfMeans)% (baseline 16.57 / 15.96)"' \
+              artifacts/arena/merged.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arena-merged
+          path: artifacts/arena/merged.json
+          retention-days: 14

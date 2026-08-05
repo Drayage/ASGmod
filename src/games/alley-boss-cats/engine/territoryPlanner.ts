@@ -79,21 +79,43 @@ function distanceField(board: Board, player: Player): number[][] {
  * quietly tidies its own position while the board is given away.
  */
 export function influenceCount(board: Board): Record<Player, number> {
+  const counts: Record<Player, number> = { A: 0, B: 0 };
+  for (const owner of influenceOwnerMap(board)) {
+    if (owner === "A") counts.A += 1;
+    else if (owner === "B") counts.B += 1;
+  }
+  return counts;
+}
+
+/**
+ * The same judgement `influenceCount` sums up, kept per cell instead of
+ * totalled: for every point on the board, the side heading towards owning it,
+ * or null where nobody is (an occupied cell, or open ground both sides reach
+ * equally). Row-major, one entry per point.
+ *
+ * Split out so the ownership dataset can score this signal cell by cell
+ * against what each cell actually became — the count alone cannot say whether
+ * the reach it measures lands where the territory ends up. `influenceCount` is
+ * defined in terms of this, so the two can never disagree.
+ */
+export function influenceOwnerMap(board: Board): Array<Player | null> {
   const distA = distanceField(board, "A");
   const distB = distanceField(board, "B");
-  const counts: Record<Player, number> = { A: 0, B: 0 };
+  const owners: Array<Player | null> = [];
 
   for (let row = 0; row < board.length; row++) {
     for (let col = 0; col < board.length; col++) {
-      if (board[row][col] !== "EMPTY") continue;
+      if (board[row][col] !== "EMPTY") {
+        owners.push(null);
+        continue;
+      }
       const a = distA[row][col];
       const b = distB[row][col];
-      if (a === b) continue; // contested middle belongs to nobody yet
-      if (a < b) counts.A += 1;
-      else counts.B += 1;
+      // Contested middle belongs to nobody yet.
+      owners.push(a === b ? null : a < b ? "A" : "B");
     }
   }
-  return counts;
+  return owners;
 }
 
 /** A single move that would settle a worthwhile number of cells. */

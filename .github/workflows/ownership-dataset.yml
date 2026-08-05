@@ -1,0 +1,182 @@
+name: Ownership dataset (Phase 1)
+
+# Generates final-ownership labels and measures what the shipped heuristic
+# scores against them. No model is trained here and nothing touches play.
+#
+# Sharded because the 128-game arena baseline took 3h27m in one job: a single
+# job cannot generate a dataset inside the 6h limit, and pilots need to come
+# back in minutes so a broken pipeline is not discovered five hours in.
+
+on:
+  workflow_dispatch:
+    inputs:
+      games:
+        description: "Games to generate (200 = pilot, scale up after it looks right)"
+        required: true
+        default: "200"
+        type: string
+      move_ms:
+        description: "Search budget per move. Volume matters here, not peak strength"
+        required: true
+        default: "300"
+        type: string
+      shards:
+        description: "Parallel jobs to split the games across"
+        required: true
+        default: "8"
+        type: string
+      capture_mode:
+        description: "suppressed = decline capture wins so every game is counted"
+        required: true
+        default: "suppressed"
+        type: choice
+        options: [suppressed, normal]
+      augment_on_disk:
+        description: "Write all 8 symmetries to disk (off = augment at training time)"
+        required: true
+        default: "0"
+        type: choice
+        options: ["0", "1"]
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan shards
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - name: Build the shard index list
+        id: plan
+        run: |
+          set -euo pipefail
+          COUNT="${{ inputs.shards }}"
+          if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [ "$COUNT" -lt 1 ]; then
+            echo "shards must be a positive integer, got '$COUNT'" >&2
+            exit 1
+          fi
+          LIST=$(seq 0 $((COUNT - 1)) | jq -R . | jq -sc 'map(tonumber)')
+          echo "shards=$LIST" >> "$GITHUB_OUTPUT"
+          echo "shard indices: $LIST"
+
+  generate:
+    name: Shard ${{ matrix.shard }}
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Generate labelled positions
+        env:
+          GAMES: ${{ inputs.games }}
+          MOVE_MS: ${{ inputs.move_ms }}
+          CAPTURE_MODE: ${{ inputs.capture_mode }}
+          AUGMENT_ON_DISK: ${{ inputs.augment_on_disk }}
+          SHARD_COUNT: ${{ inputs.shards }}
+          SHARD_INDEX: ${{ matrix.shard }}
+          OUTPUT_JSONL: artifacts/ownership/positions-${{ matrix.shard }}.jsonl
+          OUTPUT_JSON: artifacts/ownership/summary-${{ matrix.shard }}.json
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/ownership
+          npx vite-node ownership-data.mts
+
+      - name: Refuse a shard that produced nothing
+        run: |
+          set -euo pipefail
+          JSONL=artifacts/ownership/positions-${{ matrix.shard }}.jsonl
+          test -s "$JSONL"
+          jq -e '.dataset.gamesGenerated > 0' \
+            artifacts/ownership/summary-${{ matrix.shard }}.json > /dev/null
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ownership-shard-${{ matrix.shard }}
+          path: artifacts/ownership/
+          retention-days: 14
+
+  merge:
+    name: Merge shards and report the bar
+    needs: [plan, generate]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ownership-shard-*
+          path: shards
+          merge-multiple: true
+
+      - name: Merge summaries and concatenate positions
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/ownership
+          npx vite-node ownership-merge.mts -- \
+            --out artifacts/ownership/summary.json \
+            shards/summary-*.json
+          # Row order does not matter to training, but a stable one makes two
+          # runs of the same seed diffable.
+          cat $(ls shards/positions-*.jsonl | sort -V) > artifacts/ownership/positions.jsonl
+          wc -l artifacts/ownership/positions.jsonl
+
+      - name: Check the merge accounts for every shard
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ inputs.shards }}"
+          ACTUAL=$(jq -r '.mergedFromShards' artifacts/ownership/summary.json)
+          test "$EXPECTED" = "$ACTUAL"
+          ROWS=$(jq -r '.dataset.rowsWritten' artifacts/ownership/summary.json)
+          LINES=$(wc -l < artifacts/ownership/positions.jsonl)
+          test "$ROWS" = "$LINES"
+          echo "$ACTUAL shards, $ROWS rows"
+
+      - name: Add dataset report to summary
+        if: always()
+        run: |
+          {
+            echo "## Ownership dataset (Phase 1)"
+            echo
+            echo "- Games: \`${{ inputs.games }}\` across \`${{ inputs.shards }}\` shards"
+            echo "- Move budget: \`${{ inputs.move_ms }} ms\`, capture mode \`${{ inputs.capture_mode }}\`"
+            echo
+            echo "### The bar a model has to beat"
+            echo
+            echo "Read the open-point numbers. Roughly five in six points end up"
+            echo "nobody's, so accuracy over the whole board is mostly free credit,"
+            echo "and \`alwaysNeutral\` scores well while saying nothing at all."
+            echo
+            echo '| baseline | open pts | recall | precision |'
+            echo '|---|---|---|---|'
+            jq -r '.baselines | to_entries[] |
+              "| \(.key) | \(.value.openCellsPercent)% | \(.value.territoryRecallPercent)% | \(.value.territoryPrecisionPercent)% |"' \
+              artifacts/ownership/summary.json
+            echo
+            echo "### Full summary"
+            echo '```json'
+            jq '{config, dataset, baselines, humanValidation}' artifacts/ownership/summary.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ownership-dataset
+          path: artifacts/ownership/
+          retention-days: 14
