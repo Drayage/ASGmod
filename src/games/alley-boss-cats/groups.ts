@@ -101,3 +101,57 @@ export function findCapturedGroups(board: Board, player: Player): Coord[][] {
     (group) => getGroupLiberties(board, group).size === 0,
   );
 }
+
+/**
+ * The same question as findCapturedGroups, asked only where the answer can
+ * have changed: `board` is a position that had no captured group at all,
+ * with one cat just placed at (row, col).
+ *
+ * That precondition is not an assumption about how callers behave, it is the
+ * rule — a capture ends the game outright, so any board play continues from
+ * has every group breathing. Given that, a cat of `foe`'s can only have been
+ * surrounded just now if the cell that filled its last gap is the one that
+ * was placed, which is to say if it sits orthogonally beside it. Every other
+ * group on the board kept every liberty it had, and re-deriving that for all
+ * of them is the single most expensive thing the search does per node:
+ * measured at 21.5µs of a ~90µs node, against a board where at most four
+ * groups can possibly qualify.
+ */
+export function findCapturedGroupsAround(
+  board: Board,
+  row: number,
+  col: number,
+  foe: Player,
+): Coord[][] {
+  const target = playerCell(foe);
+  const captured: Coord[][] = [];
+  const seen = new Set<string>();
+
+  for (const [dr, dc] of DIRECTIONS) {
+    const r = row + dr;
+    const c = col + dc;
+    if (!inBounds(r, c)) continue;
+    if (board[r][c] !== target) continue;
+    // Two neighbours can belong to one group; it must not be reported twice.
+    if (seen.has(key(r, c))) continue;
+
+    const group = getConnectedGroup(board, r, c);
+    for (const cell of group) seen.add(key(cell.row, cell.col));
+    if (getGroupLiberties(board, group).size === 0) captured.push(group);
+  }
+
+  return captured;
+}
+
+/**
+ * Whether the cat just placed at (row, col) left its own group with nowhere
+ * to breathe, under the same precondition as findCapturedGroupsAround.
+ *
+ * Only the group containing the new cat needs testing. Placing a cat can
+ * take a liberty away from no group it does not touch, and every group it
+ * does touch is merged into this one by the placement itself.
+ */
+export function placedGroupIsCaptured(board: Board, row: number, col: number): boolean {
+  const group = getConnectedGroup(board, row, col);
+  return group.length > 0 && getGroupLiberties(board, group).size === 0;
+}

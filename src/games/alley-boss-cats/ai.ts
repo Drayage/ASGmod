@@ -47,8 +47,11 @@ const INFLUENCE_TO_TERRITORY = 0.12;
  * did not know three cells were owed. Without that, "am I ahead, and should I
  * be consolidating or forcing matters?" is a question it could not even ask.
  */
-export function projectedMargin(state: GameState, player: Player): number {
-  const influence = influenceCount(state.board);
+function projectedMarginFrom(
+  state: GameState,
+  player: Player,
+  influence: Record<Player, number>,
+): number {
   const projected = (side: Player) =>
     state.territories[side].length + influence[side] * INFLUENCE_TO_TERRITORY;
 
@@ -58,6 +61,10 @@ export function projectedMargin(state: GameState, player: Player): number {
   return player === "A" ? lead - FIRST_PLAYER_MARGIN : FIRST_PLAYER_MARGIN - lead;
 }
 
+export function projectedMargin(state: GameState, player: Player): number {
+  return projectedMarginFrom(state, player, influenceCount(state.board));
+}
+
 
 interface ShapeStats {
   totalLiberties: number;
@@ -65,6 +72,17 @@ interface ShapeStats {
   atari: number;
   /** Groups down to two escape routes — one move from atari. */
   nearAtari: number;
+  /** A group sitting on exactly three liberties — not yet urgent by the
+   * atari/nearAtari tests, but a real category of its own. A group this thin
+   * can be walked down to atari in a few unanswered opponent moves with no
+   * warning beforehand: at three liberties the evaluation used to treat it
+   * exactly like a group with ten, so nothing made defending — or not
+   * extending into — it outscore whatever else was on offer until it was
+   * already too late to matter. Counted at any group size, not just a lone
+   * stone: a real loss walked a *two*-stone group into exactly this shape
+   * (extending a lone cat one more step into a pocket already half-ringed by
+   * the opponent), and a single-stone-only test never saw it coming. */
+  thin: number;
   /** Groups with a liberty inside their owner's confirmed territory. Nobody
    * may ever play there, so that breath is permanent and the group can never
    * be captured — the local equivalent of an eye. */
@@ -80,6 +98,7 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
     totalLiberties: 0,
     atari: 0,
     nearAtari: 0,
+    thin: 0,
     immortal: 0,
     connectedBonus: 0,
     isolated: 0,
@@ -101,6 +120,7 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
     if (immortal) stats.immortal += 1;
     else if (liberties.size === 1) stats.atari += 1;
     else if (liberties.size === 2) stats.nearAtari += 1;
+    else if (liberties.size === 3) stats.thin += 1;
     stats.connectedBonus += group.length - 1;
     if (group.length === 1) stats.isolated += 1;
   }
@@ -120,10 +140,17 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
  */
 export const tuning = {
   frameworkWeight: 0,
+  /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
+   * 1.0). Zero reproduces the evaluation exactly as it was before that term
+   * existed, so the arena can play the two head to head. */
+  thinWeight: 1,
   /** Cells the opponent must be able to settle in one move before the engine
    * drops what it is doing to answer. Measured over 17 real games: the shipped
    * 8 fires on 1.8% of turns, while threats of three or more come up on 22%. */
   urgentConfirmSize: 8,
+  /** Multiplier on severeInfluenceTerm below. Zero reproduces the evaluation
+   * exactly as it was before that term existed. */
+  severeInfluenceWeight: 1,
 };
 
 /** Just short of a decided game — used for positions that are lost/won barring
@@ -141,6 +168,43 @@ function frameworkTerm(state: GameState, aiPlayer: Player, opp: Player): number 
   );
 }
 
+/** How far behind on influence counts as severe enough to need an extra
+ * nudge. INFLUENCE_TO_TERRITORY above already prices in ordinary jockeying
+ * for position — it earned HARD a jump from 83% to 100% against NORMAL —
+ * but it is deliberately timid (see its own comment), and a real game showed
+ * exactly the failure mode that timidity risks: VERY_HARD sat sixteen cells
+ * down on influence for the last twenty-plus moves of the game with nothing
+ * in the evaluation ever pushing back, because sixteen cells at 0.12 prices
+ * out at barely two and a half territory-equivalent cells — less than the
+ * three-cell margin the first player owes, so the position could still read
+ * as roughly even while the whole board was being given away. */
+const SEVERE_INFLUENCE_DEFICIT = 10;
+/** Multiplier on the deficit past that threshold. Deliberately not a blanket
+ * raise of INFLUENCE_TO_TERRITORY — that was tried and made things worse
+ * (see its own comment): pushed up everywhere, it overvalues ground that is
+ * only lightly contested and sends the search chasing it into captures.
+ * Wiring the *candidate pool* to a similar deficit signal was also tried, in
+ * territoryPlanner's `behindOnInfluence` — narrowing the search to a
+ * territorial shortlist on that alone dropped VERY_HARD from 75% to 42%
+ * against HARD, which is why that plan only overrides on a concrete
+ * imminent seal and this term exists instead: it changes how the *existing*
+ * search values a position it was already free to choose, never which
+ * positions are on offer. Gating on a severe, sustained deficit keeps
+ * ordinary trades governed by the timid weight and only escalates once the
+ * board is genuinely being given away. */
+const SEVERE_INFLUENCE_WEIGHT = 8;
+
+function severeInfluenceTerm(
+  aiPlayer: Player,
+  opp: Player,
+  influence: Record<Player, number>,
+): number {
+  if (tuning.severeInfluenceWeight === 0) return 0;
+  const myDeficit = Math.max(0, influence[opp] - influence[aiPlayer] - SEVERE_INFLUENCE_DEFICIT);
+  const theirDeficit = Math.max(0, influence[aiPlayer] - influence[opp] - SEVERE_INFLUENCE_DEFICIT);
+  return (theirDeficit - myDeficit) * SEVERE_INFLUENCE_WEIGHT * tuning.severeInfluenceWeight;
+}
+
 export function evaluateState(state: GameState, aiPlayer: Player): number {
   if (state.winner === aiPlayer) return 1_000_000;
   if (state.winner && state.winner !== aiPlayer) return -1_000_000;
@@ -155,12 +219,19 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
   if (mine.atari > 0 && state.currentPlayer === opp) return -NEAR_DECISIVE;
   if (theirs.atari > 0 && state.currentPlayer === aiPlayer) return NEAR_DECISIVE;
 
+  // Computed once and shared: projectedMargin and severeInfluenceTerm both
+  // need it, and influenceCount's breadth-first fill is the single most
+  // expensive thing evaluateState does, run once at every leaf the search
+  // touches.
+  const influence = influenceCount(state.board);
+
   return (
     // One number for the whole territory question: settled ground, ground each
     // side is heading towards, and the first-player margin that decides who
     // the count actually favours.
-    projectedMargin(state, aiPlayer) * 100 +
+    projectedMarginFrom(state, aiPlayer, influence) * 100 +
     frameworkTerm(state, aiPlayer, opp) +
+    severeInfluenceTerm(aiPlayer, opp, influence) +
     mine.totalLiberties * 5 -
     theirs.totalLiberties * 6 +
     theirs.atari * 45 -
@@ -169,6 +240,10 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
     // used to wander into happily.
     theirs.nearAtari * 16 -
     mine.nearAtari * 34 +
+    // A lone cat on three liberties is not yet urgent, but it is already the
+    // shape a slow, unanswered squeeze starts from — see the ShapeStats
+    // comment on `thin`.
+    (theirs.thin * 7 - mine.thin * 15) * tuning.thinWeight +
     // A permanently alive group is a lasting asset, for either side.
     mine.immortal * 30 -
     theirs.immortal * 30 +
