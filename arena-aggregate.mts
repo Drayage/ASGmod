@@ -80,15 +80,30 @@ export interface MatchAggregate {
   games: number;
   mirroredPairs: number;
   /**
-   * The two numbers a candidate is judged on, stated together and apart from
+   * The numbers a candidate is judged on, stated together and apart from
    * everything else the arena happens to record.
    *
    * Win rate is deliberately not here. It was the gate the previous neural
    * programme used, and at 128 games it resolves about ±4.4 points — a bar
    * needing some 800 games and five hours to clear, which is a gate nobody can
    * run. Territory margin is continuous and settles to ±0.73 over the same 128.
+   *
+   * `pooledMargin` leads, and `territoryOnlyMargin` is support rather than the
+   * verdict, for a reason found the hard way. Restricting to counted games
+   * conditions on an outcome the candidate itself moves: the learned ownership
+   * term took the decision rate from 28.9% to 37.5%, so games that would have
+   * ended in capture arrived in the counted sample — and they are not a random
+   * draw, they are the ones where the candidate failed to force matters.
+   * Selecting on them afterwards biases the comparison against whichever side
+   * changed the mix, which is exactly the side under test.
+   *
+   * It is also much the smaller sample. Only about 30% of games reach a count,
+   * so a 32-game screen leaves 5 to 12 of them — intervals of ±3 cells, wide
+   * enough to accommodate almost anything. Sizing a run means sizing for
+   * whichever sample the verdict rests on.
    */
   gate: {
+    pooledMargin: NumericSummary;
     territoryOnlyMargin: NumericSummary;
     territoryDecisionRatePercent: number;
     interpretation: string;
@@ -143,24 +158,29 @@ export function aggregateRecords(records: ArenaGameRecord[]): MatchAggregate {
   const share = (part: number) => (games === 0 ? 0 : rounded((part / games) * 100));
 
   const territoryOnlyMargin = summarize(marginsWhere("TERRITORY"));
+  const pooledMargin = summarize(records.map((game) => game.finalTerritoryMargin));
 
   return {
     games,
     mirroredPairs: games / 2,
     gate: {
+      pooledMargin,
       territoryOnlyMargin,
       territoryDecisionRatePercent: share(reasons.TERRITORY),
       interpretation:
-        "A real territory improvement raises both the counted-game margin and " +
-        "the territory-decision rate. Only the margin rising can mean the " +
-        "candidate is ending games early while ahead rather than holding more " +
-        "ground; only the rate rising can mean it is reaching a count without " +
-        "winning it. Either alone needs diagnosing before it is called progress.",
+        "Judge on pooledMargin: it is every game, so a candidate that shifts " +
+        "which games reach a count cannot bias it. Read territoryOnlyMargin " +
+        "alongside, never alone — it is conditioned on an outcome the candidate " +
+        "moves, and it is roughly a third the sample, so a 32-game screen leaves " +
+        "it an interval of about three cells. A real territory improvement " +
+        "raises the pooled margin while the decision rate holds or rises; a " +
+        "rising decision rate with a falling pooled margin means the candidate " +
+        "reaches the count and loses it.",
     },
     primaryMetric: {
       name: "finalTerritoryMargin",
       positiveMeans: "engineX",
-      summary: summarize(records.map((game) => game.finalTerritoryMargin)),
+      summary: pooledMargin,
       byFinishReason: {
         TERRITORY: territoryOnlyMargin,
         CAPTURE: summarize(marginsWhere("CAPTURE")),

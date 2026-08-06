@@ -155,8 +155,9 @@ jobs:
             echo "### Gate"
             echo
             jq -r '.matches[0].aggregate.gate |
-              "- Counted-game margin: **\(.territoryOnlyMargin.mean)** cells over \(.territoryOnlyMargin.count) games (95% CI [\(.territoryOnlyMargin.confidence95.low), \(.territoryOnlyMargin.confidence95.high)])",
-              "- Territory decisions: **\(.territoryDecisionRatePercent)%** (baseline 28.91%)",
+              "- **Pooled margin (the verdict): \(.pooledMargin.mean) cells** over \(.pooledMargin.count) games, 95% CI [\(.pooledMargin.confidence95.low), \(.pooledMargin.confidence95.high)]",
+              "- Counted games only (support, not the verdict): \(.territoryOnlyMargin.mean) over \(.territoryOnlyMargin.count)",
+              "- Territory decisions: \(.territoryDecisionRatePercent)% (baseline 28.91%)",
               "",
               "> \(.interpretation)"' \
               artifacts/arena/merged.json
