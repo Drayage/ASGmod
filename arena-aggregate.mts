@@ -79,6 +79,20 @@ export interface ArenaGameRecord {
 export interface MatchAggregate {
   games: number;
   mirroredPairs: number;
+  /**
+   * The two numbers a candidate is judged on, stated together and apart from
+   * everything else the arena happens to record.
+   *
+   * Win rate is deliberately not here. It was the gate the previous neural
+   * programme used, and at 128 games it resolves about ±4.4 points — a bar
+   * needing some 800 games and five hours to clear, which is a gate nobody can
+   * run. Territory margin is continuous and settles to ±0.73 over the same 128.
+   */
+  gate: {
+    territoryOnlyMargin: NumericSummary;
+    territoryDecisionRatePercent: number;
+    interpretation: string;
+  };
   primaryMetric: {
     name: "finalTerritoryMargin";
     positiveMeans: "engineX";
@@ -128,15 +142,27 @@ export function aggregateRecords(records: ArenaGameRecord[]): MatchAggregate {
 
   const share = (part: number) => (games === 0 ? 0 : rounded((part / games) * 100));
 
+  const territoryOnlyMargin = summarize(marginsWhere("TERRITORY"));
+
   return {
     games,
     mirroredPairs: games / 2,
+    gate: {
+      territoryOnlyMargin,
+      territoryDecisionRatePercent: share(reasons.TERRITORY),
+      interpretation:
+        "A real territory improvement raises both the counted-game margin and " +
+        "the territory-decision rate. Only the margin rising can mean the " +
+        "candidate is ending games early while ahead rather than holding more " +
+        "ground; only the rate rising can mean it is reaching a count without " +
+        "winning it. Either alone needs diagnosing before it is called progress.",
+    },
     primaryMetric: {
       name: "finalTerritoryMargin",
       positiveMeans: "engineX",
       summary: summarize(records.map((game) => game.finalTerritoryMargin)),
       byFinishReason: {
-        TERRITORY: summarize(marginsWhere("TERRITORY")),
+        TERRITORY: territoryOnlyMargin,
         CAPTURE: summarize(marginsWhere("CAPTURE")),
         PLY_CAP: summarize(marginsWhere("PLY_CAP")),
       },

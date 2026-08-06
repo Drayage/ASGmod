@@ -152,6 +152,15 @@ jobs:
             echo "- Mode \`${{ inputs.only }}\`, \`${{ inputs.games }}\` games, \`${{ inputs.shards }}\` shards"
             echo "- Budget \`${{ inputs.very_hard_ms }} ms\` for **both** sides"
             echo
+            echo "### Gate"
+            echo
+            jq -r '.matches[0].aggregate.gate |
+              "- Counted-game margin: **\(.territoryOnlyMargin.mean)** cells over \(.territoryOnlyMargin.count) games (95% CI [\(.territoryOnlyMargin.confidence95.low), \(.territoryOnlyMargin.confidence95.high)])",
+              "- Territory decisions: **\(.territoryDecisionRatePercent)%** (baseline 28.91%)",
+              "",
+              "> \(.interpretation)"' \
+              artifacts/arena/merged.json
+            echo
             echo "### Territory margin (positive favours engine X)"
             echo
             echo "The pooled row mixes counted games with games that stopped on a"
