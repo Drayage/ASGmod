@@ -270,7 +270,7 @@ def main() -> None:
             optimiser.zero_grad(set_to_none=True)
             loss.backward()
             optimiser.step()
-            total += float(loss) * len(batch)
+            total += float(loss.detach()) * len(batch)
             seen += len(batch)
         schedule.step()
 
