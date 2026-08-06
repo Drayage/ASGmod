@@ -15,3 +15,7 @@ public/icons/*.png
 public/ownership-net.json
 __pycache__/
 *.pyc
+
+# Arena and dataset scratch output. The CI workflows publish these as build
+# artifacts; a local run should not put half-finished shard logs in a commit.
+artifacts/
