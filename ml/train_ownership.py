@@ -104,30 +104,48 @@ def encode_board(board: str, ownership_to_move: str) -> torch.Tensor:
 
 
 def load(path: Path, val_every: int, single_game_label: bool = False):
-    boards, owners, margins, plies, games = [], [], [], [], []
+    """Read either generator's output.
+
+    The two write different shapes — one encodes the board as a string, the
+    other as integers — and the game identifier differs too. Normalising here
+    means a dataset can be swapped without the rest of the script noticing, and
+    the identifier has to be the globally unique one: both shards number their
+    games from 1, so keying on the per-shard index would merge unrelated games
+    and quietly leak across the split.
+    """
+    boards, owners, margins, plies, games, movers = [], [], [], [], [], []
     with path.open() as handle:
         for line in handle:
             line = line.strip()
             if not line:
                 continue
             row = json.loads(line)
+            if row.get("symmetry", row.get("sym", 0)) != 0:
+                continue
+
             board = row["board"]
+            if isinstance(board, list):
+                board = "".join(".ABN"[value] for value in board)
+
             own = row.get("own") or row.get("ownership")
             if isinstance(own, list):
                 own = "".join(".AB"[value] for value in own)
+
             margin = row.get("margin", row.get("finalMargin"))
             if single_game_label and "marginSingleGame" in row:
                 margin = row["marginSingleGame"]
             if board is None or own is None or margin is None:
                 raise ValueError(f"row lacks board/own/margin: {line[:120]}")
+
+            ply = int(row.get("ply", 0))
             boards.append(board)
             owners.append(own)
             margins.append(float(margin))
-            plies.append(int(row.get("ply", 0)))
-            games.append(int(row.get("g", row.get("gameIndex", 0))))
+            plies.append(ply)
+            movers.append(row.get("currentPlayer") or ("A" if ply % 2 == 0 else "B"))
+            games.append(str(row.get("gameId", row.get("g", row.get("gameIndex", 0)))))
 
-    to_move = ["A" if ply % 2 == 0 else "B" for ply in plies]
-    x = torch.stack([encode_board(b, m) for b, m in zip(boards, to_move)])
+    x = torch.stack([encode_board(b, m) for b, m in zip(boards, movers)])
 
     # Ownership target: 0 nobody, 1 A, 2 B.
     y_own = torch.zeros(len(owners), CELLS, dtype=torch.long)
@@ -141,18 +159,11 @@ def load(path: Path, val_every: int, single_game_label: bool = False):
     # Whole games go to one side of the split. Positions inside a game share a
     # label and are near duplicates, so splitting within one leaks the answer.
     unique_games = sorted(set(games))
-    held = {game for i, game in enumerate(unique_games) if i % val_every == 0}
+    index_of = {game: i for i, game in enumerate(unique_games)}
+    held = {game for game, i in index_of.items() if i % val_every == 0}
     is_val = torch.tensor([game in held for game in games])
-    return (
-        x,
-        y_own,
-        y_margin,
-        ply_tensor,
-        is_val,
-        len(unique_games),
-        len(held),
-        torch.tensor(games, dtype=torch.long),
-    )
+    numeric_ids = torch.tensor([index_of[game] for game in games], dtype=torch.long)
+    return x, y_own, y_margin, ply_tensor, is_val, len(unique_games), len(held), numeric_ids
 
 
 class Block(nn.Module):
