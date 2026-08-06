@@ -1,0 +1,113 @@
+{
+  "averagedLabel": {
+    "best": {
+      "epoch": 7,
+      "trainLoss": 0.2684689203461448,
+      "openAccuracy": 0.8371789797201332,
+      "territoryPrecision": 0.7225624116815826,
+      "territoryRecall": 0.5480528760271526,
+      "marginMAE": 1.974459171295166,
+      "marginCorr": 0.5435690879821777,
+      "hybridMarginMAE": 2.651067018508911,
+      "hybridMarginCorr": 0.876687228679657,
+      "settledOnlyCorr": 0.8583361506462097,
+      "byPhase": {
+        "opening": {
+          "n": 280,
+          "marginCorr": 0.2347935438156128,
+          "marginMAE": 0.9576239585876465,
+          "hybridMarginCorr": 0.03267425298690796,
+          "hybridMarginMAE": 2.033771276473999,
+          "settledOnlyCorr": 0.04268507659435272
+        },
+        "middle": {
+          "n": 280,
+          "marginCorr": 0.519437313079834,
+          "marginMAE": 1.7299344539642334,
+          "hybridMarginCorr": 0.7410569787025452,
+          "hybridMarginMAE": 2.6651949882507324,
+          "settledOnlyCorr": 0.720792293548584
+        },
+        "endgame": {
+          "n": 341,
+          "marginCorr": 0.5640550851821899,
+          "marginMAE": 3.0101795196533203,
+          "hybridMarginCorr": 0.964418888092041,
+          "hybridMarginMAE": 3.146336555480957,
+          "settledOnlyCorr": 0.9261134266853333
+        }
+      }
+    },
+    "config": {
+      "data": "/tmp/claude-0/-home-user-ASGmod/3324222b-a3a1-5d65-b076-49f89abeeae5/scratchpad/averaged.jsonl",
+      "out": "/tmp/claude-0/-home-user-ASGmod/3324222b-a3a1-5d65-b076-49f89abeeae5/scratchpad/ab-avg",
+      "epochs": 14,
+      "channels": 48,
+      "blocks": 4,
+      "batch_size": 256,
+      "lr": 0.002,
+      "val_every": 5,
+      "threads": 2,
+      "seed": 20260804,
+      "single_game_label": false,
+      "train_limit": 0,
+      "settled": "/tmp/claude-0/-home-user-ASGmod/3324222b-a3a1-5d65-b076-49f89abeeae5/scratchpad/avg-settled.txt"
+    }
+  },
+  "singleGameLabel": {
+    "best": {
+      "epoch": 3,
+      "trainLoss": 0.4500471463570228,
+      "openAccuracy": 0.8189014878111248,
+      "territoryPrecision": 0.6411081845673593,
+      "territoryRecall": 0.5869953554841014,
+      "marginMAE": 4.013534069061279,
+      "marginCorr": 0.30956169962882996,
+      "hybridMarginMAE": 3.8004751205444336,
+      "hybridMarginCorr": 0.6367038488388062,
+      "settledOnlyCorr": 0.5606772899627686,
+      "byPhase": {
+        "opening": {
+          "n": 280,
+          "marginCorr": 0.15119612216949463,
+          "marginMAE": 4.101378917694092,
+          "hybridMarginCorr": 0.20107944309711456,
+          "hybridMarginMAE": 4.4473981857299805,
+          "settledOnlyCorr": 0.042917437851428986
+        },
+        "middle": {
+          "n": 280,
+          "marginCorr": 0.3111110329627991,
+          "marginMAE": 4.163466453552246,
+          "hybridMarginCorr": 0.5403003692626953,
+          "hybridMarginMAE": 3.911985158920288,
+          "settledOnlyCorr": 0.3840910494327545
+        },
+        "endgame": {
+          "n": 341,
+          "marginCorr": 0.4002314805984497,
+          "marginMAE": 3.8182921409606934,
+          "hybridMarginCorr": 0.9024935364723206,
+          "hybridMarginMAE": 3.17771577835083,
+          "settledOnlyCorr": 0.8527637720108032
+        }
+      }
+    },
+    "config": {
+      "data": "/tmp/claude-0/-home-user-ASGmod/3324222b-a3a1-5d65-b076-49f89abeeae5/scratchpad/averaged.jsonl",
+      "out": "/tmp/claude-0/-home-user-ASGmod/3324222b-a3a1-5d65-b076-49f89abeeae5/scratchpad/ab-single",
+      "epochs": 14,
+      "channels": 48,
+      "blocks": 4,
+      "batch_size": 256,
+      "lr": 0.002,
+      "val_every": 5,
+      "threads": 2,
+      "seed": 20260804,
+      "single_game_label": true,
+      "train_limit": 0,
+      "settled": "/tmp/claude-0/-home-user-ASGmod/3324222b-a3a1-5d65-b076-49f89abeeae5/scratchpad/avg-settled.txt"
+    }
+  },
+  "note": "A/B over identical positions, label varied. The averaged arm scores higher overall only because its target has lower variance (MAE 1.97 vs 4.01); in the opening it is worse (0.033 vs 0.201). The two labels measure different quantities: the single-game label is the outcome under the engine search, the averaged one the outcome under a weak static-eval policy, which converges to near-even from any opening position."
+}
