@@ -59,6 +59,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--seed", type=int, default=20260804)
     parser.add_argument(
+        "--single-game-label",
+        action="store_true",
+        help="use the original one-game margin instead of the averaged playout "
+        "label, over the same positions, so the two can be compared like for like",
+    )
+    parser.add_argument(
         "--train-limit",
         type=int,
         default=0,
@@ -97,7 +103,7 @@ def encode_board(board: str, ownership_to_move: str) -> torch.Tensor:
     return planes
 
 
-def load(path: Path, val_every: int):
+def load(path: Path, val_every: int, single_game_label: bool = False):
     boards, owners, margins, plies, games = [], [], [], [], []
     with path.open() as handle:
         for line in handle:
@@ -110,6 +116,8 @@ def load(path: Path, val_every: int):
             if isinstance(own, list):
                 own = "".join(".AB"[value] for value in own)
             margin = row.get("margin", row.get("finalMargin"))
+            if single_game_label and "marginSingleGame" in row:
+                margin = row["marginSingleGame"]
             if board is None or own is None or margin is None:
                 raise ValueError(f"row lacks board/own/margin: {line[:120]}")
             boards.append(board)
@@ -277,7 +285,7 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     x, y_own, y_margin, plies, is_val, games, held, game_ids = load(
-        Path(args.data), args.val_every
+        Path(args.data), args.val_every, args.single_game_label
     )
 
     if args.settled:
