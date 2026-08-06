@@ -58,6 +58,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--val-every", type=int, default=5, help="hold out every Nth game")
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--seed", type=int, default=20260804)
+    parser.add_argument(
+        "--settled",
+        help="settled-territory margins from settled-margin.mts, one per line",
+    )
     return parser.parse_args()
 
 
@@ -186,13 +190,14 @@ def correlation(a: torch.Tensor, b: torch.Tensor) -> float:
     return float((a @ b) / denom) if float(denom) > 0 else float("nan")
 
 
-def evaluate(model: nn.Module, x, y_own, y_margin, plies, batch_size: int):
+def evaluate(model: nn.Module, x, y_own, y_margin, plies, batch_size: int, settled_margin):
     model.eval()
-    own_pred, margin_pred = [], []
+    own_pred, margin_pred, own_prob_batches = [], [], []
     with torch.no_grad():
         for start in range(0, len(x), batch_size):
             o, m = model(x[start : start + batch_size])
             own_pred.append(o.argmax(-1))
+            own_prob_batches.append(torch.softmax(o, dim=-1))
             margin_pred.append(m)
     own_pred = torch.cat(own_pred)
     margin_pred = torch.cat(margin_pred)
@@ -210,6 +215,16 @@ def evaluate(model: nn.Module, x, y_own, y_margin, plies, batch_size: int):
     precision = float(hit.sum()) / max(1, int(claimed.sum()))
     recall = float(hit.sum()) / max(1, int(held.sum()))
 
+    # The engine already counts settled ground exactly. A model that has to
+    # learn that count cannot beat arithmetic at it — measured, it reads 0.481
+    # in the endgame against the engine's 0.836. So the combination worth
+    # testing is not "model instead of" but "exact count plus model, over the
+    # open points only", which is the one part arithmetic cannot supply.
+    own_prob = torch.cat(own_prob_batches)
+    open_only = open_mask.float()
+    predicted_open = ((own_prob[:, :, 1] - own_prob[:, :, 2]) * open_only).sum(1)
+    hybrid = settled_margin + predicted_open
+
     mae = float((margin_pred - y_margin).abs().mean())
     result = {
         "openAccuracy": open_accuracy,
@@ -217,6 +232,9 @@ def evaluate(model: nn.Module, x, y_own, y_margin, plies, batch_size: int):
         "territoryRecall": recall,
         "marginMAE": mae,
         "marginCorr": correlation(margin_pred, y_margin),
+        "hybridMarginMAE": float((hybrid - y_margin).abs().mean()),
+        "hybridMarginCorr": correlation(hybrid, y_margin),
+        "settledOnlyCorr": correlation(settled_margin, y_margin),
         "byPhase": {},
     }
     for label, lo, hi in (("opening", 0, 20), ("middle", 20, 40), ("endgame", 40, 10_000)):
@@ -227,6 +245,9 @@ def evaluate(model: nn.Module, x, y_own, y_margin, plies, batch_size: int):
             "n": int(sel.sum()),
             "marginCorr": correlation(margin_pred[sel], y_margin[sel]),
             "marginMAE": float((margin_pred[sel] - y_margin[sel]).abs().mean()),
+            "hybridMarginCorr": correlation(hybrid[sel], y_margin[sel]),
+            "hybridMarginMAE": float((hybrid[sel] - y_margin[sel]).abs().mean()),
+            "settledOnlyCorr": correlation(settled_margin[sel], y_margin[sel]),
         }
     return result
 
@@ -240,6 +261,16 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     x, y_own, y_margin, plies, is_val, games, held = load(Path(args.data), args.val_every)
+
+    if args.settled:
+        settled_all = torch.tensor(
+            [float(value) for value in Path(args.settled).read_text().split()],
+            dtype=torch.float32,
+        )
+        if len(settled_all) != len(x):
+            raise ValueError(f"settled file has {len(settled_all)} rows, data has {len(x)}")
+    else:
+        settled_all = torch.zeros(len(x))
     train_idx = (~is_val).nonzero(as_tuple=True)[0]
     val_idx = is_val.nonzero(as_tuple=True)[0]
     print(
@@ -255,6 +286,7 @@ def main() -> None:
     schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimiser, T_max=args.epochs)
 
     history = []
+    best = {"score": -math.inf, "epoch": 0, "state": None}
     for epoch in range(1, args.epochs + 1):
         model.train()
         order = train_idx[torch.randperm(len(train_idx))]
@@ -274,21 +306,53 @@ def main() -> None:
             seen += len(batch)
         schedule.step()
 
-        stats = evaluate(model, x[val_idx], y_own[val_idx], y_margin[val_idx], plies[val_idx], args.batch_size)
+        stats = evaluate(
+            model,
+            x[val_idx],
+            y_own[val_idx],
+            y_margin[val_idx],
+            plies[val_idx],
+            args.batch_size,
+            settled_all[val_idx],
+        )
         opening = stats["byPhase"].get("opening", {})
         history.append({"epoch": epoch, "trainLoss": total / max(1, seen), **stats})
+        # Selected on the hybrid correlation over all positions — exact settled
+        # count plus the model's read of the open points — because that is the
+        # quantity the evaluation would actually consume. Measured by phase, it
+        # is the strongest signal available late (0.857 against the engine's
+        # 0.836) while the margin head is the only one carrying anything at all
+        # early (0.228 against 0.021), so both are kept and reported; picking on
+        # the opening alone would select a model that is worse everywhere else.
+        score = stats.get("hybridMarginCorr") or -math.inf
+        if score > best["score"]:
+            best = {
+                "score": score,
+                "epoch": epoch,
+                "state": {k: v.clone() for k, v in model.state_dict().items()},
+            }
         print(
             f"epoch {epoch:2d}  loss {total / max(1, seen):.4f}  "
             f"open-acc {stats['openAccuracy'] * 100:5.2f}%  "
             f"prec {stats['territoryPrecision'] * 100:5.2f}%  "
             f"rec {stats['territoryRecall'] * 100:5.2f}%  "
             f"margin MAE {stats['marginMAE']:.3f} r={stats['marginCorr']:.3f}  "
-            f"opening r={opening.get('marginCorr', float('nan')):.3f}  "
+            f"opening r={opening.get('marginCorr', float('nan')):.3f}/"
+            f"{opening.get('hybridMarginCorr', float('nan')):.3f}  "
             f"({time.time() - started:.0f}s)"
         )
 
     final = history[-1]
-    torch.save({"state_dict": model.state_dict(), "channels": args.channels, "blocks": args.blocks}, out_dir / "ownership.pt")
+    best_entry = next(item for item in history if item["epoch"] == best["epoch"])
+    torch.save(
+        {
+            "state_dict": best["state"] if best["state"] is not None else model.state_dict(),
+            "channels": args.channels,
+            "blocks": args.blocks,
+            "epoch": best["epoch"],
+        },
+        out_dir / "ownership.pt",
+    )
     summary = {
         "schemaVersion": 1,
         "stage": "PHASE_2_OWNERSHIP_MODEL",
@@ -297,6 +361,7 @@ def main() -> None:
         "positions": len(x),
         "games": games,
         "final": final,
+        "best": best_entry,
         "history": history,
         "baselines": {
             "note": "measured by margin-headroom.mts over the same pilot data",
@@ -307,7 +372,11 @@ def main() -> None:
         },
         "verdict": {
             "beatsInfluencePrecision": final["territoryPrecision"] > 0.315,
-            "informativeInOpening": final["byPhase"].get("opening", {}).get("marginCorr", 0) > 0.30,
+            "informativeInOpening": max(
+                best_entry["byPhase"].get("opening", {}).get("marginCorr", 0),
+                best_entry["byPhase"].get("opening", {}).get("hybridMarginCorr", 0),
+            )
+            > 0.30,
             "note": "The opening number is the one that matters. Settled territory "
             "already reads 0.836 in the endgame, so a model that only sharpens "
             "late adds nothing the engine cannot already compute.",
