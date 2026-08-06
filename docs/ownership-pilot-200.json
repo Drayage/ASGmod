@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "stage": "PHASE_1_OWNERSHIP_DATASET",
+  "generatedAt": "2026-08-06T05:25:09.304Z",
+  "diagnosticOnly": true,
+  "modelTrained": false,
+  "searchOrGuardChanged": false,
+  "tuningChanged": false,
+  "config": {
+    "games": 200,
+    "moveMs": 300,
+    "maxPlies": 160,
+    "completionPlies": 200,
+    "openingPlies": 4,
+    "captureMode": "suppressed",
+    "seed": 20260804,
+    "shardCount": 4,
+    "shardIndex": null,
+    "augmentOnDisk": false,
+    "valEvery": 10
+  },
+  "dataset": {
+    "gamesGenerated": 200,
+    "positions": 13426,
+    "rowsWritten": 13426,
+    "rowsAfterEightfoldSymmetry": 107408,
+    "trainPositions": 12097,
+    "valPositions": 1329,
+    "finishReasons": {
+      "TERRITORY": 200
+    },
+    "completionsCappedOut": 0,
+    "declinedCaptureWins": 1572,
+    "playedPlies": null,
+    "completionPliesAdded": null,
+    "finalMarginFromA": null,
+    "labelDistribution": {
+      "A": 1307,
+      "B": 1147,
+      "nobody": 13746,
+      "aPercent": 8.067901,
+      "bPercent": 7.080247,
+      "nobodyPercent": 84.851852
+    }
+  },
+  "baselines": {
+    "influence": {
+      "positionsScored": 13426,
+      "allCells": 1087506,
+      "allCorrect": 790085,
+      "openCells": 629702,
+      "openCorrect": 332281,
+      "claimedOpenCells": 396308,
+      "heldOpenCells": 162893,
+      "claimedAndHeldOpenCells": 125007,
+      "allCellsPercent": 72.651093,
+      "openCellsPercent": 52.767976,
+      "territoryRecallPercent": 76.741788,
+      "territoryPrecisionPercent": 31.542891
+    },
+    "nearestCat": {
+      "positionsScored": 13426,
+      "allCells": 1087506,
+      "allCorrect": 764413,
+      "openCells": 629702,
+      "openCorrect": 306609,
+      "claimedOpenCells": 438868,
+      "heldOpenCells": 162893,
+      "claimedAndHeldOpenCells": 130565,
+      "allCellsPercent": 70.290463,
+      "openCellsPercent": 48.691127,
+      "territoryRecallPercent": 80.153843,
+      "territoryPrecisionPercent": 29.750403
+    },
+    "settledTerritory": {
+      "positionsScored": 13426,
+      "allCells": 1087506,
+      "allCorrect": 988473,
+      "openCells": 629702,
+      "openCorrect": 530669,
+      "claimedOpenCells": 63860,
+      "heldOpenCells": 162893,
+      "claimedAndHeldOpenCells": 63860,
+      "allCellsPercent": 90.893567,
+      "openCellsPercent": 84.273037,
+      "territoryRecallPercent": 39.203649,
+      "territoryPrecisionPercent": 100
+    },
+    "alwaysNeutral": {
+      "positionsScored": 13426,
+      "allCells": 1087506,
+      "allCorrect": 924613,
+      "openCells": 629702,
+      "openCorrect": 466809,
+      "claimedOpenCells": 0,
+      "heldOpenCells": 162893,
+      "claimedAndHeldOpenCells": 0,
+      "allCellsPercent": 85.021416,
+      "openCellsPercent": 74.131732,
+      "territoryRecallPercent": 0,
+      "territoryPrecisionPercent": null
+    }
+  },
+  "humanValidation": {
+    "files": [
+      "src/games/alley-boss-cats/testdata/humanGames.json",
+      "docs/newbuild-games-32293a1.json"
+    ],
+    "games": 20,
+    "positions": 659,
+    "baselines": {
+      "influence": {
+        "positions": 659,
+        "allCellsPercent": 65.733716,
+        "openCellsPercent": 54.203806,
+        "positionsScored": 659,
+        "allCells": 53379,
+        "allCorrect": 35088,
+        "openCells": 39940,
+        "openCorrect": 21649,
+        "claimedAndHeldOpenCells": 10487,
+        "territoryRecallPercent": 75.207975,
+        "territoryPrecisionPercent": 39.895762,
+        "claimedOpenCells": 26286,
+        "heldOpenCells": 13944
+      },
+      "nearestCat": {
+        "positions": 659,
+        "allCellsPercent": 59.484067,
+        "openCellsPercent": 45.851277,
+        "positionsScored": 659,
+        "allCells": 53379,
+        "allCorrect": 31752,
+        "openCells": 39940,
+        "openCorrect": 18313,
+        "claimedAndHeldOpenCells": 11010,
+        "territoryRecallPercent": 78.958692,
+        "territoryPrecisionPercent": 35.082688,
+        "claimedOpenCells": 31383,
+        "heldOpenCells": 13944
+      },
+      "settledTerritory": {
+        "positions": 659,
+        "allCellsPercent": 84.014313,
+        "openCellsPercent": 78.635453,
+        "positionsScored": 659,
+        "allCells": 53379,
+        "allCorrect": 44846,
+        "openCells": 39940,
+        "openCorrect": 31407,
+        "claimedAndHeldOpenCells": 5411,
+        "territoryRecallPercent": 38.805221,
+        "territoryPrecisionPercent": 100,
+        "claimedOpenCells": 5411,
+        "heldOpenCells": 13944
+      },
+      "alwaysNeutral": {
+        "positions": 659,
+        "allCellsPercent": 73.877368,
+        "openCellsPercent": 65.087631,
+        "positionsScored": 659,
+        "allCells": 53379,
+        "allCorrect": 39435,
+        "openCells": 39940,
+        "openCorrect": 25996,
+        "claimedAndHeldOpenCells": 0,
+        "territoryRecallPercent": 0,
+        "territoryPrecisionPercent": null,
+        "claimedOpenCells": 0,
+        "heldOpenCells": 13944
+      }
+    }
+  },
+  "mergedFromShards": 4
+}
