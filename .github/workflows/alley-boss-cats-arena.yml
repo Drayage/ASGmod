@@ -9,9 +9,12 @@ name: Alley Boss Cats territory arena (sharded)
 #   - 128 games took 3h27m in one job at the shipped 3000ms budget. Sharded
 #     across 8 jobs that is well under an hour, which is the difference between
 #     a gate you can run and one you avoid running.
-#   - 32 games is enough to screen. The measured margin SD is 4.238 cells, so
-#     32 games gives a 95% interval of about +/-1.47 — ample when the gap being
-#     closed against a human is 10 to 13 cells. Keep 128 for the final gate.
+#   - Sizing. The pooled margin's SD is 4.238 cells, so 32 games gives it an
+#     interval of about +/-1.47 and 96 about +/-0.85. Size for the pooled
+#     margin, which is the verdict: an earlier screen sized on it but judged on
+#     the counted-game subsample, which is a third as large and conditioned on
+#     an outcome the candidate moves, and read -3.08 cells where the pooled
+#     figure was -0.47 with an interval spanning zero.
 
 on:
   workflow_dispatch:
@@ -32,9 +35,9 @@ on:
         default: "BASELINE"
         type: string
       games:
-        description: "32 to screen (~1.47 cell interval), 128 to gate (~0.73)"
+        description: "96 to screen (pooled interval ~0.85), 128+ to gate (~0.73)"
         required: true
-        default: "32"
+        default: "96"
         type: string
       shards:
         description: "Parallel jobs. Must not exceed games/2, since pairs stay whole"
@@ -164,10 +167,10 @@ jobs:
             echo
             echo "### Territory margin (positive favours engine X)"
             echo
-            echo "The pooled row mixes counted games with games that stopped on a"
-            echo "capture, where the count is whatever happened to be walled in."
-            echo "A candidate can lift the pooled mean just by ending games early"
-            echo "while ahead, so read the counted row and the decision rate with it."
+            echo "Split by how the game finished. The counted row is the cleanest"
+            echo "statement of a territory verdict but the least trustworthy"
+            echo "comparison: a candidate that changes how often games reach a count"
+            echo "changes which games are in it. Judge on the pooled row above."
             echo
             echo '| sample | games | mean | 95% CI |'
             echo '|---|---|---|---|'
