@@ -92,10 +92,37 @@ function sumDistribution(items) {
 
 function aggregateBaselines(items) {
   const names = ["influenceCountSignal", "nearestStoneOwner", "alwaysNeutral"];
+  // Pooled from raw counts, never by averaging the shards' rates: a short shard
+  // and a long one would otherwise carry the same weight.
+  const sum = (field) => (name) =>
+    items.reduce((total, item) => total + (item.data.baselines[name][field] ?? 0), 0);
+
   return Object.fromEntries(names.map((name) => {
-    const correct = items.reduce((sum, item) => sum + item.data.baselines[name].correct, 0);
-    const total = items.reduce((sum, item) => sum + item.data.baselines[name].total, 0);
-    return [name, { correct, total, accuracy: total === 0 ? null : correct / total }];
+    const correct = sum("correct")(name);
+    const total = sum("total")(name);
+    const openCorrect = sum("openCorrect")(name);
+    const openTotal = sum("openTotal")(name);
+    const claimed = sum("claimedOpenCells")(name);
+    const held = sum("heldOpenCells")(name);
+    const claimedAndHeld = sum("claimedAndHeldOpenCells")(name);
+
+    return [name, {
+      correct,
+      total,
+      accuracy: total === 0 ? null : correct / total,
+      // Whole-board accuracy is mostly free credit — about five in six points
+      // end up nobody's — so it ranks a predictor that claims nothing above the
+      // signal the engine actually uses. These three are the discriminating
+      // numbers, and the ones a model has to be judged on.
+      openCorrect,
+      openTotal,
+      openAccuracy: openTotal === 0 ? null : openCorrect / openTotal,
+      claimedOpenCells: claimed,
+      heldOpenCells: held,
+      claimedAndHeldOpenCells: claimedAndHeld,
+      territoryRecall: held === 0 ? null : claimedAndHeld / held,
+      territoryPrecision: claimed === 0 ? null : claimedAndHeld / claimed,
+    }];
   }));
 }
 

@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { performance } from "node:perf_hooks";
-import { applyAction, evaluateState, type AIAction } from "../src/games/alley-boss-cats/ai";
+import { applyAction } from "../src/games/alley-boss-cats/ai";
 import { findBestMoveVeryHard } from "../src/games/alley-boss-cats/engine/minimax";
 import {
   influenceOwnershipPrediction,
@@ -9,10 +9,10 @@ import {
   neutralOwnershipPrediction,
   type OwnershipLabel,
 } from "../src/games/alley-boss-cats/ownershipBaselines";
+import { bestQuietAlternative } from "../src/games/alley-boss-cats/ownership";
 import {
   applyMove,
   createInitialState,
-  getLegalMoves,
   isLegalMove,
   passTurn,
 } from "../src/games/alley-boss-cats/rules";
@@ -54,6 +54,9 @@ interface DatasetSample extends PendingSample {
 
 interface BaselineCounter {
   correct: number;
+  openCorrect: number;
+  openTotal: number;
+  byPrediction: Record<OwnershipLabel, { correct: number; total: number }>;
   total: number;
   byLabel: Record<OwnershipLabel, { correct: number; total: number }>;
 }
@@ -167,21 +170,6 @@ function isCaptureResult(state: GameState): boolean {
   return state.winner !== null && state.winReason === "CAPTURE";
 }
 
-function bestQuietAlternative(state: GameState, player: Player): AIAction {
-  const candidates = getLegalMoves(state, player)
-    .map((move) => {
-      const next = applyMove(state, move.row, move.col);
-      return { move, next };
-    })
-    .filter(({ next }) => !isCaptureResult(next))
-    .map(({ move, next }) => ({
-      action: { type: "PLACE", row: move.row, col: move.col } as AIAction,
-      score: evaluateState(next, player),
-    }))
-    .sort((a, b) => b.score - a.score || a.action.type === "PASS" ? 1 : 0);
-  return candidates[0]?.action ?? { type: "PASS" };
-}
-
 function quietLabelRollout(start: GameState): {
   finalState: GameState;
   rolloutPlies: number;
@@ -197,7 +185,9 @@ function quietLabelRollout(start: GameState): {
     let action = teacher;
     if (teacher.type === "PLACE") {
       const next = applyMove(state, teacher.row, teacher.col);
-      if (isCaptureResult(next)) action = bestQuietAlternative(state, player);
+      if (isCaptureResult(next)) {
+        action = bestQuietAlternative(state, player) ?? { type: "PASS" };
+      }
     }
     state = applyAction(state, action);
     rolloutPlies += 1;
@@ -263,7 +253,14 @@ function counter(): BaselineCounter {
   return {
     correct: 0,
     total: 0,
+    openCorrect: 0,
+    openTotal: 0,
     byLabel: {
+      0: { correct: 0, total: 0 },
+      1: { correct: 0, total: 0 },
+      2: { correct: 0, total: 0 },
+    },
+    byPrediction: {
       0: { correct: 0, total: 0 },
       1: { correct: 0, total: 0 },
       2: { correct: 0, total: 0 },
@@ -271,15 +268,36 @@ function counter(): BaselineCounter {
   };
 }
 
-function updateCounter(target: BaselineCounter, prediction: OwnershipLabel[], truth: OwnershipLabel[]): void {
+function updateCounter(
+  target: BaselineCounter,
+  prediction: OwnershipLabel[],
+  truth: OwnershipLabel[],
+  board: Board,
+): void {
   for (let index = 0; index < truth.length; index += 1) {
     const label = truth[index];
-    const correct = prediction[index] === label;
+    const guess = prediction[index];
+    const correct = guess === label;
     target.total += 1;
     target.byLabel[label].total += 1;
+    // Tallied by what was predicted, not by what was true: that is the only
+    // way to ask how much of a claim was ever going to be held.
+    target.byPrediction[guess].total += 1;
     if (correct) {
       target.correct += 1;
       target.byLabel[label].correct += 1;
+      target.byPrediction[guess].correct += 1;
+    }
+
+    // A point already carrying a cat can never become territory, so predicting
+    // "nobody" there is free. Roughly five in six points are like that by the
+    // time a game is counted, which is why whole-board accuracy ranks a
+    // predictor that claims nothing above the one the engine actually uses.
+    const row = Math.floor(index / BOARD_SIZE);
+    const col = index % BOARD_SIZE;
+    if (board[row][col] === "EMPTY") {
+      target.openTotal += 1;
+      if (correct) target.openCorrect += 1;
     }
   }
 }
@@ -289,15 +307,43 @@ function finalizeCounter(value: BaselineCounter) {
     value.byLabel[label].total === 0
       ? null
       : value.byLabel[label].correct / value.byLabel[label].total;
+  const precision = (label: OwnershipLabel) =>
+    value.byPrediction[label].total === 0
+      ? null
+      : value.byPrediction[label].correct / value.byPrediction[label].total;
+
+  // Pooled over both sides: the question is how much claimed territory is
+  // held, not how each colour fared.
+  const claimed = value.byPrediction[1].total + value.byPrediction[2].total;
+  const claimedAndHeld = value.byPrediction[1].correct + value.byPrediction[2].correct;
+  const held = value.byLabel[1].total + value.byLabel[2].total;
+  const heldAndFound = value.byLabel[1].correct + value.byLabel[2].correct;
+
   return {
     correct: value.correct,
     total: value.total,
     accuracy: value.total === 0 ? null : value.correct / value.total,
+    openCorrect: value.openCorrect,
+    openTotal: value.openTotal,
+    openAccuracy: value.openTotal === 0 ? null : value.openCorrect / value.openTotal,
     recallByClass: {
       neutral: recall(0),
       A: recall(1),
       B: recall(2),
     },
+    precisionByClass: {
+      neutral: precision(0),
+      A: precision(1),
+      B: precision(2),
+    },
+    // The pair that actually separates a useful territory signal from a silent
+    // one. Measured on a 200-game pilot, influenceCount finds 76.7% of the
+    // territory that forms and is wrong about 68.5% of what it claims.
+    claimedOpenCells: claimed,
+    heldOpenCells: held,
+    claimedAndHeldOpenCells: claimedAndHeld,
+    territoryRecall: held === 0 ? null : heldAndFound / held,
+    territoryPrecision: claimed === 0 ? null : claimedAndHeld / claimed,
   };
 }
 
@@ -307,9 +353,9 @@ function evaluateBaselines(samples: Array<Omit<DatasetSample, "symmetry">>) {
   const neutral = counter();
   for (const sample of samples) {
     const board = decodeBoard(sample.board);
-    updateCounter(influence, influenceOwnershipPrediction(board), sample.ownership);
-    updateCounter(nearest, nearestStoneOwnershipPrediction(board), sample.ownership);
-    updateCounter(neutral, neutralOwnershipPrediction(board), sample.ownership);
+    updateCounter(influence, influenceOwnershipPrediction(board), sample.ownership, board);
+    updateCounter(nearest, nearestStoneOwnershipPrediction(board), sample.ownership, board);
+    updateCounter(neutral, neutralOwnershipPrediction(board), sample.ownership, board);
   }
   return {
     influenceCountSignal: finalizeCounter(influence),

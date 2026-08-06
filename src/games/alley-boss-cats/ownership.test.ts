@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { applyMove, createInitialState, getLegalMoves, passTurn } from "./rules";
+import { applyAction, evaluateState, getSafeActions } from "./ai";
 import { influenceCount, influenceOwnerMap } from "./engine/territoryPlanner";
 import {
   CELL_COUNT,
   SYMMETRY_COUNT,
+  bestQuietAlternative,
   completeToScoring,
   decodeOwnership,
   encodeBoard,
@@ -111,6 +113,40 @@ describe("completeToScoring", () => {
     const { state: finished, addedPlies } = completeToScoring(captured, 200);
     expect(addedPlies).toBeGreaterThan(0);
     expect(finished.winReason).toBe("TERRITORY");
+  });
+
+  it("picks the best quiet move, not merely a quiet one", () => {
+    // Guards the sort in bestQuietAlternative. An earlier form read
+    //   (a, b) => b.score - a.score || a.action.type === "PASS" ? 1 : 0
+    // which `||` binding tighter than `?:` collapses to a comparator returning
+    // 1 whenever the scores differ in either direction — so cmp(a,b) and
+    // cmp(b,a) both claimed "a goes after b" and nothing was ordered. It ran on
+    // roughly one move in eight of a label rollout, choosing arbitrarily.
+    const state = randomPosition(23, 16);
+    const player = state.currentPlayer;
+    const best = bestQuietAlternative(state, player);
+    expect(best).not.toBeNull();
+
+    const { pool } = getSafeActions(state, player);
+    const quiet = pool.filter((action) => {
+      const next = applyAction(state, action);
+      return !(next.winner !== null && next.winReason === "CAPTURE");
+    });
+    const bestScore = Math.max(
+      ...quiet.map((action) => evaluateState(applyAction(state, action), player)),
+    );
+    expect(evaluateState(applyAction(state, best!), player)).toBe(bestScore);
+  });
+
+  it("never offers a move that ends the game on a capture", () => {
+    for (let seed = 1; seed <= 8; seed++) {
+      const state = randomPosition(seed * 7, 20);
+      if (state.winner) continue;
+      const best = bestQuietAlternative(state, state.currentPlayer);
+      if (!best) continue;
+      const next = applyAction(state, best);
+      expect(next.winReason === "CAPTURE" && next.winner !== null).toBe(false);
+    }
   });
 
   it("leaves an already-counted game alone", () => {

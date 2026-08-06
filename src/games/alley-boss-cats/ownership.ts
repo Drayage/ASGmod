@@ -112,8 +112,26 @@ function endsOnCapture(state: GameState, action: AIAction): boolean {
 }
 
 /**
- * The move a data-generation game plays when capture wins are being declined
- * from the start, or null when the caller's own engine should choose.
+ * The best move available that does not end the game on a capture, or null when
+ * every move does.
+ *
+ * Candidates come from the shared safety pool rather than the raw legal move
+ * list. Declining a capture only helps if the game then reaches a count, and a
+ * move drawn from the legal list can hand the *opponent* a capture on the reply
+ * — which ends the rollout the same way, and throws the whole game's labels
+ * away with it. `getSafeActions` already falls back to every legal action when
+ * nothing is safe, so this never runs out of candidates.
+ */
+export function bestQuietAlternative(state: GameState, player: Player): AIAction | null {
+  const { pool } = getSafeActions(state, player);
+  const quiet = pool.filter((action) => !endsOnCapture(state, action));
+  if (quiet.length === 0) return null;
+  return rankByStaticEval(state, player, quiet)[0] ?? null;
+}
+
+/**
+ * The move a data-generation game plays when capture wins are being declined,
+ * or null when the caller's own engine should choose.
  *
  * Returns null unless the engine's pick would end the game on a capture, so the
  * generated game is the engine's own play everywhere it does not hinge on
@@ -125,10 +143,7 @@ export function withoutCaptureWin(
   chosen: AIAction,
 ): AIAction | null {
   if (!endsOnCapture(state, chosen)) return null;
-  const { pool } = getSafeActions(state, player);
-  const scoring = pool.filter((action) => !endsOnCapture(state, action));
-  if (scoring.length === 0) return null;
-  return rankByStaticEval(state, player, scoring)[0] ?? null;
+  return bestQuietAlternative(state, player);
 }
 
 /* -------------------------------------------------------------------------- */
