@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "stage": "PHASE_2_OWNERSHIP_MODEL",
+  "config": {
+    "data": "/tmp/claude-0/-home-user-ASGmod/3324222b-a3a1-5d65-b076-49f89abeeae5/scratchpad/pilot/positions.jsonl",
+    "out": "/tmp/claude-0/-home-user-ASGmod/3324222b-a3a1-5d65-b076-49f89abeeae5/scratchpad/mlfinal",
+    "epochs": 20,
+    "channels": 48,
+    "blocks": 4,
+    "batch_size": 256,
+    "lr": 0.002,
+    "val_every": 5,
+    "threads": 4,
+    "seed": 20260804,
+    "settled": "/tmp/claude-0/-home-user-ASGmod/3324222b-a3a1-5d65-b076-49f89abeeae5/scratchpad/settled.txt"
+  },
+  "parameters": 211932,
+  "positions": 13426,
+  "games": 200,
+  "final": {
+    "epoch": 20,
+    "trainLoss": 0.050830251185315124,
+    "openAccuracy": 0.8092355544921641,
+    "territoryPrecision": 0.6412748738058487,
+    "territoryRecall": 0.47862502724413863,
+    "marginMAE": 3.5419082641601562,
+    "marginCorr": 0.3170807361602783,
+    "hybridMarginMAE": 3.6638243198394775,
+    "hybridMarginCorr": 0.5797029733657837,
+    "settledOnlyCorr": 0.5181026458740234,
+    "byPhase": {
+      "opening": {
+        "n": 800,
+        "marginCorr": 0.20870348811149597,
+        "marginMAE": 3.699423313140869,
+        "hybridMarginCorr": 0.23892508447170258,
+        "hybridMarginMAE": 3.751626491546631,
+        "settledOnlyCorr": 0.07683463394641876
+      },
+      "middle": {
+        "n": 800,
+        "marginCorr": 0.33161094784736633,
+        "marginMAE": 3.580127477645874,
+        "hybridMarginCorr": 0.37850046157836914,
+        "hybridMarginMAE": 4.070523262023926,
+        "settledOnlyCorr": 0.2727944850921631
+      },
+      "endgame": {
+        "n": 1056,
+        "marginCorr": 0.4168210029602051,
+        "marginMAE": 3.393625259399414,
+        "hybridMarginCorr": 0.8554534316062927,
+        "hybridMarginMAE": 3.289202928543091,
+        "settledOnlyCorr": 0.8100553750991821
+      }
+    }
+  },
+  "best": {
+    "epoch": 4,
+    "trainLoss": 0.22235394234223396,
+    "openAccuracy": 0.821270486900347,
+    "territoryPrecision": 0.6564145393805149,
+    "territoryRecall": 0.5628483357723324,
+    "marginMAE": 3.563082456588745,
+    "marginCorr": 0.34517157077789307,
+    "hybridMarginMAE": 4.038022041320801,
+    "hybridMarginCorr": 0.5865606665611267,
+    "settledOnlyCorr": 0.5181026458740234,
+    "byPhase": {
+      "opening": {
+        "n": 800,
+        "marginCorr": 0.21392683684825897,
+        "marginMAE": 3.793538808822632,
+        "hybridMarginCorr": 0.24350780248641968,
+        "hybridMarginMAE": 4.594248294830322,
+        "settledOnlyCorr": 0.07683463394641876
+      },
+      "middle": {
+        "n": 800,
+        "marginCorr": 0.31766629219055176,
+        "marginMAE": 3.6615078449249268,
+        "hybridMarginCorr": 0.40902894735336304,
+        "hybridMarginMAE": 4.336915969848633,
+        "settledOnlyCorr": 0.2727944850921631
+      },
+      "endgame": {
+        "n": 1056,
+        "marginCorr": 0.4784756898880005,
+        "marginMAE": 3.3139288425445557,
+        "hybridMarginCorr": 0.8579185605049133,
+        "hybridMarginMAE": 3.3902032375335693,
+        "settledOnlyCorr": 0.8100553750991821
+      }
+    }
+  },
+  "baselines": {
+    "note": "measured by margin-headroom.mts over the same pilot data",
+    "shippedProjectedMargin": {
+      "marginMAE": 2.654,
+      "marginCorr": 0.561,
+      "openingCorr": 0.021
+    },
+    "settledTerritoryMargin": {
+      "marginMAE": 2.673,
+      "marginCorr": 0.541,
+      "openingCorr": 0.108
+    },
+    "influenceOwnership": {
+      "territoryPrecision": 0.315,
+      "territoryRecall": 0.767
+    },
+    "alwaysNeutral": {
+      "openAccuracy": 0.741,
+      "territoryRecall": 0.0
+    }
+  },
+  "verdict": {
+    "beatsInfluencePrecision": true,
+    "informativeInOpening": false,
+    "note": "The opening number is the one that matters. Settled territory already reads 0.836 in the endgame, so a model that only sharpens late adds nothing the engine cannot already compute."
+  }
+}
