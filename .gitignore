@@ -13,3 +13,5 @@ public/icons/*.png
 *.tmp.mjs
 *.tmp.sh
 public/ownership-net.json
+__pycache__/
+*.pyc
