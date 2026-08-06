@@ -184,7 +184,7 @@ jobs:
             echo "influence finds most of the territory that forms and is wrong"
             echo "about more than two thirds of what it claims."
             echo
-            for split in train validation; do
+            for split in train humanValidation; do
               echo "**$split**"
               echo
               echo '| baseline | open pts | recall | precision |'
@@ -195,6 +195,10 @@ jobs:
                 ownership-pilot/ownership-pilot-summary.json
               echo
             done
+            echo "### Acceptance"
+            echo '```json'
+            jq '.acceptance' ownership-pilot/ownership-pilot-summary.json
+            echo '```'
             echo "### Full summary"
             echo '```json'
             cat ownership-pilot/ownership-pilot-summary.json
