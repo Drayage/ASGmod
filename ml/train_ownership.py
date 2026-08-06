@@ -59,6 +59,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--seed", type=int, default=20260804)
     parser.add_argument(
+        "--train-limit",
+        type=int,
+        default=0,
+        help="cap the number of training games (0 = all); the held-out set is "
+        "unchanged, so runs at different sizes stay comparable",
+    )
+    parser.add_argument(
         "--settled",
         help="settled-territory margins from settled-margin.mts, one per line",
     )
@@ -128,7 +135,16 @@ def load(path: Path, val_every: int):
     unique_games = sorted(set(games))
     held = {game for i, game in enumerate(unique_games) if i % val_every == 0}
     is_val = torch.tensor([game in held for game in games])
-    return x, y_own, y_margin, ply_tensor, is_val, len(unique_games), len(held)
+    return (
+        x,
+        y_own,
+        y_margin,
+        ply_tensor,
+        is_val,
+        len(unique_games),
+        len(held),
+        torch.tensor(games, dtype=torch.long),
+    )
 
 
 class Block(nn.Module):
@@ -260,7 +276,9 @@ def main() -> None:
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    x, y_own, y_margin, plies, is_val, games, held = load(Path(args.data), args.val_every)
+    x, y_own, y_margin, plies, is_val, games, held, game_ids = load(
+        Path(args.data), args.val_every
+    )
 
     if args.settled:
         settled_all = torch.tensor(
@@ -273,6 +291,16 @@ def main() -> None:
         settled_all = torch.zeros(len(x))
     train_idx = (~is_val).nonzero(as_tuple=True)[0]
     val_idx = is_val.nonzero(as_tuple=True)[0]
+
+    if args.train_limit > 0:
+        # Trim training games only. The held-out set has to stay identical or a
+        # scaling curve measures two different test sets rather than two sizes.
+        train_games = sorted({int(game_ids[i]) for i in train_idx.tolist()})
+        keep = set(train_games[: args.train_limit])
+        train_idx = torch.tensor(
+            [i for i in train_idx.tolist() if int(game_ids[i]) in keep], dtype=torch.long
+        )
+        print(f"training on {len(keep)} of {len(train_games)} available games")
     print(
         f"{len(x)} positions from {games} games — "
         f"train {len(train_idx)} / held-out {len(val_idx)} ({held} games)"
