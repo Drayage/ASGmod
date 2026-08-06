@@ -539,13 +539,20 @@ const runOutput = {
   searchOrGuardChanged: false,
   tuningChanged: false,
   config: {
-    gamesPerMatch: games,
+    // The real sample size, not the requested one. Under seeding these differ,
+    // and the merge checks every game number against this — recording the env
+    // value would have it reject a complete run as incomplete.
+    gamesPerMatch: SEEDED ? seedPreview.length * 2 : games,
     maxPlies: MAX_PLIES,
     openingPlies: RANDOM_OPENING_PLIES,
     arenaSeed: ARENA_SEED,
     hardMs: HARD_MS,
     veryHardMs: VERY_HARD_MS,
     mirrored: true,
+    // Shards of one run must agree on which positions they played from.
+    seeded: SEEDED,
+    seedPlies: SEEDED ? SEED_PLIES : null,
+    seedFiles: SEEDED ? SEED_FILES : null,
   },
   matches,
 };

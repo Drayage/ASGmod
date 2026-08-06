@@ -60,6 +60,9 @@ const IDENTITY_KEYS = [
   "hardMs",
   "veryHardMs",
   "mirrored",
+  "seeded",
+  "seedPlies",
+  "seedFiles",
 ] as const;
 
 const [first, ...rest] = shards;
