@@ -1,0 +1,236 @@
+{
+  "label": "VH+ownership(0.3) vs VERY_HARD",
+  "config": {
+    "gamesPerMatch": 32,
+    "maxPlies": 160,
+    "openingPlies": 4,
+    "arenaSeed": 20260804,
+    "hardMs": 250,
+    "veryHardMs": 3000,
+    "mirrored": true
+  },
+  "aggregate": {
+    "games": 32,
+    "mirroredPairs": 16,
+    "gate": {
+      "territoryOnlyMargin": {
+        "count": 5,
+        "mean": 0.4,
+        "standardDeviation": 3.646917,
+        "standardError": 1.630951,
+        "confidence95": {
+          "low": -2.796663,
+          "high": 3.596663,
+          "halfWidth": 3.196663
+        }
+      },
+      "territoryDecisionRatePercent": 15.625,
+      "interpretation": "A real territory improvement raises both the counted-game margin and the territory-decision rate. Only the margin rising can mean the candidate is ending games early while ahead rather than holding more ground; only the rate rising can mean it is reaching a count without winning it. Either alone needs diagnosing before it is called progress."
+    },
+    "primaryMetric": {
+      "name": "finalTerritoryMargin",
+      "positiveMeans": "engineX",
+      "summary": {
+        "count": 32,
+        "mean": -0.21875,
+        "standardDeviation": 3.82466,
+        "standardError": 0.676111,
+        "confidence95": {
+          "low": -1.543927,
+          "high": 1.106427,
+          "halfWidth": 1.325177
+        }
+      },
+      "byFinishReason": {
+        "TERRITORY": {
+          "count": 5,
+          "mean": 0.4,
+          "standardDeviation": 3.646917,
+          "standardError": 1.630951,
+          "confidence95": {
+            "low": -2.796663,
+            "high": 3.596663,
+            "halfWidth": 3.196663
+          }
+        },
+        "CAPTURE": {
+          "count": 27,
+          "mean": -0.333333,
+          "standardDeviation": 3.912505,
+          "standardError": 0.752962,
+          "confidence95": {
+            "low": -1.809139,
+            "high": 1.142472,
+            "halfWidth": 1.475805
+          }
+        },
+        "PLY_CAP": {
+          "count": 0,
+          "mean": null,
+          "standardDeviation": null,
+          "standardError": null,
+          "confidence95": {
+            "low": null,
+            "high": null,
+            "halfWidth": null
+          }
+        }
+      }
+    },
+    "outcomes": {
+      "wins": {
+        "X": 12,
+        "Y": 20
+      },
+      "winRatePercent": {
+        "X": 37.5,
+        "Y": 62.5
+      },
+      "reasons": {
+        "CAPTURE": 27,
+        "TERRITORY": 5,
+        "PLY_CAP": 0
+      },
+      "territoryDecisionRatePercent": 15.625,
+      "captureDecisionRatePercent": 84.375,
+      "plyCapRatePercent": 0
+    },
+    "plies": {
+      "count": 32,
+      "mean": 49.03125,
+      "standardDeviation": 11.237852,
+      "standardError": 1.98659,
+      "confidence95": {
+        "low": 45.137533,
+        "high": 52.924967,
+        "halfWidth": 3.893717
+      }
+    },
+    "firstTerritoryTurn": {
+      "X": {
+        "count": 30,
+        "mean": 23.6,
+        "standardDeviation": 11.737356,
+        "standardError": 2.142938,
+        "confidence95": {
+          "low": 19.399841,
+          "high": 27.800159,
+          "halfWidth": 4.200159
+        },
+        "missing": 2
+      },
+      "Y": {
+        "count": 28,
+        "mean": 21.321429,
+        "standardDeviation": 10.99176,
+        "standardError": 2.077247,
+        "confidence95": {
+          "low": 17.250024,
+          "high": 25.392833,
+          "halfWidth": 4.071405
+        },
+        "missing": 4
+      }
+    },
+    "peakInfluence": {
+      "X": {
+        "count": 32,
+        "mean": 29.40625,
+        "standardDeviation": 5.235483,
+        "standardError": 0.925511,
+        "confidence95": {
+          "low": 27.592248,
+          "high": 31.220252,
+          "halfWidth": 1.814002
+        }
+      },
+      "Y": {
+        "count": 32,
+        "mean": 30.84375,
+        "standardDeviation": 6.299562,
+        "standardError": 1.113616,
+        "confidence95": {
+          "low": 28.661063,
+          "high": 33.026437,
+          "halfWidth": 2.182687
+        }
+      }
+    },
+    "finalTerritory": {
+      "X": {
+        "count": 32,
+        "mean": 4.3125,
+        "standardDeviation": 3.613929,
+        "standardError": 0.638858,
+        "confidence95": {
+          "low": 3.060337,
+          "high": 5.564663,
+          "halfWidth": 1.252163
+        }
+      },
+      "Y": {
+        "count": 32,
+        "mean": 4.53125,
+        "standardDeviation": 3.724239,
+        "standardError": 0.658359,
+        "confidence95": {
+          "low": 3.240867,
+          "high": 5.821633,
+          "halfWidth": 1.290383
+        }
+      }
+    },
+    "influenceToTerritoryConversionPercent": {
+      "X": {
+        "count": 32,
+        "mean": 14.634654,
+        "standardDeviation": 12.194335,
+        "standardError": 2.155674,
+        "confidence95": {
+          "low": 10.409532,
+          "high": 18.859775,
+          "halfWidth": 4.225121
+        },
+        "ratioOfMeans": 14.66525
+      },
+      "Y": {
+        "count": 32,
+        "mean": 15.881714,
+        "standardDeviation": 13.886882,
+        "standardError": 2.454877,
+        "confidence95": {
+          "low": 11.070155,
+          "high": 20.693273,
+          "halfWidth": 4.811559
+        },
+        "ratioOfMeans": 14.690983
+      }
+    },
+    "safeMovesAtPly20": {
+      "X": {
+        "count": 32,
+        "mean": 58.4375,
+        "standardDeviation": 2.354645,
+        "standardError": 0.416246,
+        "confidence95": {
+          "low": 57.621657,
+          "high": 59.253343,
+          "halfWidth": 0.815843
+        },
+        "missing": 0
+      },
+      "Y": {
+        "count": 32,
+        "mean": 58.3125,
+        "standardDeviation": 2.292168,
+        "standardError": 0.405202,
+        "confidence95": {
+          "low": 57.518304,
+          "high": 59.106696,
+          "halfWidth": 0.794196
+        },
+        "missing": 0
+      }
+    }
+  }
+}
