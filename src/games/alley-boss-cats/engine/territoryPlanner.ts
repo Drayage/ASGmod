@@ -1,7 +1,7 @@
 import { tuning } from "../ai";
 import type { AIAction } from "../ai";
 import { getConnectedGroup, getGroupLiberties } from "../groups";
-import { getLegalMoves, isLegalMove } from "../rules";
+import { applyMove, getLegalMoves, isLegalMove } from "../rules";
 import { calculateTerritories, coordKeySet } from "../territory";
 import { DIRECTIONS, inBounds, opponent, playerCell } from "../types";
 import type { Board, Coord, GameState, Player } from "../types";
@@ -266,6 +266,51 @@ const MIN_INVASION_LIBERTIES = 3;
  * into missing exactly this. A structural rule costs almost nothing and never
  * runs out of time.
  */
+/**
+ * What it costs to leave a sealing move for later, in cells.
+ *
+ * `findSealingMoves` says how much ground a move settles. It does not say
+ * whether the move needs playing *now*, and those are different questions. A
+ * seal the opponent cannot really take away — block it and the same area still
+ * comes in a cell smaller — is ground already banked; spending a turn on it
+ * buys almost nothing, and the turn was the only thing that could have started
+ * another area somewhere else.
+ *
+ * That gap is why making the engine convert sooner made it convert less. Given
+ * a term that valued settled ground more highly it took its seals nine plies
+ * earlier and finished with 4.69 cells against its opponent's 5.47: it was
+ * cashing in points that were not going anywhere and paying a move each time.
+ *
+ * So: play the opponent onto the sealing point, then ask what the same region
+ * is still worth. The difference is the urgency. Near zero means the move can
+ * wait. Large means it is the move.
+ *
+ * Only follow-ups touching the original region count. The player can always
+ * seal something else after being blocked, but that is a different area and
+ * would make every seal look safe to postpone.
+ */
+export function sealingUrgency(state: GameState, player: Player, seal: SealingMove): number {
+  const now = seal.gained.length;
+  const foe = opponent(player);
+  if (!isLegalMove(state, seal.move.row, seal.move.col, foe)) return now;
+
+  const blocked = applyMove(
+    { ...state, currentPlayer: foe },
+    seal.move.row,
+    seal.move.col,
+  );
+  // A block that ends the game leaves nothing to come back for.
+  if (blocked.winner) return now;
+
+  const region = coordKeySet(seal.gained);
+  let best = 0;
+  for (const follow of findSealingMoves(blocked, player)) {
+    if (!follow.gained.some((cell) => region.has(`${cell.row},${cell.col}`))) continue;
+    best = Math.max(best, follow.gained.length);
+  }
+  return now - best;
+}
+
 export function invasionIsViable(state: GameState, player: Player, move: Coord): boolean {
   if (!isLegalMove(state, move.row, move.col, player)) return false;
 

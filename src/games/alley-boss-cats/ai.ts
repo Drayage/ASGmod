@@ -170,6 +170,17 @@ export const tuning = {
    * there and no map is computed for the move.
    */
   ownershipWeight: 0,
+  /**
+   * Cells of urgency at which a sealing move stops being postponable and is
+   * offered to the search as the move to consider. Zero disables the check
+   * entirely, reproducing shipped behaviour.
+   *
+   * Urgency is what the opponent can take away: settle the region now versus
+   * let them block the point and settle what is left. Measured over 20 recorded
+   * games, the engine declined 12 seals it could not really postpone, giving up
+   * 24 cells; the human declined none. Games were lost by 10 to 13.
+   */
+  urgentSealUrgency: 0,
   /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
    * 1.0). Zero reproduces the evaluation exactly as it was before that term
    * existed, so the arena can play the two head to head. */

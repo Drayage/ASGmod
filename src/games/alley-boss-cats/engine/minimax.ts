@@ -8,7 +8,7 @@ import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
 import { rankFrameworks } from "./frameworks";
 import { localMoveScore, orderedCandidates } from "./moveOrdering";
 import { primeRootOwnership } from "./ownershipTerm";
-import { planTerritory } from "./territoryPlanner";
+import { findSealingMoves, planTerritory, sealingUrgency } from "./territoryPlanner";
 import type { TerritoryPlan } from "./territoryPlanner";
 import { Bound, TranspositionTable } from "./transpositionTable";
 
@@ -1054,6 +1054,29 @@ function opponentFrameworkDenialMoves(rootState: GameState, aiPlayer: Player): A
 }
 
 /**
+ * Seals the opponent can materially take away.
+ *
+ * Screened through the safe pool: a seal that hands back a capture is not
+ * ground gained, and every other override here draws from the same pool for
+ * the same reason. Left in `findSealingMoves` order rather than sorted by
+ * size — the shortlist goes to a real search, which picks on its own score,
+ * and ordering here would only move a tiebreak the arena has not measured.
+ */
+function urgentSealingMoves(rootState: GameState, aiPlayer: Player): AIAction[] {
+  const { pool } = getSafeActions(rootState, aiPlayer);
+  const safe = new Set(
+    pool
+      .filter((action): action is Extract<AIAction, { type: "PLACE" }> => action.type === "PLACE")
+      .map((action) => `${action.row},${action.col}`),
+  );
+
+  return findSealingMoves(rootState, aiPlayer)
+    .filter((seal) => safe.has(`${seal.move.row},${seal.move.col}`))
+    .filter((seal) => sealingUrgency(rootState, aiPlayer, seal) >= tuning.urgentSealUrgency)
+    .map((seal): AIAction => ({ type: "PLACE", row: seal.move.row, col: seal.move.col }));
+}
+
+/**
  * VERY_HARD. Adds a life-and-death reader on top of the general search:
  * it first tries to prove a forced capture, and otherwise discards every
  * candidate that lets the opponent prove one against it. Only what survives
@@ -1140,6 +1163,21 @@ export function findBestMoveVeryHard(
   if (pocketSealMoves.length > 0) {
     const sealBudget = Math.max(300, deadline - Date.now());
     return searchVerified(rootState, aiPlayer, pocketSealMoves, sealBudget, pool);
+  }
+
+  // 1.86. Nothing is in danger. Is there ground here that will not still be
+  //    here next turn? `findSealingMoves` has always known how much a move
+  //    settles; what it could not say is whether the move keeps. A seal the
+  //    opponent can block into something materially smaller is one of the few
+  //    territorial moves with a real clock on it, and measured over 20 recorded
+  //    games the engine walked past 12 of them for 24 cells while the human
+  //    walked past none. Postponable seals are deliberately not offered here —
+  //    banking ground that was not going anywhere is what made an earlier
+  //    territory term convert nine plies sooner and finish with less.
+  const urgentSeals = tuning.urgentSealUrgency > 0 ? urgentSealingMoves(rootState, aiPlayer) : [];
+  if (urgentSeals.length > 0) {
+    const sealBudget = Math.max(300, deadline - Date.now());
+    return searchVerified(rootState, aiPlayer, urgentSeals, sealBudget, pool);
   }
 
   // 1.87. Nothing is in danger. Does the opponent have a corner cut that has
