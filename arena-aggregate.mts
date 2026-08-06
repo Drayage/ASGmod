@@ -62,6 +62,9 @@ export function summarize(values: number[]): NumericSummary {
 export interface ArenaGameRecord {
   game: number;
   pair: number;
+  /** Recorded position this game started from, when the run was seeded. */
+  seedSource?: string;
+  seedPly?: number;
   engineXSide: Player;
   engineYSide: Player;
   winnerSide: Player;
@@ -104,6 +107,24 @@ export interface MatchAggregate {
    */
   gate: {
     pooledMargin: NumericSummary;
+    /**
+     * The pooled margin averaged within each mirrored pair first.
+     *
+     * Identical mean, smaller interval, and the honest one whenever the two
+     * games of a pair share anything — which under seeding they entirely do,
+     * since both play out the same recorded position from opposite seats.
+     * Treating those two as independent draws counts one position twice.
+     */
+    pairedMargin: NumericSummary;
+    /**
+     * Paired margins averaged again within each source game, when seeded.
+     *
+     * Seeds taken at several plies of one recorded game are not independent:
+     * ply 12 and ply 16 of the same game share their whole history. Sixty
+     * seeds off twenty games are twenty clusters, and this is the interval
+     * that says so. Null outside a seeded run.
+     */
+    clusteredMargin: NumericSummary | null;
     territoryOnlyMargin: NumericSummary;
     territoryDecisionRatePercent: number;
     interpretation: string;
@@ -160,14 +181,37 @@ export function aggregateRecords(records: ArenaGameRecord[]): MatchAggregate {
   const territoryOnlyMargin = summarize(marginsWhere("TERRITORY"));
   const pooledMargin = summarize(records.map((game) => game.finalTerritoryMargin));
 
+  /** Mean margin within each group, one value per group, groups in first-seen order. */
+  const groupedMeans = (key: (game: ArenaGameRecord) => string | undefined): number[] | null => {
+    const groups = new Map<string, number[]>();
+    for (const game of records) {
+      const id = key(game);
+      if (id === undefined) return null;
+      const bucket = groups.get(id);
+      if (bucket) bucket.push(game.finalTerritoryMargin);
+      else groups.set(id, [game.finalTerritoryMargin]);
+    }
+    return [...groups.values()].map(
+      (margins) => margins.reduce((sum, value) => sum + value, 0) / margins.length,
+    );
+  };
+
+  const pairMeans = groupedMeans((game) => String(game.pair)) ?? [];
+  const clusterMeans = groupedMeans((game) => game.seedSource);
+
   return {
     games,
     mirroredPairs: games / 2,
     gate: {
       pooledMargin,
+      pairedMargin: summarize(pairMeans),
+      clusteredMargin: clusterMeans ? summarize(clusterMeans) : null,
       territoryOnlyMargin,
       territoryDecisionRatePercent: share(reasons.TERRITORY),
       interpretation:
+        "Judge on the narrowest sample that is still honest: clusteredMargin " +
+        "when the run is seeded, else pairedMargin. All three have the same " +
+        "mean and differ only in what they treat as one observation. " +
         "Judge on pooledMargin: it is every game, so a candidate that shifts " +
         "which games reach a count cannot bias it. Read territoryOnlyMargin " +
         "alongside, never alone — it is conditioned on an outcome the candidate " +

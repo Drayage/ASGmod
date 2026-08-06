@@ -30,6 +30,7 @@ import {
   passTurn,
 } from "./src/games/alley-boss-cats/rules";
 import { firstTerritoryTurn } from "./src/games/alley-boss-cats/arenaMetrics";
+import { replaySeed, loadSeeds, DEFAULT_SEED_FILES, type Seed } from "./arena-seeds";
 import { setOwnershipNet } from "./src/games/alley-boss-cats/engine/ownershipTerm";
 import type { GameState, Player } from "./src/games/alley-boss-cats/types";
 import {
@@ -107,6 +108,23 @@ const OUTPUT_JSON = process.env.OUTPUT_JSON ?? null;
  */
 const SHARD_COUNT = Number(process.env.SHARD_COUNT ?? 1);
 const SHARD_INDEX = Number(process.env.SHARD_INDEX ?? 0);
+
+/**
+ * Start from recorded human positions instead of the empty board.
+ *
+ * `SEED_PLIES=12,16,20` with `SEEDS=1`. Every mirrored pair then plays out one
+ * seed from both seats, which is what makes the comparison paired: the two
+ * arms face the identical position, so the difference between them is the
+ * candidate and not the game. See arena-seeds.mts for why the empty board is
+ * the wrong instrument for a territory candidate.
+ *
+ * GAMES is ignored under seeding — the sample is two games per seed, and
+ * quietly playing a different number would make the run unmergeable with
+ * itself.
+ */
+const SEEDED = process.env.SEEDS === "1";
+const SEED_PLIES = (process.env.SEED_PLIES ?? "12,16,20").split(",").map(Number);
+const SEED_FILES = process.env.SEED_FILES ? process.env.SEED_FILES.split(",") : DEFAULT_SEED_FILES;
 
 /** Third-line and star points: plausible openings that do not seed a tactical
  * collapse before the measured engines take over. */
@@ -222,15 +240,24 @@ interface GameResult {
   safeMovesAt: Record<Player, number | null>;
 }
 
-function playGame(engineA: Engine, engineB: Engine, opening: Array<[number, number]>): GameResult {
-  let state = createInitialState();
-  let totalPlies = 0;
-  const states: GameState[] = [state];
+function playGame(
+  engineA: Engine,
+  engineB: Engine,
+  opening: Array<[number, number]>,
+  seed?: Seed,
+): GameResult {
+  // A seed replaces the random opening rather than preceding it: the recorded
+  // position already is the opening, and stacking star points on top of it
+  // would put stones the humans never played onto a board they shaped.
+  const seeded = seed ? replaySeed(seed) : [createInitialState()];
+  let state = seeded[seeded.length - 1];
+  let totalPlies = seeded.length - 1;
+  const states: GameState[] = seeded;
   const peakInfluence: Record<Player, number> = { A: 0, B: 0 };
   const safeMovesAt: Record<Player, number | null> = { A: null, B: null };
 
-  const notePosition = () => {
-    const influence = influenceCount(state.board);
+  const notePosition = (at: GameState = state) => {
+    const influence = influenceCount(at.board);
     for (const side of ["A", "B"] as const) {
       peakInfluence[side] = Math.max(peakInfluence[side], influence[side]);
     }
@@ -249,11 +276,13 @@ function playGame(engineA: Engine, engineB: Engine, opening: Array<[number, numb
     safeMovesAt,
   });
 
-  notePosition();
+  // Peak influence spans the seed's own history too, so it means the same
+  // thing here as in an unseeded run and in the recorded games.
+  for (const earlier of states) notePosition(earlier);
 
   // A mirrored pair receives the exact same deterministic opening. The engine
   // identities swap colours in the second game, cancelling first-player bias.
-  for (const [row, col] of opening) {
+  for (const [row, col] of seed ? [] : opening) {
     if (totalPlies >= RANDOM_OPENING_PLIES || totalPlies >= MAX_PLIES || state.winner) break;
     if (!isLegalMove(state, row, col, state.currentPlayer)) continue;
     state = applyMove(state, row, col);
@@ -305,7 +334,16 @@ function timeBudgetFor(engine: Engine): number | null {
   return null;
 }
 
-function runMatch(label: string, engineX: Engine, engineY: Engine, games: number): MatchOutput {
+function runMatch(label: string, engineX: Engine, engineY: Engine, requestedGames: number): MatchOutput {
+  // Under seeding the sample size is a property of the seed set, not a knob.
+  // Honouring GAMES as well would let two runs of the same seeds disagree on
+  // how many of them they played, and merge into a sample that is neither.
+  const seeds = SEEDED ? loadSeeds(SEED_FILES, SEED_PLIES) : [];
+  if (SEEDED && seeds.length === 0) {
+    throw new Error(`no seed positions from ${SEED_FILES.join(",")} at plies ${SEED_PLIES.join(",")}`);
+  }
+  const games = SEEDED ? seeds.length * 2 : requestedGames;
+
   if (games <= 0 || !Number.isInteger(games)) throw new Error(`GAMES must be a positive integer, got ${games}`);
   if (games % 2 !== 0) throw new Error(`Mirrored arena requires an even GAMES count, got ${games}`);
   if (!Number.isInteger(SHARD_COUNT) || SHARD_COUNT < 1) {
@@ -327,10 +365,12 @@ function runMatch(label: string, engineX: Engine, engineY: Engine, games: number
     if (pair % SHARD_COUNT !== SHARD_INDEX) continue;
 
     const xIsA = index % 2 === 0;
+    const seed = SEEDED ? seeds[pair] : undefined;
     const result = playGame(
       xIsA ? engineX : engineY,
       xIsA ? engineY : engineX,
       openingForPair(pair),
+      seed,
     );
     const xSide: Player = xIsA ? "A" : "B";
     const ySide: Player = xIsA ? "B" : "A";
@@ -344,6 +384,11 @@ function runMatch(label: string, engineX: Engine, engineY: Engine, games: number
       // unsharded run of the same seed.
       game: index + 1,
       pair: pair + 1,
+      // Several seeds come from one recorded game, so the pairs are clustered
+      // and an interval treating them as independent is too narrow. Recorded
+      // per game so the analysis can cluster rather than having to assume.
+      seedSource: seed?.source,
+      seedPly: seed?.ply,
       engineXSide: xSide,
       engineYSide: ySide,
       winnerSide: result.winner,
@@ -421,9 +466,16 @@ if (only === "BASELINE") {
   }
 }
 
+// Under seeding the count comes from the seed set, so echoing GAMES here
+// would announce a sample size the run is not going to play.
+const seedPreview = SEEDED ? loadSeeds(SEED_FILES, SEED_PLIES) : [];
 console.log(
   `HARD ${HARD_MS}ms, VERY_HARD ${VERY_HARD_MS}ms, max ${MAX_PLIES} plies, ` +
-    `${games} games, seed ${ARENA_SEED}\n`,
+    (SEEDED
+      ? `${seedPreview.length} seeds x 2 = ${seedPreview.length * 2} games ` +
+        `from plies ${SEED_PLIES.join(",")} of ${SEED_FILES.length} file(s)`
+      : `${games} games, seed ${ARENA_SEED}`) +
+    `\n`,
 );
 
 const matches: MatchOutput[] = [];
