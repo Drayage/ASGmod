@@ -1,0 +1,236 @@
+{
+  "label": "VH+ownership(1) vs VERY_HARD",
+  "config": {
+    "gamesPerMatch": 32,
+    "maxPlies": 160,
+    "openingPlies": 4,
+    "arenaSeed": 20260804,
+    "hardMs": 250,
+    "veryHardMs": 3000,
+    "mirrored": true
+  },
+  "aggregate": {
+    "games": 32,
+    "mirroredPairs": 16,
+    "gate": {
+      "territoryOnlyMargin": {
+        "count": 12,
+        "mean": -3.083333,
+        "standardDeviation": 4.521833,
+        "standardError": 1.305341,
+        "confidence95": {
+          "low": -5.641801,
+          "high": -0.524866,
+          "halfWidth": 2.558468
+        }
+      },
+      "territoryDecisionRatePercent": 37.5,
+      "interpretation": "A real territory improvement raises both the counted-game margin and the territory-decision rate. Only the margin rising can mean the candidate is ending games early while ahead rather than holding more ground; only the rate rising can mean it is reaching a count without winning it. Either alone needs diagnosing before it is called progress."
+    },
+    "primaryMetric": {
+      "name": "finalTerritoryMargin",
+      "positiveMeans": "engineX",
+      "summary": {
+        "count": 32,
+        "mean": -0.46875,
+        "standardDeviation": 3.767299,
+        "standardError": 0.665971,
+        "confidence95": {
+          "low": -1.774052,
+          "high": 0.836552,
+          "halfWidth": 1.305302
+        }
+      },
+      "byFinishReason": {
+        "TERRITORY": {
+          "count": 12,
+          "mean": -3.083333,
+          "standardDeviation": 4.521833,
+          "standardError": 1.305341,
+          "confidence95": {
+            "low": -5.641801,
+            "high": -0.524866,
+            "halfWidth": 2.558468
+          }
+        },
+        "CAPTURE": {
+          "count": 20,
+          "mean": 1.1,
+          "standardDeviation": 2.100125,
+          "standardError": 0.469602,
+          "confidence95": {
+            "low": 0.17958,
+            "high": 2.02042,
+            "halfWidth": 0.92042
+          }
+        },
+        "PLY_CAP": {
+          "count": 0,
+          "mean": null,
+          "standardDeviation": null,
+          "standardError": null,
+          "confidence95": {
+            "low": null,
+            "high": null,
+            "halfWidth": null
+          }
+        }
+      }
+    },
+    "outcomes": {
+      "wins": {
+        "X": 14,
+        "Y": 18
+      },
+      "winRatePercent": {
+        "X": 43.75,
+        "Y": 56.25
+      },
+      "reasons": {
+        "CAPTURE": 20,
+        "TERRITORY": 12,
+        "PLY_CAP": 0
+      },
+      "territoryDecisionRatePercent": 37.5,
+      "captureDecisionRatePercent": 62.5,
+      "plyCapRatePercent": 0
+    },
+    "plies": {
+      "count": 32,
+      "mean": 53.28125,
+      "standardDeviation": 12.368624,
+      "standardError": 2.186484,
+      "confidence95": {
+        "low": 48.99574,
+        "high": 57.56676,
+        "halfWidth": 4.28551
+      }
+    },
+    "firstTerritoryTurn": {
+      "X": {
+        "count": 30,
+        "mean": 20.066667,
+        "standardDeviation": 12.428924,
+        "standardError": 2.269201,
+        "confidence95": {
+          "low": 15.619033,
+          "high": 24.5143,
+          "halfWidth": 4.447633
+        },
+        "missing": 2
+      },
+      "Y": {
+        "count": 25,
+        "mean": 28.56,
+        "standardDeviation": 11.982904,
+        "standardError": 2.396581,
+        "confidence95": {
+          "low": 23.862701,
+          "high": 33.257299,
+          "halfWidth": 4.697299
+        },
+        "missing": 7
+      }
+    },
+    "peakInfluence": {
+      "X": {
+        "count": 32,
+        "mean": 26.25,
+        "standardDeviation": 4.181372,
+        "standardError": 0.739169,
+        "confidence95": {
+          "low": 24.801229,
+          "high": 27.698771,
+          "halfWidth": 1.448771
+        }
+      },
+      "Y": {
+        "count": 32,
+        "mean": 33.15625,
+        "standardDeviation": 5.466079,
+        "standardError": 0.966275,
+        "confidence95": {
+          "low": 31.26235,
+          "high": 35.05015,
+          "halfWidth": 1.8939
+        }
+      }
+    },
+    "finalTerritory": {
+      "X": {
+        "count": 32,
+        "mean": 4.90625,
+        "standardDeviation": 3.34432,
+        "standardError": 0.591198,
+        "confidence95": {
+          "low": 3.747502,
+          "high": 6.064998,
+          "halfWidth": 1.158748
+        }
+      },
+      "Y": {
+        "count": 32,
+        "mean": 5.375,
+        "standardDeviation": 4.563177,
+        "standardError": 0.806663,
+        "confidence95": {
+          "low": 3.79394,
+          "high": 6.95606,
+          "halfWidth": 1.58106
+        }
+      }
+    },
+    "influenceToTerritoryConversionPercent": {
+      "X": {
+        "count": 32,
+        "mean": 18.890148,
+        "standardDeviation": 13.782334,
+        "standardError": 2.436395,
+        "confidence95": {
+          "low": 14.114813,
+          "high": 23.665483,
+          "halfWidth": 4.775335
+        },
+        "ratioOfMeans": 18.690476
+      },
+      "Y": {
+        "count": 32,
+        "mean": 16.503643,
+        "standardDeviation": 14.1853,
+        "standardError": 2.50763,
+        "confidence95": {
+          "low": 11.588688,
+          "high": 21.418599,
+          "halfWidth": 4.914956
+        },
+        "ratioOfMeans": 16.211122
+      }
+    },
+    "safeMovesAtPly20": {
+      "X": {
+        "count": 32,
+        "mean": 58.9375,
+        "standardDeviation": 1.74018,
+        "standardError": 0.307623,
+        "confidence95": {
+          "low": 58.334558,
+          "high": 59.540442,
+          "halfWidth": 0.602942
+        },
+        "missing": 0
+      },
+      "Y": {
+        "count": 32,
+        "mean": 58.46875,
+        "standardDeviation": 2.341551,
+        "standardError": 0.413932,
+        "confidence95": {
+          "low": 57.657444,
+          "high": 59.280056,
+          "halfWidth": 0.811306
+        },
+        "missing": 0
+      }
+    }
+  }
+}
