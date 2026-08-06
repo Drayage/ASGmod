@@ -1,90 +1,24 @@
-import { influenceCount } from "./engine/territoryPlanner";
-import { DIRECTIONS, inBounds, playerCell } from "./types";
+import { influenceOwnerMap } from "./engine/territoryPlanner";
 import type { Board, Coord, Player } from "./types";
 
 export type OwnershipLabel = 0 | 1 | 2; // neutral, A, B
 
-const INFLUENCE_REACH = 3;
-
-function distanceField(board: Board, player: Player): number[][] {
-  const size = board.length;
-  const dist = Array.from({ length: size }, () =>
-    Array<number>(size).fill(Number.POSITIVE_INFINITY),
-  );
-  const own = playerCell(player);
-  const queue: Coord[] = [];
-  const open = (row: number, col: number) =>
-    inBounds(row, col) && board[row][col] === "EMPTY";
-
-  for (let row = 0; row < size; row += 1) {
-    for (let col = 0; col < size; col += 1) {
-      if (board[row][col] !== own) continue;
-      for (const [dr, dc] of DIRECTIONS) {
-        const nextRow = row + dr;
-        const nextCol = col + dc;
-        if (!open(nextRow, nextCol) || dist[nextRow][nextCol] <= 1) continue;
-        dist[nextRow][nextCol] = 1;
-        queue.push({ row: nextRow, col: nextCol });
-      }
-    }
-  }
-
-  for (let head = 0; head < queue.length; head += 1) {
-    const { row, col } = queue[head];
-    if (dist[row][col] >= INFLUENCE_REACH) continue;
-    for (const [dr, dc] of DIRECTIONS) {
-      const nextRow = row + dr;
-      const nextCol = col + dc;
-      const nextDistance = dist[row][col] + 1;
-      if (
-        !open(nextRow, nextCol) ||
-        dist[nextRow][nextCol] <= nextDistance
-      ) {
-        continue;
-      }
-      dist[nextRow][nextCol] = nextDistance;
-      queue.push({ row: nextRow, col: nextCol });
-    }
-  }
-
-  return dist;
-}
-
 /**
- * Per-cell form of the exact signal used by influenceCount.
+ * Per-cell form of the exact signal the evaluation uses.
+ *
+ * Reads the engine's own map rather than recomputing it. `influenceCount` is
+ * itself defined in terms of `influenceOwnerMap`, so this baseline cannot drift
+ * away from the signal it exists to measure — a copied breadth-first search and
+ * a copied reach constant could, and silently.
  *
  * Only empty cells can be predicted as future territory. Occupied and neutral
  * board cells are predicted neutral, matching the dataset's confirmed-territory
  * label semantics.
  */
 export function influenceOwnershipPrediction(board: Board): OwnershipLabel[] {
-  const distA = distanceField(board, "A");
-  const distB = distanceField(board, "B");
-  const labels: OwnershipLabel[] = [];
-
-  for (let row = 0; row < board.length; row += 1) {
-    for (let col = 0; col < board.length; col += 1) {
-      if (board[row][col] !== "EMPTY") {
-        labels.push(0);
-        continue;
-      }
-      const a = distA[row][col];
-      const b = distB[row][col];
-      labels.push(a === b ? 0 : a < b ? 1 : 2);
-    }
-  }
-
-  // Prevent the baseline implementation from silently drifting away from the
-  // live engine signal it is meant to measure.
-  const counts = influenceCount(board);
-  const predictedA = labels.filter((label) => label === 1).length;
-  const predictedB = labels.filter((label) => label === 2).length;
-  if (predictedA !== counts.A || predictedB !== counts.B) {
-    throw new Error(
-      `Influence ownership drift: grid ${predictedA}:${predictedB}, count ${counts.A}:${counts.B}`,
-    );
-  }
-  return labels;
+  return influenceOwnerMap(board).map((owner) =>
+    owner === "A" ? 1 : owner === "B" ? 2 : 0,
+  );
 }
 
 /**
