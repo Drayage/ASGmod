@@ -12,3 +12,4 @@ public/icons/*.png
 *.tmp.mts
 *.tmp.mjs
 *.tmp.sh
+public/ownership-net.json

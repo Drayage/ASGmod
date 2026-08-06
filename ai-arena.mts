@@ -3,7 +3,7 @@
  * arena metrics. Win/loss remains reference data; the primary signal is the
  * seat-normalized final confirmed-territory margin.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { getAIMove, getSafeActions, tuning, type AIAction, type Difficulty } from "./src/games/alley-boss-cats/ai";
 import {
@@ -30,6 +30,7 @@ import {
   passTurn,
 } from "./src/games/alley-boss-cats/rules";
 import { firstTerritoryTurn } from "./src/games/alley-boss-cats/arenaMetrics";
+import { setOwnershipNet } from "./src/games/alley-boss-cats/engine/ownershipTerm";
 import type { GameState, Player } from "./src/games/alley-boss-cats/types";
 import {
   aggregateRecords,
@@ -64,7 +65,9 @@ type Engine =
   | "VH_OPPFRAME"
   | "VH_NOOPPFRAME"
   | "VH_TT"
-  | "VH_NOTT";
+  | "VH_NOTT"
+  | "VH_OWN"
+  | "VH_NOOWN";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -73,6 +76,9 @@ const THIN_W = Number(process.env.THIN_W ?? 1);
 const TESTING_THIN = process.env.ONLY === "THIN";
 const SEVERE_W = Number(process.env.SEVERE_W ?? 1);
 const TESTING_SEVERE = process.env.ONLY === "SEVERE";
+const OWN_W = Number(process.env.OWN_W ?? 1);
+const TESTING_OWN = process.env.ONLY === "OWN";
+const OWNERSHIP_NET = process.env.OWNERSHIP_NET ?? "public/ownership-net.json";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -122,6 +128,9 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   }
   if (TESTING_THIN) tuning.thinWeight = engine === "VH_THIN" ? THIN_W : 0;
   if (TESTING_SEVERE) tuning.severeInfluenceWeight = engine === "VH_SEVERE" ? SEVERE_W : 0;
+  // Only the candidate consults the net. Its opponent is the shipped engine
+  // with the term off, so the pair differs in exactly this one thing.
+  if (TESTING_OWN) tuning.ownershipWeight = engine === "VH_OWN" ? OWN_W : 0;
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -161,7 +170,9 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_OPPFRAME" ||
     engine === "VH_NOOPPFRAME" ||
     engine === "VH_TT" ||
-    engine === "VH_NOTT"
+    engine === "VH_NOTT" ||
+    engine === "VH_OWN" ||
+    engine === "VH_NOOWN"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
   }
@@ -413,6 +424,14 @@ const addMatch = (label: string, engineX: Engine, engineY: Engine) => {
   matches.push(runMatch(label, engineX, engineY, games));
 };
 
+if (only === "OWN") {
+  // Loaded up front so a missing or malformed net fails the run rather than
+  // quietly turning the candidate back into the baseline.
+  const file = JSON.parse(readFileSync(OWNERSHIP_NET, "utf8"));
+  setOwnershipNet(file);
+  console.log(`ownership net: ${OWNERSHIP_NET}, weight ${OWN_W}\n`);
+}
+
 console.time("total");
 if (only === "BASELINE") addMatch("VERY_HARD self-play baseline", "VERY_HARD", "VERY_HARD");
 if (!only || only === "RANDOM") addMatch("HARD vs RANDOM", "HARD", "RANDOM");
@@ -434,6 +453,7 @@ if (only === "CORNER") addMatch("VH+corner vs VH-nocorner", "VH_CORNER", "VH_NOC
 if (only === "DENY") addMatch("VH+denyfilter vs VH-nodenyfilter", "VH_DENY", "VH_NODENY");
 if (only === "OPPFRAME") addMatch("VH+oppframe vs VH-nooppframe", "VH_OPPFRAME", "VH_NOOPPFRAME");
 if (only === "TT") addMatch("VH+ttscores vs VH-nottscores", "VH_TT", "VH_NOTT");
+if (only === "OWN") addMatch(`VH+ownership(${OWN_W}) vs VERY_HARD`, "VH_OWN", "VH_NOOWN");
 if (only === "POCKETSEAL") addMatch("VH+pocketseal vs VH-nopocketseal", "VH_SEAL", "VH_NOSEAL");
 if (only === "VS_SEAL") addMatch("VERY_HARD vs SEAL", "VERY_HARD", "SEAL");
 if (only === "SEAL") {

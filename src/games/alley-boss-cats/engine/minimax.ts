@@ -1,4 +1,4 @@
-import { applyAction, evaluateState, getSafeActions } from "../ai";
+import { applyAction, evaluateState, getSafeActions, tuning } from "../ai";
 import type { AIAction } from "../ai";
 import { getAllGroups, getConnectedGroup, getGroupLiberties } from "../groups";
 import { applyMove, isLegalMove } from "../rules";
@@ -7,6 +7,7 @@ import type { Board, Coord, GameState, Player } from "../types";
 import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
 import { rankFrameworks } from "./frameworks";
 import { localMoveScore, orderedCandidates } from "./moveOrdering";
+import { primeRootOwnership } from "./ownershipTerm";
 import { planTerritory } from "./territoryPlanner";
 import type { TerritoryPlan } from "./territoryPlanner";
 import { Bound, TranspositionTable } from "./transpositionTable";
@@ -1065,6 +1066,11 @@ export function findBestMoveVeryHard(
 ): AIAction {
   const opening = openingMove(rootState, aiPlayer);
   if (opening) return opening;
+
+  // One forward pass for the position being played, reused by every leaf
+  // beneath it. Running the net per leaf would cost more than the search it is
+  // meant to inform; at weight zero this does nothing at all.
+  primeRootOwnership(rootState, tuning.ownershipWeight > 0);
 
   const deadline = Date.now() + timeLimitMs;
 

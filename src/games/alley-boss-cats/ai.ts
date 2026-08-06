@@ -1,6 +1,7 @@
 import { getAllGroups, getGroupLiberties } from "./groups";
 import { applyMove, getLegalMoves, passTurn } from "./rules";
 import { influenceCount } from "./engine/territoryPlanner";
+import { ownershipMargin } from "./engine/ownershipTerm";
 import { frameworkPotential } from "./engine/frameworks";
 import { coordKeySet } from "./territory";
 import { FIRST_PLAYER_MARGIN, opponent } from "./types";
@@ -52,6 +53,27 @@ function projectedMarginFrom(
   player: Player,
   influence: Record<Player, number>,
 ): number {
+  // With the learned term on, the open points are priced by the cached
+  // ownership map instead of by influence reach. Settled ground is counted
+  // exactly either way — only the guess about what is still open changes,
+  // which is the one part measurement says is wrong: influence claims ground
+  // it holds 32% of the time, the net 71%.
+  //
+  // Falls through to the shipped term whenever there is no map, so a build
+  // without the net, or a position primed before it loaded, plays as before.
+  if (tuning.ownershipWeight > 0) {
+    const learned = ownershipMargin(state, "A");
+    if (learned !== null) {
+      const blended =
+        learned * tuning.ownershipWeight +
+        (state.territories.A.length -
+          state.territories.B.length +
+          (influence.A - influence.B) * INFLUENCE_TO_TERRITORY) *
+          (1 - tuning.ownershipWeight);
+      return player === "A" ? blended - FIRST_PLAYER_MARGIN : FIRST_PLAYER_MARGIN - blended;
+    }
+  }
+
   const projected = (side: Player) =>
     state.territories[side].length + influence[side] * INFLUENCE_TO_TERRITORY;
 
@@ -140,6 +162,14 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
  */
 export const tuning = {
   frameworkWeight: 0,
+  /**
+   * How far to trust the learned ownership map over the influence heuristic
+   * when pricing open ground, from 0 (shipped behaviour, exactly) to 1.
+   *
+   * A weight of zero must cost nothing, so the term is not consulted at all
+   * there and no map is computed for the move.
+   */
+  ownershipWeight: 0,
   /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
    * 1.0). Zero reproduces the evaluation exactly as it was before that term
    * existed, so the arena can play the two head to head. */
