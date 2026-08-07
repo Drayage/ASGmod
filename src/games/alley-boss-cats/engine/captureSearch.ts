@@ -378,6 +378,11 @@ export function findForcedCapture(
   depth: number,
   timeBudgetMs: number,
 ): ForcedCapture | null {
+  // `applyMove` plays for `state.currentPlayer`, so a state where it is not
+  // the attacker's turn makes the read place the wrong colour and throw.
+  // Callers inside the engine always satisfy this; a wrong answer is better
+  // than a crash for those that do not.
+  if (state.currentPlayer !== attacker) return null;
   const defender = opponent(attacker);
   const deadline = Date.now() + timeBudgetMs;
 
