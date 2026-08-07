@@ -208,6 +208,27 @@ export const tuning = {
    * prices those the same.
    */
   closabilityDecay: 1,
+  /**
+   * Multiplier on the two terms that pay for keeping stones together —
+   * `connectedBonus * 3` and `-isolated * 5`. 1 is the shipped behaviour.
+   *
+   * Added because the engine's influence is one connected mass where every
+   * human's is several: 3.8 regions with 75% of the influence in the largest,
+   * against 5.6-6.3 regions and about 50%. Influence follows the stones, and
+   * these are the only terms that speak about where stones sit relative to
+   * each other.
+   *
+   * Not yet measured. Setting it to zero and re-picking a single move from
+   * recorded positions changed the resulting shape by nothing at all, but
+   * that test cannot answer the question: those positions already contain a
+   * blob built over twenty previous moves, and no one move undoes it. Only a
+   * full playout can say, and the only playouts available are against another
+   * engine, which is not where the blob costs anything.
+   *
+   * Whatever it is worth, expect a cost in safety alongside it: a lone stone
+   * is also a stone that can be hunted, and a capture loses outright.
+   */
+  connectionWeight: 1,
   /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
    * 1.0). Zero reproduces the evaluation exactly as it was before that term
    * existed, so the arena can play the two head to head. */
@@ -325,8 +346,7 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
     // A permanently alive group is a lasting asset, for either side.
     mine.immortal * 30 -
     theirs.immortal * 30 +
-    mine.connectedBonus * 3 -
-    mine.isolated * 5
+    (mine.connectedBonus * 3 - mine.isolated * 5) * tuning.connectionWeight
   );
 }
 
