@@ -79,25 +79,46 @@ export function setOpponentFrameworkGuardEnabled(enabled: boolean): void {
 }
 
 /**
- * Same, for thinGroupDanger — stage 1.75, and the one worth being able to
- * switch off.
+ * Same, for thinGroupDanger — stage 1.75. Off, on the arena's evidence.
  *
  * Unlike stage 1.5 beneath it, this guard proves nothing: it fires whenever any
  * of the mover's groups sits at three liberties or fewer with an opponent stone
  * beside it, which measured over 604 recorded AI turns is 23.8% of all moves,
  * second only to the full search itself. Each time it hands the search about
- * three candidates out of a pool of forty-three.
+ * three candidates out of a pool of forty-three — and at turn 28 of the first
+ * recorded app game it forced F4 from two candidates out of forty-eight, where
+ * H9 scored 52 points better after a full-strength reply and the game was lost
+ * on territory.
  *
- * That is a lot of the game to spend on a heuristic, and there is a traced case
- * against it: at turn 28 of the first recorded app game this guard forced F4
- * from two candidates out of forty-eight, where H9 scored 52 evaluation points
- * better after a full-strength reply, and the game was lost on territory.
+ * Two independent 68-game seeded runs, guard on against the same engine with it
+ * off, clustered by source game:
  *
- * Left on by default — the guard was added against traced losses of its own and
- * a capture ends the game outright, so it is not to be removed on one position.
- * Switchable so the arena can settle it.
+ *   territory margin  -1.96 cells [-2.92, -1.00]   and  -1.82 [-2.48, -1.17]
+ *   conversion        16.5% vs 22.3%               and  14.9% vs 20.3%
+ *   games             (not recorded)               and  26 : 42
+ *   lost to a capture (not recorded)               and  22 : 22
+ *
+ * The interval excludes zero in both, and influence-to-territory conversion —
+ * the one number this engine's territory defect has always shown up in — rises
+ * by five points. On wins the sign test over clusters is 4 to 12, p = 0.077:
+ * suggestive, not conclusive, and quoted that way.
+ *
+ * The safety case for keeping it does not survive contact with the data. It
+ * exists to stop groups being captured, and removing it changed capture losses
+ * from 22 to 22 — exactly none. The likely reason is that it was a crutch for a
+ * capture reader that could not prove much; that reader now solves four of four
+ * published life-and-death problems where it solved one, so the general search
+ * defends these groups better than the heuristic that pre-empts it.
+ *
+ * Lowering its ceiling to two liberties was tried as a safer middle and is
+ * worse than both: same territory gain, wins dead level (p = 1.0), and capture
+ * losses up from 17 to 24. Firing only in the critical moments is where its
+ * narrowness costs most.
+ *
+ * Set this back to true to restore the old behaviour exactly; all 164 tests
+ * pass either way, so nothing here is pinned by a regression test.
  */
-export let thinGroupGuardEnabled = true;
+export let thinGroupGuardEnabled = false;
 export function setThinGroupGuardEnabled(enabled: boolean): void {
   thinGroupGuardEnabled = enabled;
 }
