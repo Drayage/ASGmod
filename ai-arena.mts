@@ -478,6 +478,8 @@ function runMatch(label: string, engineX: Engine, engineY: Engine, requestedGame
 
   const margin = output.aggregate.primaryMetric.summary;
   const counted = output.aggregate.primaryMetric.byFinishReason.TERRITORY;
+  const clustered = output.aggregate.gate.clusteredMargin;
+  const paired = output.aggregate.gate.pairedMargin;
   const shard = SHARD_COUNT > 1 ? ` [shard ${SHARD_INDEX + 1}/${SHARD_COUNT}]` : "";
   console.log(
     `${label}${shard}: territory margin ${margin.mean} cells over ${margin.count} games ` +
@@ -485,6 +487,22 @@ function runMatch(label: string, engineX: Engine, engineY: Engine, requestedGame
       `${margin.confidence95.high}])\n` +
       `  counted games only: ${counted.mean} cells over ${counted.count} ` +
       `(95% CI [${counted.confidence95.low}, ${counted.confidence95.high}])\n` +
+      // Wins, not just cells. The margin above is the headline metric and for
+      // most candidates it is the right one, but a capture ends the game
+      // outright here — so any candidate that touches capture defence can win
+      // the territory count and still lose more games, and the console line
+      // used to make that invisible while the aggregate had it all along.
+      `  wins X ${output.aggregate.outcomes.wins.X} / Y ${output.aggregate.outcomes.wins.Y} ` +
+      `(X ${output.aggregate.outcomes.winRatePercent.X}%)\n` +
+      // The honest interval for a seeded run, which the pooled CI above is not:
+      // two mirrored games of a pair are one position, and seeds taken at
+      // several plies of one recorded game share their whole history. Same
+      // mean, wider and truthful.
+      (clustered
+        ? `  clustered margin ${clustered.mean} over ${clustered.count} source game(s) ` +
+          `(95% CI [${clustered.confidence95.low}, ${clustered.confidence95.high}])\n`
+        : `  paired margin ${paired.mean} over ${paired.count} pair(s) ` +
+          `(95% CI [${paired.confidence95.low}, ${paired.confidence95.high}])\n`) +
       `  finish reasons ${JSON.stringify(output.aggregate.outcomes.reasons)}; ` +
       `territory decisions ` +
       `${output.aggregate.outcomes.territoryDecisionRatePercent}%\n` +
