@@ -1,0 +1,2210 @@
+{
+  "format": "alley-boss-cats-games",
+  "version": 1,
+  "note": "Recorded games between other players — amateur practice games, one professional pairing, and one coached game. Same transcription and verification as the exhibition set. Validation and seeding only; never train on these.",
+  "records": [
+    {
+      "id": "20230718-practice6",
+      "playerSide": "B",
+      "firstPlayer": "레이지니",
+      "secondPlayer": "종쌤",
+      "firstRole": "amateur",
+      "secondRole": "amateur",
+      "set": "community",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 0,
+      "territoryB": 4,
+      "territoryVerified": false,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 4
+        }
+      ]
+    },
+    {
+      "id": "20230718-practice7",
+      "playerSide": "B",
+      "firstPlayer": "종쌤",
+      "secondPlayer": "레이지니",
+      "firstRole": "amateur",
+      "secondRole": "amateur",
+      "set": "community",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 1,
+      "territoryB": 0,
+      "territoryVerified": false,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 1
+        }
+      ]
+    },
+    {
+      "id": "20230709-practice5",
+      "playerSide": "B",
+      "firstPlayer": "종쌤",
+      "secondPlayer": "레이지니",
+      "firstRole": "amateur",
+      "secondRole": "amateur",
+      "set": "community",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 18,
+      "territoryB": 13,
+      "territoryVerified": true,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 4
+        }
+      ]
+    },
+    {
+      "id": "20230709-practice4",
+      "playerSide": "B",
+      "firstPlayer": "레이지니",
+      "secondPlayer": "종쌤",
+      "firstRole": "amateur",
+      "secondRole": "amateur",
+      "caveat": "the diagram misses one point. I5 and I6 are a single enclosed empty region — I5's only empty neighbour is I6 and vice versa — and every stone around them was played on an odd move (5, 27, 29, 31), so all four belong to the first player and both points are theirs. The diagram marks I6 and leaves I5 blank, which no scoring rule allows for two points of one region. 16/8 is the corrected count.",
+      "set": "community",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 16,
+      "territoryB": 8,
+      "territoryVerified": true,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 7
+        }
+      ]
+    },
+    {
+      "id": "20230705-practice3",
+      "playerSide": "B",
+      "firstPlayer": "레이지니",
+      "secondPlayer": "종쌤",
+      "firstRole": "amateur",
+      "secondRole": "amateur",
+      "set": "community",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 3,
+      "territoryB": 1,
+      "territoryVerified": false,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        }
+      ]
+    },
+    {
+      "id": "20230705-practice2",
+      "playerSide": "B",
+      "firstPlayer": "종쌤",
+      "secondPlayer": "레이지니",
+      "firstRole": "amateur",
+      "secondRole": "amateur",
+      "set": "community",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 11,
+      "territoryB": 8,
+      "territoryVerified": true,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 0
+        }
+      ]
+    },
+    {
+      "id": "20230705-practice1",
+      "playerSide": "B",
+      "firstPlayer": "레이지니",
+      "secondPlayer": "종쌤",
+      "firstRole": "amateur",
+      "secondRole": "amateur",
+      "set": "community",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 3,
+      "territoryB": 3,
+      "territoryVerified": true,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 1
+        }
+      ]
+    },
+    {
+      "id": "20230605-pro-vs-pro",
+      "playerSide": "B",
+      "firstPlayer": "김노경 프로",
+      "secondPlayer": "조연우 프로",
+      "firstRole": "pro",
+      "secondRole": "pro",
+      "caveat": "the source marks moves 39-52 as being of uncertain order",
+      "set": "community",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 10,
+      "territoryB": 10,
+      "territoryVerified": true,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 0
+        }
+      ]
+    },
+    {
+      "id": "20230527-koreaboardgames",
+      "playerSide": "B",
+      "strongSide": "B",
+      "firstPlayer": "레이지니",
+      "secondPlayer": "이세돌",
+      "firstRole": "amateur",
+      "secondRole": "pro",
+      "caveat": "played with 이세돌 coaching, so it is not straight competitive play",
+      "set": "community",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 11,
+      "territoryB": 17,
+      "territoryVerified": true,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 1
+        }
+      ]
+    }
+  ]
+}

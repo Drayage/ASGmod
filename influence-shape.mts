@@ -39,6 +39,9 @@ interface Record_ {
   playerSide?: Player;
   /** Set on the exhibition games: the side the stronger player took. */
   strongSide?: Player;
+  /** What each seat was, on records that say. Both seats may be the same. */
+  firstRole?: string;
+  secondRole?: string;
   moveHistory: Move[];
 }
 
@@ -110,9 +113,7 @@ function shapeOf(owners: Array<Player | null>, board: GameState["board"], side: 
   };
 }
 
-const files = [...DEFAULT_SEED_FILES, "docs/pro-games-20230822.json"].filter((path) =>
-  existsSync(path),
-);
+const files = DEFAULT_SEED_FILES.filter((path) => existsSync(path));
 
 interface Bucket {
   regions: number[];
@@ -134,16 +135,17 @@ let sampled = 0;
 for (const path of files) {
   const parsed = JSON.parse(readFileSync(path, "utf8")) as { records: Record_[] };
   for (const record of parsed.records) {
-    // Which side is which has to be recorded, never inferred — a guess swaps
-    // the two columns and the whole comparison with them. The exhibition games
-    // name a stronger side; the rest are this project's own games against the
-    // engine.
-    const known = record.strongSide ?? record.playerSide;
-    if (!known) continue;
-    const other: Player = known === "A" ? "B" : "A";
-    const labels: Record<Player, string> = record.strongSide
-      ? ({ [known]: "pro", [other]: "amateur" } as Record<Player, string>)
-      : ({ [known]: "human", [other]: "engine" } as Record<Player, string>);
+    // Roles come from the record. `strongSide` alone is not enough: a game
+    // between two amateurs names no strong side, and defaulting that to
+    // playerSide would file a human opponent under "engine" — which it did,
+    // moving the engine's own row by four cells of influence before it was
+    // caught.
+    const labels: Record<Player, string> | null = record.firstRole && record.secondRole
+      ? { A: record.firstRole, B: record.secondRole }
+      : record.playerSide
+        ? ({ [record.playerSide]: "human", [record.playerSide === "A" ? "B" : "A"]: "engine" } as Record<Player, string>)
+        : null;
+    if (!labels) continue;
     let state: GameState = createInitialState();
     let ply = 0;
 

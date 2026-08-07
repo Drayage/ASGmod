@@ -57,6 +57,7 @@ export const DEFAULT_SEED_FILES = [
   // power — and these are the longest, most territorial positions available,
   // which is the condition the candidates are meant to act in.
   "docs/pro-games-20230822.json",
+  "docs/community-games.json",
 ];
 
 /**

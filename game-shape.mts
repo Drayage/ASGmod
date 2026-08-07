@@ -41,6 +41,9 @@ interface Record_ {
   playerSide?: Player;
   /** Set on the exhibition games: the side the stronger player took. */
   strongSide?: Player;
+  /** What each seat was, on records that say. Both seats may be the same. */
+  firstRole?: string;
+  secondRole?: string;
   /** False where the source never scored the game, so its endpoint is unknown. */
   territoryVerified?: boolean;
   moveHistory: Move[];
@@ -50,6 +53,7 @@ const humanFiles = [
   "src/games/alley-boss-cats/testdata/humanGames.json",
   "docs/newbuild-games-32293a1.json",
   "docs/pro-games-20230822.json",
+  "docs/community-games.json",
 ].filter((path) => existsSync(path));
 
 /**
@@ -103,15 +107,19 @@ for (const path of humanFiles) {
     // Which side was the human is only recorded in some of the files, and a
     // guess would put the loser's ground in the winner's column, so the split
     // is taken only where the record actually says.
-    const known = record.strongSide ?? record.playerSide;
-    // A conversion rate is a statement about where the game ended, so a game
-    // whose source never scored it cannot contribute one — its replayed
-    // territory is this engine's reading of an endpoint nobody confirmed.
-    if (known && record.territoryVerified !== false) {
-      const other: Player = known === "A" ? "B" : "A";
-      const labels: Record<Player, string> = record.strongSide
-        ? ({ [known]: "pro", [other]: "amateur" } as Record<Player, string>)
-        : ({ [known]: "human", [other]: "engine" } as Record<Player, string>);
+    // Roles come from the record. A game between two amateurs names no strong
+    // side, and defaulting that to playerSide files a human opponent under
+    // "engine".
+    const labels: Record<Player, string> | null =
+      record.firstRole && record.secondRole
+        ? ({ A: record.firstRole, B: record.secondRole } as Record<Player, string>)
+        : record.playerSide
+          ? ({
+              [record.playerSide]: "human",
+              [record.playerSide === "A" ? "B" : "A"]: "engine",
+            } as Record<Player, string>)
+          : null;
+    if (labels && record.territoryVerified !== false) {
       for (const side of ["A", "B"] as const) {
         const into = role(labels[side]);
         into.territory.push(state.territories[side].length);
@@ -119,7 +127,7 @@ for (const path of humanFiles) {
       }
     }
 
-    if (record.playerSide && !record.strongSide) {
+    if (record.playerSide && !record.firstRole) {
       const engineSide: Player = record.playerSide === "A" ? "B" : "A";
       humanTerritory.push(state.territories[record.playerSide].length);
       humanLosingTerritory.push(state.territories[engineSide].length);

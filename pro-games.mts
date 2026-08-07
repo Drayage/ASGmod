@@ -32,6 +32,13 @@ function arg(name: string): string | null {
 
 interface Diagram {
   id: string;
+  /** Which output file the game belongs to. */
+  set: "pro" | "community";
+  /** What each seat was, for the role-split analyses. */
+  firstRole: "pro" | "amateur";
+  secondRole: "pro" | "amateur";
+  /** Anything about the record that a later reader must not have to rediscover. */
+  caveat?: string;
   /** Plays first; the amateur in all four, since the professional took white. */
   firstPlayer: string;
   secondPlayer: string;
@@ -55,6 +62,9 @@ const split = (row: string): string[] => row.trim().split(/\s+/);
 const DIAGRAMS: Diagram[] = [
   {
     id: "20230822-jongssam",
+    set: "pro",
+    firstRole: "amateur",
+    secondRole: "pro",
     firstPlayer: "종쌤",
     secondPlayer: "이세돌",
     score: { first: 7, second: 14 },
@@ -72,6 +82,9 @@ const DIAGRAMS: Diagram[] = [
   },
   {
     id: "20230822-leejeongsu",
+    set: "pro",
+    firstRole: "amateur",
+    secondRole: "pro",
     firstPlayer: "이정수",
     secondPlayer: "이세돌",
     score: null,
@@ -89,6 +102,9 @@ const DIAGRAMS: Diagram[] = [
   },
   {
     id: "20230822-leejunyoung",
+    set: "pro",
+    firstRole: "amateur",
+    secondRole: "pro",
     firstPlayer: "이준영",
     secondPlayer: "이세돌",
     score: { first: 12, second: 14 },
@@ -106,6 +122,9 @@ const DIAGRAMS: Diagram[] = [
   },
   {
     id: "20230605-proyeonwoo",
+    set: "pro",
+    firstRole: "amateur",
+    secondRole: "pro",
     firstPlayer: "프로연우",
     secondPlayer: "이세돌",
     score: { first: 7, second: 11 },
@@ -123,6 +142,9 @@ const DIAGRAMS: Diagram[] = [
   },
   {
     id: "20230822-jangwoncheol",
+    set: "pro",
+    firstRole: "amateur",
+    secondRole: "pro",
     firstPlayer: "장원철",
     secondPlayer: "이세돌",
     score: { first: 11, second: 12 },
@@ -136,6 +158,195 @@ const DIAGRAMS: Diagram[] = [
       "F  7  16 18 15 .  33 4  30",
       "43 42 2  S  10 17 F  29 35",
       "F  31 45 46 32 .  19 F  F",
+    ].map(split),
+  },
+  {
+    id: "20230718-practice6",
+    set: "community",
+    firstRole: "amateur",
+    secondRole: "amateur",
+    firstPlayer: "레이지니",
+    secondPlayer: "종쌤",
+    score: null,
+    rows: [
+      ".  42 .  19 44 .  .  14 .",
+      "7  43 3  18 16 17 13 30 .",
+      "39 2  21 22 .  .  .  12 .",
+      "40 .  32 20 .  15 31 27 28",
+      ".  6  .  .  .  .  .  .  29",
+      ".  36 35 34 .  11 .  .  .",
+      "41 4  33 26 38 .  25 9  .",
+      "5  .  1  37 .  23 8  24 10",
+      ".  .  .  .  .  .  .  .  .",
+    ].map(split),
+  },
+  {
+    id: "20230718-practice7",
+    set: "community",
+    firstRole: "amateur",
+    secondRole: "amateur",
+    firstPlayer: "종쌤",
+    secondPlayer: "레이지니",
+    score: null,
+    rows: [
+      ".  .  .  .  .  .  .  7  .",
+      ".  .  .  .  10 .  4  .  .",
+      ".  2  .  .  .  .  .  5  .",
+      ".  .  .  .  .  .  .  .  .",
+      ".  .  .  .  .  .  .  .  .",
+      ".  .  .  11 .  .  .  .  .",
+      ".  1  18 .  .  .  .  6  .",
+      "13 19 .  14 9  .  3  .  .",
+      ".  12 16 15 .  17 .  8  .",
+    ].map(split),
+  },
+  {
+    id: "20230709-practice5",
+    set: "community",
+    firstRole: "amateur",
+    secondRole: "amateur",
+    firstPlayer: "종쌤",
+    secondPlayer: "레이지니",
+    score: { first: 18, second: 13 },
+    rows: [
+      ".  26 S  S  S  S  S  S  S",
+      "25 40 8  S  S  S  2  42 6",
+      "27 4  39 38 S  22 41 5  32",
+      "29 28 37 24 44 23 F  F  43",
+      "21 .  17 35 .  F  F  7  F",
+      "F  9  .  14 45 15 F  F  F",
+      "F  F  19 36 .  16 33 3  F",
+      "F  F  1  20 12 S  10 30 31",
+      "F  F  F  13 18 S  34 11 F",
+    ].map(split),
+  },
+  {
+    id: "20230709-practice4",
+    set: "community",
+    firstRole: "amateur",
+    secondRole: "amateur",
+    firstPlayer: "레이지니",
+    secondPlayer: "종쌤",
+    caveat:
+      "the diagram misses one point. I5 and I6 are a single enclosed empty " +
+      "region — I5's only empty neighbour is I6 and vice versa — and every " +
+      "stone around them was played on an odd move (5, 27, 29, 31), so all " +
+      "four belong to the first player and both points are theirs. The " +
+      "diagram marks I6 and leaves I5 blank, which no scoring rule allows for " +
+      "two points of one region. 16/8 is the corrected count.",
+    score: { first: 16, second: 8 },
+    rows: [
+      "F  F  F  17 .  16 .  12 S",
+      "F  F  1  22 14 15 11 50 S",
+      "F  9  24 S  18 .  .  10 30",
+      "23 F  49 20 .  13 19 33 29",
+      "F  F  21 .  .  47 32 5  F",
+      "F  F  37 38 S  48 26 27 F",
+      "F  7  36 44 8  S  28 3  31",
+      "35 34 6  41 42 S  2  39 4",
+      "F  25 43 F  45 46 S  40 S",
+    ].map(split),
+  },
+  {
+    id: "20230705-practice3",
+    set: "community",
+    firstRole: "amateur",
+    secondRole: "amateur",
+    firstPlayer: "레이지니",
+    secondPlayer: "종쌤",
+    score: null,
+    rows: [
+      ".  .  .  .  .  .  .  10 .",
+      ".  .  29 .  11 .  9  .  .",
+      "26 .  23 28 .  .  .  2  .",
+      ".  14 21 22 .  43 .  .  .",
+      "24 15 16 42 .  .  .  6  .",
+      "25 17 18 27 31 8  38 .  .",
+      "19 12 20 30 7  37 .  4  .",
+      "13 40 3  34 36 39 1  32 5",
+      ".  41 .  35 .  .  .  33 .",
+    ].map(split),
+  },
+  {
+    id: "20230705-practice2",
+    set: "community",
+    firstRole: "amateur",
+    secondRole: "amateur",
+    firstPlayer: "종쌤",
+    secondPlayer: "레이지니",
+    score: { first: 11, second: 8 },
+    rows: [
+      "51 16 55 29 37 36 24 S  S",
+      "17 54 18 9  F  23 2  S  S",
+      "F  3  20 56 21 60 46 4  S",
+      "13 57 22 19 F  49 45 47 48",
+      "53 8  S  32 .  58 35 12 S",
+      "27 28 26 14 59 44 33 34 S",
+      "61 6  25 40 15 42 52 10 50",
+      "7  30 1  41 F  43 5  38 11",
+      "F  31 F  F  F  F  F  39 F",
+    ].map(split),
+  },
+  {
+    id: "20230705-practice1",
+    set: "community",
+    firstRole: "amateur",
+    secondRole: "amateur",
+    firstPlayer: "레이지니",
+    secondPlayer: "종쌤",
+    score: { first: 3, second: 3 },
+    rows: [
+      "F  11 F  31 .  .  .  .  .",
+      "9  10 7  30 .  .  2  .  4",
+      ".  8  12 .  .  .  .  3  .",
+      ".  .  .  32 .  6  .  .  .",
+      "28 19 23 33 .  S  40 5  .",
+      "S  24 14 25 .  34 39 F  41",
+      "26 13 42 27 37 35 36 1  .",
+      "22 43 15 29 18 38 16 .  .",
+      "S  20 .  21 .  .  .  17 .",
+    ].map(split),
+  },
+  {
+    id: "20230605-pro-vs-pro",
+    set: "community",
+    firstRole: "pro",
+    secondRole: "pro",
+    firstPlayer: "김노경 프로",
+    secondPlayer: "조연우 프로",
+    caveat: "the source marks moves 39-52 as being of uncertain order",
+    score: { first: 10, second: 10 },
+    rows: [
+      "S  S  30 S  S  S  S  42 .",
+      "40 26 27 38 S  32 10 46 37",
+      "39 28 11 .  52 9  45 8  43",
+      "F  29 25 24 S  44 47 31 F",
+      "F  23 22 S  .  .  7  F  F",
+      "F  15 13 16 S  48 49 5  F",
+      "41 12 14 18 50 1  3  4  51",
+      "54 20 19 17 34 36 2  6  33",
+      ".  21 F  F  35 .  .  53 F",
+    ].map(split),
+  },
+  {
+    id: "20230527-koreaboardgames",
+    set: "community",
+    firstRole: "amateur",
+    secondRole: "pro",
+    firstPlayer: "레이지니",
+    secondPlayer: "이세돌",
+    caveat: "played with 이세돌 coaching, so it is not straight competitive play",
+    score: { first: 11, second: 17 },
+    rows: [
+      "S  S  S  38 S  S  S  40 50",
+      "S  S  4  3  36 34 6  48 39",
+      "S  2  46 5  37 13 51 10 41",
+      "S  S  S  22 35 F  7  33 F",
+      "S  8  12 S  .  F  F  F  F",
+      "32 52 11 14 21 F  45 F  F",
+      "S  16 17 15 49 23 44 9  43",
+      "28 27 1  47 24 25 18 19 42",
+      "31 F  F  29 30 26 S  20 S",
     ].map(split),
   },
 ];
@@ -239,9 +450,16 @@ for (const diagram of DIAGRAMS) {
     // side and A the amateur. Recorded explicitly: the analysis scripts split
     // their columns on this and a guess would swap them.
     playerSide: "B" as Player,
-    strongSide: "B" as Player,
+    strongSide:
+      diagram.firstRole === diagram.secondRole
+        ? undefined
+        : ((diagram.secondRole === "pro" ? "B" : "A") as Player),
     firstPlayer: diagram.firstPlayer,
     secondPlayer: diagram.secondPlayer,
+    firstRole: diagram.firstRole,
+    secondRole: diagram.secondRole,
+    caveat: diagram.caveat,
+    set: diagram.set,
     winner: state.winner ?? null,
     winReason: state.winReason ?? null,
     territoryA: replayed.first,
@@ -261,26 +479,43 @@ console.log(
     : "At least one game does not replay under these rules; do not use them as data.",
 );
 
-const out = arg("write");
-if (out && allValid) {
-  mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(
-    out,
-    `${JSON.stringify(
-      {
-        format: "alley-boss-cats-games",
-        version: 1,
-        note:
-          "2023-08-22 exhibition, 이세돌 playing four amateurs two boards at a time, " +
-          "second seat in every game. Transcribed from the published diagrams and " +
-          "verified: move numbering complete, every move legal under these rules, " +
-          "final territory equal to the printed score. Validation only; never train on these.",
-        records,
-      },
-      null,
-      2,
-    )}\n`,
-    "utf8",
-  );
-  console.log(`wrote ${out}`);
+const FILES: Record<Diagram["set"], { path: string; note: string }> = {
+  pro: {
+    path: "docs/pro-games-20230822.json",
+    note:
+      "이세돌 exhibition games, second seat in every one. Transcribed from the " +
+      "published diagrams and verified against these rules.",
+  },
+  community: {
+    path: "docs/community-games.json",
+    note:
+      "Recorded games between other players — amateur practice games, one " +
+      "professional pairing, and one coached game. Same transcription and " +
+      "verification as the exhibition set.",
+  },
+};
+
+// A bare `--write` has no value for `arg` to return, so presence is what is
+// checked here rather than a value that would always come back null.
+if (process.argv.includes("--write") && allValid) {
+  for (const [set, file] of Object.entries(FILES)) {
+    const mine = records.filter((record) => (record as { set: string }).set === set);
+    if (mine.length === 0) continue;
+    mkdirSync(dirname(file.path), { recursive: true });
+    writeFileSync(
+      file.path,
+      `${JSON.stringify(
+        {
+          format: "alley-boss-cats-games",
+          version: 1,
+          note: `${file.note} Validation and seeding only; never train on these.`,
+          records: mine,
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    console.log(`wrote ${file.path} (${mine.length} games)`);
+  }
 }
