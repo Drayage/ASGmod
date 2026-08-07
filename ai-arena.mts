@@ -10,6 +10,7 @@ import {
   findBestMoveMinimax,
   findBestMoveVeryHard,
   setSelfInflictedThinGuardEnabled,
+  setThinGroupGuardEnabled,
   setDominatedPocketGuardEnabled,
   setExistingGroupDangerRankingEnabled,
   setPocketSealDangerGuardEnabled,
@@ -77,7 +78,9 @@ type Engine =
   | "VH_RETARGET"
   | "VH_NORETARGET"
   | "VH_FRAME2"
-  | "VH_NOFRAME2";
+  | "VH_NOFRAME2"
+  | "VH_THINGUARD"
+  | "VH_NOTHINGUARD";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -97,6 +100,8 @@ const RETARGETS = Number(process.env.RETARGETS ?? 1);
 const TESTING_RETARGET = process.env.ONLY === "RETARGET";
 const FRAME_SEAL = Number(process.env.FRAME_SEAL ?? 2);
 const TESTING_FRAME2 = process.env.ONLY === "FRAME2";
+// Stage 1.75, which decides 23.8% of all AI moves from about three candidates.
+const TESTING_THINGUARD = process.env.ONLY === "THINGUARD";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -173,6 +178,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_RETARGET) setCaptureRetargets(engine === "VH_RETARGET" ? RETARGETS : 0);
   // 0 is the off value: the frame-building shortlist is skipped entirely.
   if (TESTING_FRAME2) tuning.frameSealSize = engine === "VH_FRAME2" ? FRAME_SEAL : 0;
+  if (TESTING_THINGUARD) setThinGroupGuardEnabled(engine === "VH_THINGUARD");
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -222,6 +228,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_RETARGET" ||
     engine === "VH_NORETARGET" ||
     engine === "VH_FRAME2" ||
+    engine === "VH_THINGUARD" ||
+    engine === "VH_NOTHINGUARD" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -546,6 +554,11 @@ if (only === "FRAME2") {
 }
 if (only === "RETARGET") {
   addMatch(`VH+retarget(${RETARGETS}) vs VERY_HARD`, "VH_RETARGET", "VH_NORETARGET");
+}
+// Guard on against guard off. Named so the shipped setting is the first arm:
+// VH_THINGUARD is today's engine, VH_NOTHINGUARD is the one being proposed.
+if (only === "THINGUARD") {
+  addMatch("VH+thinGuard vs VH-thinGuard", "VH_THINGUARD", "VH_NOTHINGUARD");
 }
 if (only === "CLOSE") {
   addMatch(`VH+closable(${CLOSE_DECAY}) vs VERY_HARD`, "VH_CLOSE", "VH_NOCLOSE");

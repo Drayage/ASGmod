@@ -78,6 +78,51 @@ export function setOpponentFrameworkGuardEnabled(enabled: boolean): void {
   opponentFrameworkGuardEnabled = enabled;
 }
 
+/**
+ * Same, for thinGroupDanger — stage 1.75, and the one worth being able to
+ * switch off.
+ *
+ * Unlike stage 1.5 beneath it, this guard proves nothing: it fires whenever any
+ * of the mover's groups sits at three liberties or fewer with an opponent stone
+ * beside it, which measured over 604 recorded AI turns is 23.8% of all moves,
+ * second only to the full search itself. Each time it hands the search about
+ * three candidates out of a pool of forty-three.
+ *
+ * That is a lot of the game to spend on a heuristic, and there is a traced case
+ * against it: at turn 28 of the first recorded app game this guard forced F4
+ * from two candidates out of forty-eight, where H9 scored 52 evaluation points
+ * better after a full-strength reply, and the game was lost on territory.
+ *
+ * Left on by default — the guard was added against traced losses of its own and
+ * a capture ends the game outright, so it is not to be removed on one position.
+ * Switchable so the arena can settle it.
+ */
+export let thinGroupGuardEnabled = true;
+export function setThinGroupGuardEnabled(enabled: boolean): void {
+  thinGroupGuardEnabled = enabled;
+}
+
+/**
+ * Which stage of `findBestMoveVeryHard` decided the last move, and how much of
+ * the pool it left the search to choose from.
+ *
+ * The function is a ladder of guards, and all but the last two hand the search
+ * a shortlist and return. That makes "why did it play that?" unanswerable from
+ * outside: a move can be forced by a guard the position barely triggered, and
+ * it looks identical to a move the full search chose. Recording the stage costs
+ * two assignments per move and turns that into a fact.
+ */
+export interface DecisionTrace {
+  stage: string;
+  /** Candidates the search was given, against the pool it could have had. */
+  candidates: number;
+  poolSize: number;
+}
+export let lastDecision: DecisionTrace = { stage: "none", candidates: 0, poolSize: 0 };
+function note(stage: string, candidates: number, poolSize: number): void {
+  lastDecision = { stage, candidates, poolSize };
+}
+
 /** Whether the transposition table's stored *scores* are used to answer a
  * repeated position outright, or only its move hints are (which is all this
  * table held before). Always on in the shipped app; the toggle exists so
@@ -1128,7 +1173,10 @@ export function findBestMoveVeryHard(
     CAPTURE_READ_DEPTH,
     timeLimitMs * ATTACK_READ_SHARE,
   );
-  if (kill) return kill.move;
+  if (kill) {
+    note("1 forced capture", 1, pool.length);
+    return kill.move;
+  }
 
   // 1.5. Is one of my own existing groups already facing a forced capture,
   //    whatever I play elsewhere this turn? The screening in step 2 below
@@ -1141,6 +1189,7 @@ export function findBestMoveVeryHard(
   const dangerMoves = existingGroupDanger(rootState, aiPlayer, EXISTING_DANGER_BUDGET_MS);
   if (dangerMoves.length > 0) {
     const dangerBudget = Math.max(300, deadline - Date.now());
+    note("1.5 group in danger", dangerMoves.length, pool.length);
     return searchVerified(rootState, aiPlayer, dangerMoves, dangerBudget, pool);
   }
 
@@ -1149,9 +1198,10 @@ export function findBestMoveVeryHard(
   //    there a move here that actually buys it more room? Catches the gap one
   //    step before existingGroupDanger can prove anything — see
   //    thinGroupDanger's own comment for the traced loss this closes.
-  const thinMoves = thinGroupDanger(rootState, aiPlayer);
+  const thinMoves = thinGroupGuardEnabled ? thinGroupDanger(rootState, aiPlayer) : [];
   if (thinMoves.length > 0) {
     const thinBudget = Math.max(300, deadline - Date.now());
+    note("1.75 thin group", thinMoves.length, pool.length);
     return searchVerified(rootState, aiPlayer, thinMoves, thinBudget, pool);
   }
 
@@ -1162,6 +1212,7 @@ export function findBestMoveVeryHard(
   const pocketSealMoves = pocketSealDangerGuardEnabled ? pocketSealDanger(rootState, aiPlayer) : [];
   if (pocketSealMoves.length > 0) {
     const sealBudget = Math.max(300, deadline - Date.now());
+    note("1.85 pocket seal danger", pocketSealMoves.length, pool.length);
     return searchVerified(rootState, aiPlayer, pocketSealMoves, sealBudget, pool);
   }
 
@@ -1177,6 +1228,7 @@ export function findBestMoveVeryHard(
   const urgentSeals = tuning.urgentSealUrgency > 0 ? urgentSealingMoves(rootState, aiPlayer) : [];
   if (urgentSeals.length > 0) {
     const sealBudget = Math.max(300, deadline - Date.now());
+    note("1.86 urgent seal", urgentSeals.length, pool.length);
     return searchVerified(rootState, aiPlayer, urgentSeals, sealBudget, pool);
   }
 
@@ -1191,6 +1243,7 @@ export function findBestMoveVeryHard(
     : [];
   if (opponentFrameworkMoves.length > 0) {
     const opponentFrameworkBudget = Math.max(300, deadline - Date.now());
+    note("1.87 deny their framework", opponentFrameworkMoves.length, pool.length);
     return searchVerified(rootState, aiPlayer, opponentFrameworkMoves, opponentFrameworkBudget, pool);
   }
 
@@ -1202,6 +1255,7 @@ export function findBestMoveVeryHard(
   const frameworkMoves = frameworkGuardEnabled ? frameworkCompletionMoves(rootState, aiPlayer) : [];
   if (frameworkMoves.length > 0) {
     const frameworkBudget = Math.max(300, deadline - Date.now());
+    note("1.9 finish my framework", frameworkMoves.length, pool.length);
     return searchVerified(rootState, aiPlayer, frameworkMoves, frameworkBudget, pool);
   }
 
@@ -1224,7 +1278,10 @@ export function findBestMoveVeryHard(
   for (const action of screened) {
     if (Date.now() >= screenDeadline) break;
     const next = applyAction(rootState, action);
-    if (next.winner === aiPlayer) return action;
+    if (next.winner === aiPlayer) {
+      note("2 wins on the spot", 1, pool.length);
+      return action;
+    }
     if (next.winner) {
       refuted.add(action); // this move loses on the spot
       continue;
@@ -1246,6 +1303,7 @@ export function findBestMoveVeryHard(
   //    would have drifted towards.
   const territorial = territorialCandidates(rootState, aiPlayer, plan, finalPool, remaining);
   if (territorial.length > 0) {
+    note("3 territorial answer", territorial.length, finalPool.length);
     return searchVerified(rootState, aiPlayer, territorial, remaining, finalPool);
   }
 
@@ -1255,6 +1313,7 @@ export function findBestMoveVeryHard(
   //    by which moves are on offer — measured on a real position, the safe pool
   //    held 67 of 68 legal moves and every move the territory planner wanted,
   //    so adding "contesting" candidates to it changed nothing at all.
+  note("4 full search", finalPool.length, finalPool.length);
   return searchVerified(rootState, aiPlayer, finalPool, remaining);
 }
 
