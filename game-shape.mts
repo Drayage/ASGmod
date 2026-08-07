@@ -41,6 +41,8 @@ interface Record_ {
   playerSide?: Player;
   /** Set on the exhibition games: the side the stronger player took. */
   strongSide?: Player;
+  /** False where the source never scored the game, so its endpoint is unknown. */
+  territoryVerified?: boolean;
   moveHistory: Move[];
 }
 
@@ -102,7 +104,10 @@ for (const path of humanFiles) {
     // guess would put the loser's ground in the winner's column, so the split
     // is taken only where the record actually says.
     const known = record.strongSide ?? record.playerSide;
-    if (known) {
+    // A conversion rate is a statement about where the game ended, so a game
+    // whose source never scored it cannot contribute one — its replayed
+    // territory is this engine's reading of an endpoint nobody confirmed.
+    if (known && record.territoryVerified !== false) {
       const other: Player = known === "A" ? "B" : "A";
       const labels: Record<Player, string> = record.strongSide
         ? ({ [known]: "pro", [other]: "amateur" } as Record<Player, string>)

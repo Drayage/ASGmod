@@ -105,6 +105,23 @@ const DIAGRAMS: Diagram[] = [
     ].map(split),
   },
   {
+    id: "20230605-proyeonwoo",
+    firstPlayer: "프로연우",
+    secondPlayer: "이세돌",
+    score: { first: 7, second: 11 },
+    rows: [
+      "S  26 59 41 57 32 S  S  S",
+      "12 58 1  F  9  17 8  18 14",
+      "54 11 F  45 F  21 15 13 61",
+      "56 55 31 44 25 20 29 62 53",
+      "S  10 42 S  .  S  30 6  60",
+      "38 37 35 40 S  22 28 S  34",
+      "S  2  43 36 52 46 27 4  33",
+      "24 23 7  39 19 47 3  48 5",
+      "S  16 50 51 F  F  F  49 F",
+    ].map(split),
+  },
+  {
     id: "20230822-jangwoncheol",
     firstPlayer: "장원철",
     secondPlayer: "이세돌",
@@ -229,6 +246,11 @@ for (const diagram of DIAGRAMS) {
     winReason: state.winReason ?? null,
     territoryA: replayed.first,
     territoryB: replayed.second,
+    // The source scored four of the five. Game two's diagram carries no
+    // territory marks and its score field reads 0/0 while the replay gives
+    // 3/4, so its endpoint is not confirmed by anything and no conversion
+    // rate should be quoted from it. Its moves are verified either way.
+    territoryVerified: diagram.score !== null,
     moveHistory: parsed.moves.map((move) => ({ type: "PLACE", row: move.row, col: move.col })),
   });
 }
