@@ -150,32 +150,57 @@ function currentTarget(board: Board, ctx: ReadContext): Coord[] | null {
 const LADDER_MAX_STEPS = 40;
 
 /**
- * Can the defender break this chase by turning on the stones doing the
- * chasing?
+ * Can the defender break this chase?
  *
- * Only stones touching the running group count. An attacker group elsewhere on
- * the board may well be thin, but the defender cannot both answer the atari
- * they are under and go after it — and refusing every chase because some
- * unrelated group is short of liberties gives up ladders that plainly work.
- * Within reach, though, a group the defender can put in atari means the chase
- * was never forced, and the honest answer is that this is not a ladder.
+ * Not by counter-atari. A defender in a ladder is in atari at every step and
+ * has no move to spare — answer or be taken — so threatening the chasing
+ * stones buys them nothing. Refusing a chase whenever some nearby attacker
+ * group is thin gives up ladders that plainly work, including the one in
+ * problem 4, where the stone doing the chasing is itself on two liberties.
+ *
+ * What does break it is a capture available *now*, which ends the game the
+ * defender's way before the chase can finish. The other classical breaker, a
+ * friendly stone waiting at the end of the run, needs no test of its own: if
+ * the running group connects to one its liberties jump, and the walk already
+ * stops the moment an extension leaves more than one.
  */
-function chaseIsBreakable(state: GameState, ctx: ReadContext, running: Coord[]): boolean {
-  const touching = new Set<string>();
-  for (const stone of running) {
-    for (const [dr, dc] of DIRECTIONS) {
-      const r = stone.row + dr;
-      const c = stone.col + dc;
-      if (!inBounds(r, c)) continue;
-      if (state.board[r][c] !== (ctx.attacker === "A" ? "PLAYER_A" : "PLAYER_B")) continue;
-      const group = getConnectedGroup(state.board, r, c);
-      const key0 = `${group[0].row},${group[0].col}`;
-      if (touching.has(key0)) continue;
-      touching.add(key0);
-      if (getGroupLiberties(state.board, group).size <= 2) return true;
-    }
+function defenderCanCaptureNow(state: GameState, ctx: ReadContext): boolean {
+  return movesWithin(state, ctx.defender, immediateWinCells(state, ctx.defender)).length > 0;
+}
+
+/**
+ * The other way out of an atari: seal the last breath into an eye.
+ *
+ * A point surrounded entirely by one colour becomes that player's confirmed
+ * territory, and nobody may ever play there — so a group breathing through one
+ * is alive for good, however long the chase would otherwise have run. In
+ * problem 3 the defender answers blue B9 with E9 rather than extending, which
+ * closes D9 into an eye and saves the group outright.
+ *
+ * `liberty` is the running group's last breath. It can be sealed if no
+ * attacker stone touches it — an attacker stone can never be inside the
+ * defender's territory — and at most one of its neighbours is still open for
+ * the defender to fill. Problem 4's chase survives this test because the
+ * liberty it drives towards is touched by a blue stone throughout.
+ */
+function libertyCanBecomeEye(
+  state: GameState,
+  ctx: ReadContext,
+  liberty: Coord,
+  running: Coord[],
+): boolean {
+  const inGroup = new Set(running.map((stone) => key(stone.row, stone.col)));
+  const attackerCell = ctx.attacker === "A" ? "PLAYER_A" : "PLAYER_B";
+  let openNeighbours = 0;
+
+  for (const [dr, dc] of DIRECTIONS) {
+    const r = liberty.row + dr;
+    const c = liberty.col + dc;
+    if (!inBounds(r, c)) continue; // the edge walls it in for free
+    if (state.board[r][c] === attackerCell) return false;
+    if (state.board[r][c] === "EMPTY" && !inGroup.has(key(r, c))) openNeighbours += 1;
   }
-  return false;
+  return openNeighbours <= 1;
 }
 
 /**
@@ -199,13 +224,14 @@ function ladderStep(state: GameState, ctx: ReadContext, anchor: Coord, steps: nu
 
     // Ladder breaker: the defender can turn on the chasing stones instead of
     // running. Then the chase was never forced.
-    const running = getConnectedGroup(chased.board, anchor.row, anchor.col);
-    if (chaseIsBreakable(chased, ctx, running)) continue;
+    if (defenderCanCaptureNow(chased, ctx)) continue;
 
+    const running = getConnectedGroup(chased.board, anchor.row, anchor.col);
     const left = [...getGroupLiberties(chased.board, running)];
     if (left.length !== 1) continue; // not atari: this liberty was the wrong one
 
     const { row: dr, col: dc } = parseKey(left[0]);
+    if (libertyCanBecomeEye(chased, ctx, { row: dr, col: dc }, running)) continue;
     if (!isLegalMove(chased, dr, dc, ctx.defender)) continue;
     const extended = applyMove(chased, dr, dc);
     if (extended.winner === ctx.attacker) return true;
@@ -219,7 +245,6 @@ function ladderStep(state: GameState, ctx: ReadContext, anchor: Coord, steps: nu
 /** The first move of a ladder that captures `group`, or null. */
 function ladderCapture(state: GameState, ctx: ReadContext, group: Coord[]): Coord | null {
   if (getGroupLiberties(state.board, group).size !== 2) return null;
-  if (chaseIsBreakable(state, ctx, group)) return null;
   const anchor = group[0];
   for (const key of getGroupLiberties(state.board, group)) {
     const { row, col } = parseKey(key);
@@ -227,11 +252,12 @@ function ladderCapture(state: GameState, ctx: ReadContext, group: Coord[]): Coor
     const probe = applyMove(state, row, col);
     if (probe.winner === ctx.attacker) return { row, col };
     if (probe.winner) continue;
+    if (defenderCanCaptureNow(probe, ctx)) continue;
     const running = getConnectedGroup(probe.board, anchor.row, anchor.col);
-    if (chaseIsBreakable(probe, ctx, running)) continue;
     const left = [...getGroupLiberties(probe.board, running)];
     if (left.length !== 1) continue;
     const { row: dr, col: dc } = parseKey(left[0]);
+    if (libertyCanBecomeEye(probe, ctx, { row: dr, col: dc }, running)) continue;
     if (!isLegalMove(probe, dr, dc, ctx.defender)) continue;
     const extended = applyMove(probe, dr, dc);
     if (extended.winner === ctx.attacker) return { row, col };
