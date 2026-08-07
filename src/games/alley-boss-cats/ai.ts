@@ -1,6 +1,11 @@
 import { getAllGroups, getGroupLiberties } from "./groups";
 import { applyMove, getLegalMoves, passTurn } from "./rules";
-import { influenceCount } from "./engine/territoryPlanner";
+import {
+  closableInfluence,
+  influenceCount,
+  influenceCountFromMap,
+  influenceOwnerMap,
+} from "./engine/territoryPlanner";
 import { ownershipMargin } from "./engine/ownershipTerm";
 import { frameworkPotential } from "./engine/frameworks";
 import { coordKeySet } from "./territory";
@@ -52,6 +57,13 @@ function projectedMarginFrom(
   state: GameState,
   player: Player,
   influence: Record<Player, number>,
+  /**
+   * Open ground as the territory term should price it. The plain influence
+   * count when the closability term is off, and the discounted credit when it
+   * is on — passed in rather than derived so the caller can build the owner
+   * map once and use it for both.
+   */
+  open: Record<Player, number> = influence,
 ): number {
   // With the learned term on, the open points are priced by the cached
   // ownership map instead of by influence reach. Settled ground is counted
@@ -75,7 +87,7 @@ function projectedMarginFrom(
   }
 
   const projected = (side: Player) =>
-    state.territories[side].length + influence[side] * INFLUENCE_TO_TERRITORY;
+    state.territories[side].length + open[side] * INFLUENCE_TO_TERRITORY;
 
   const lead = projected("A") - projected("B");
   // 치즈냥 (A) moves first and must finish at least FIRST_PLAYER_MARGIN ahead;
@@ -181,6 +193,21 @@ export const tuning = {
    * 24 cells; the human declined none. Games were lost by 10 to 13.
    */
   urgentSealUrgency: 0,
+  /**
+   * How hard to discount open ground the side cannot close yet.
+   *
+   * Each connected influence region is credited its size times this raised to
+   * the number of open points on its border beyond the first — roughly the
+   * moves it would take to seal. 1 disables the term and reproduces the plain
+   * count exactly, cell for cell.
+   *
+   * The gap it is aimed at: over 335 midgame positions the engine converts
+   * 10.2% of its reach into territory and the human 33.8%, and the engine's
+   * reach is one 21.5-cell region with a quarter of its border open where the
+   * human's is six regions of 5.6 cells with 18.6% open. The plain count
+   * prices those the same.
+   */
+  closabilityDecay: 1,
   /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
    * 1.0). Zero reproduces the evaluation exactly as it was before that term
    * existed, so the arena can play the two head to head. */
@@ -264,13 +291,23 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
   // need it, and influenceCount's breadth-first fill is the single most
   // expensive thing evaluateState does, run once at every leaf the search
   // touches.
-  const influence = influenceCount(state.board);
+  // One breadth-first fill, then everything derived from it. The fill is the
+  // single most expensive thing here, run at every leaf the search touches, so
+  // the closability term asks the same map a second question rather than
+  // paying to rebuild it — the difference between costing the search a third
+  // of its evaluation budget and costing it all of it.
+  const owners = influenceOwnerMap(state.board);
+  const influence = influenceCountFromMap(owners);
+  const open =
+    tuning.closabilityDecay < 1
+      ? closableInfluence(state.board, owners, tuning.closabilityDecay)
+      : influence;
 
   return (
     // One number for the whole territory question: settled ground, ground each
     // side is heading towards, and the first-player margin that decides who
     // the count actually favours.
-    projectedMarginFrom(state, aiPlayer, influence) * 100 +
+    projectedMarginFrom(state, aiPlayer, influence, open) * 100 +
     frameworkTerm(state, aiPlayer, opp) +
     severeInfluenceTerm(aiPlayer, opp, influence) +
     mine.totalLiberties * 5 -

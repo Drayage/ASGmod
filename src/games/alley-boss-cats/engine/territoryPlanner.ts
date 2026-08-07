@@ -79,8 +79,20 @@ function distanceField(board: Board, player: Player): number[][] {
  * quietly tidies its own position while the board is given away.
  */
 export function influenceCount(board: Board): Record<Player, number> {
+  return influenceCountFromMap(influenceOwnerMap(board));
+}
+
+/**
+ * The same totals from a map already in hand.
+ *
+ * The breadth-first fill behind the map is the single most expensive thing the
+ * evaluation does, so a caller wanting both the totals and something else off
+ * the same map — `closableInfluence`, say — builds it once and asks twice
+ * rather than paying for it again.
+ */
+export function influenceCountFromMap(owners: Array<Player | null>): Record<Player, number> {
   const counts: Record<Player, number> = { A: 0, B: 0 };
-  for (const owner of influenceOwnerMap(board)) {
+  for (const owner of owners) {
     if (owner === "A") counts.A += 1;
     else if (owner === "B") counts.B += 1;
   }
@@ -116,6 +128,79 @@ export function influenceOwnerMap(board: Board): Array<Player | null> {
     }
   }
   return owners;
+}
+
+/**
+ * Influence counted by whether it can actually be closed, not by how far it
+ * reaches.
+ *
+ * The plain count prices every cell the same, and measurement says the two
+ * kinds of cell are worth wildly different amounts. Over 335 midgame positions
+ * of the recorded games, the engine holds 82% of its influence in a single
+ * blob averaging 21.5 cells with a quarter of its boundary open, and converts
+ * 10.2% of its reach into territory. The human holds about six regions of 5.6
+ * cells with 18.6% of the boundary open, and converts 33.8%. A five-cell
+ * region seals in a move or two; a twenty-one-cell one needs its whole
+ * perimeter built and never gets there.
+ *
+ * So a region is credited its size, discounted once per open gap beyond the
+ * first — the gaps being the empty points on its border, which is roughly the
+ * number of moves that closing it would take. `decay` of 1 reproduces the
+ * plain count exactly.
+ *
+ * Note this deliberately does *not* reward large connected areas. The engine
+ * already builds those; they are the thing that is not working.
+ */
+export function closableInfluence(
+  board: Board,
+  owners: Array<Player | null>,
+  decay: number,
+): Record<Player, number> {
+  const size = board.length;
+  const index = (row: number, col: number) => row * size + col;
+  const credit: Record<Player, number> = { A: 0, B: 0 };
+  const seen = new Array<boolean>(size * size).fill(false);
+
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const side = owners[index(row, col)];
+      if (side === null || seen[index(row, col)]) continue;
+
+      let cells = 0;
+      let gaps = 0;
+      const counted = new Set<number>();
+      const stack: Array<[number, number]> = [[row, col]];
+      seen[index(row, col)] = true;
+
+      while (stack.length > 0) {
+        const [r, c] = stack.pop()!;
+        cells += 1;
+        for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+          const nr = r + dr;
+          const nc = c + dc;
+          // The board edge is a wall the region gets for nothing.
+          if (nr < 0 || nc < 0 || nr >= size || nc >= size) continue;
+          if (owners[index(nr, nc)] === side) {
+            if (!seen[index(nr, nc)]) {
+              seen[index(nr, nc)] = true;
+              stack.push([nr, nc]);
+            }
+            continue;
+          }
+          // A hole only counts once however many of the region's cells touch
+          // it: it takes one move to plug, not one per neighbour.
+          if (board[nr][nc] === "EMPTY" && !counted.has(index(nr, nc))) {
+            counted.add(index(nr, nc));
+            gaps += 1;
+          }
+        }
+      }
+
+      credit[side] += cells * decay ** Math.max(0, gaps - 1);
+    }
+  }
+
+  return credit;
 }
 
 /** A single move that would settle a worthwhile number of cells. */
