@@ -129,6 +129,118 @@ function currentTarget(board: Board, ctx: ReadContext): Coord[] | null {
   return getConnectedGroup(board, ctx.anchor.row, ctx.anchor.col);
 }
 
+
+/**
+ * A ladder is a walk, not a search.
+ *
+ * Chasing a two-liberty group to the edge takes eleven plies in one of the
+ * publisher's problems while the reader is allowed seven, so the tree can
+ * never see it. It does not need to: every move in a ladder is atari, so the
+ * defender has exactly one reply, and following that costs the length of the
+ * chase rather than an exponential in depth.
+ *
+ * The one thing that must not be got wrong is the ladder breaker. If the
+ * defender can answer by putting one of the chasing stones in atari, the chase
+ * is not forced — and the right conclusion is simply that this is not a
+ * ladder, so the walk gives up. An earlier version assumed the defender always
+ * had to extend and reported blue B9 in problem 3 as a forced capture that
+ * 2 of 71 replies survive. Missing a kill costs a chance; inventing one plays
+ * a losing move believing it decisive, in a game a single capture ends.
+ */
+const LADDER_MAX_STEPS = 40;
+
+/**
+ * Can the defender break this chase by turning on the stones doing the
+ * chasing?
+ *
+ * Only stones touching the running group count. An attacker group elsewhere on
+ * the board may well be thin, but the defender cannot both answer the atari
+ * they are under and go after it — and refusing every chase because some
+ * unrelated group is short of liberties gives up ladders that plainly work.
+ * Within reach, though, a group the defender can put in atari means the chase
+ * was never forced, and the honest answer is that this is not a ladder.
+ */
+function chaseIsBreakable(state: GameState, ctx: ReadContext, running: Coord[]): boolean {
+  const touching = new Set<string>();
+  for (const stone of running) {
+    for (const [dr, dc] of DIRECTIONS) {
+      const r = stone.row + dr;
+      const c = stone.col + dc;
+      if (!inBounds(r, c)) continue;
+      if (state.board[r][c] !== (ctx.attacker === "A" ? "PLAYER_A" : "PLAYER_B")) continue;
+      const group = getConnectedGroup(state.board, r, c);
+      const key0 = `${group[0].row},${group[0].col}`;
+      if (touching.has(key0)) continue;
+      touching.add(key0);
+      if (getGroupLiberties(state.board, group).size <= 2) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * One rung: attacker to move against a group down to one or two liberties.
+ * Returns true only when the simulation actually ends in a capture.
+ */
+function ladderStep(state: GameState, ctx: ReadContext, anchor: Coord, steps: number): boolean {
+  if (steps <= 0 || Date.now() >= ctx.deadline) return false;
+  if (!groupStillThere(state.board, anchor, ctx.defender)) return false;
+
+  const group = getConnectedGroup(state.board, anchor.row, anchor.col);
+  const liberties = [...getGroupLiberties(state.board, group)];
+  if (liberties.length === 0 || liberties.length > 2) return false;
+
+  for (const key of liberties) {
+    const { row, col } = parseKey(key);
+    if (!isLegalMove(state, row, col, ctx.attacker)) continue;
+    const chased = applyMove(state, row, col);
+    if (chased.winner === ctx.attacker) return true;
+    if (chased.winner) continue;
+
+    // Ladder breaker: the defender can turn on the chasing stones instead of
+    // running. Then the chase was never forced.
+    const running = getConnectedGroup(chased.board, anchor.row, anchor.col);
+    if (chaseIsBreakable(chased, ctx, running)) continue;
+
+    const left = [...getGroupLiberties(chased.board, running)];
+    if (left.length !== 1) continue; // not atari: this liberty was the wrong one
+
+    const { row: dr, col: dc } = parseKey(left[0]);
+    if (!isLegalMove(chased, dr, dc, ctx.defender)) continue;
+    const extended = applyMove(chased, dr, dc);
+    if (extended.winner === ctx.attacker) return true;
+    if (extended.winner) continue;
+
+    if (ladderStep(extended, ctx, anchor, steps - 1)) return true;
+  }
+  return false;
+}
+
+/** The first move of a ladder that captures `group`, or null. */
+function ladderCapture(state: GameState, ctx: ReadContext, group: Coord[]): Coord | null {
+  if (getGroupLiberties(state.board, group).size !== 2) return null;
+  if (chaseIsBreakable(state, ctx, group)) return null;
+  const anchor = group[0];
+  for (const key of getGroupLiberties(state.board, group)) {
+    const { row, col } = parseKey(key);
+    if (!isLegalMove(state, row, col, ctx.attacker)) continue;
+    const probe = applyMove(state, row, col);
+    if (probe.winner === ctx.attacker) return { row, col };
+    if (probe.winner) continue;
+    const running = getConnectedGroup(probe.board, anchor.row, anchor.col);
+    if (chaseIsBreakable(probe, ctx, running)) continue;
+    const left = [...getGroupLiberties(probe.board, running)];
+    if (left.length !== 1) continue;
+    const { row: dr, col: dc } = parseKey(left[0]);
+    if (!isLegalMove(probe, dr, dc, ctx.defender)) continue;
+    const extended = applyMove(probe, dr, dc);
+    if (extended.winner === ctx.attacker) return { row, col };
+    if (extended.winner) continue;
+    if (ladderStep(extended, ctx, anchor, LADDER_MAX_STEPS)) return { row, col };
+  }
+  return null;
+}
+
 /** Attacker to move: can they force a win within `depth` plies? */
 function attackerCanForce(state: GameState, depth: number, ctx: ReadContext): boolean {
   if (depth <= 0 || Date.now() >= ctx.deadline) return false;
@@ -153,6 +265,8 @@ function attackerCanForce(state: GameState, depth: number, ctx: ReadContext): bo
   // which is what keeps it from exploding the way retargeting on every
   // failure did.
   if (targetLiberties.size * 2 - 1 > depth) return retarget(state, depth, ctx, target);
+  // Depth-independent, so a chase that outruns the tree's horizon still counts.
+  if (targetLiberties.size === 2 && ladderCapture(state, ctx, target)) return true;
 
   for (const move of movesWithin(state, ctx.attacker, focusAround(state.board, target))) {
     const next = applyMove(state, move.row, move.col);
@@ -258,6 +372,9 @@ export function findForcedCapture(
       deadline,
       retargets: captureRetargets,
     };
+
+    const ladder = ladderCapture(state, ctx, group);
+    if (ladder) return { move: { type: "PLACE", ...ladder }, target: group[0] };
 
     for (const move of movesWithin(state, attacker, focusAround(state.board, group))) {
       const next = applyMove(state, move.row, move.col);
