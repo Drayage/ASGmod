@@ -17,6 +17,7 @@
       "territoryA": 7,
       "territoryB": 14,
       "territoryVerified": true,
+      "endReason": "COUNTED",
       "moveHistory": [
         {
           "type": "PLACE",
@@ -294,6 +295,7 @@
       "territoryA": 3,
       "territoryB": 4,
       "territoryVerified": false,
+      "endReason": "RESIGNATION",
       "moveHistory": [
         {
           "type": "PLACE",
@@ -546,6 +548,7 @@
       "territoryA": 12,
       "territoryB": 14,
       "territoryVerified": true,
+      "endReason": "COUNTED",
       "moveHistory": [
         {
           "type": "PLACE",
@@ -818,6 +821,7 @@
       "territoryA": 7,
       "territoryB": 11,
       "territoryVerified": true,
+      "endReason": "COUNTED",
       "moveHistory": [
         {
           "type": "PLACE",
@@ -1145,6 +1149,7 @@
       "territoryA": 11,
       "territoryB": 12,
       "territoryVerified": true,
+      "endReason": "COUNTED",
       "moveHistory": [
         {
           "type": "PLACE",

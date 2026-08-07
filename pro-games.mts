@@ -43,11 +43,20 @@ interface Diagram {
   firstPlayer: string;
   secondPlayer: string;
   /**
-   * Printed territory, first player then second, or null where the diagram
-   * was never marked up. Game two's score field reads 0/0 while its diagram
-   * carries no territory marks at all — an unfilled field, not a game where
-   * neither side held a point, which after 47 moves would be extraordinary
-   * next to the 7/14, 12/14 and 11/12 of the other three.
+   * Printed territory, first player then second, or null where the game was
+   * resigned.
+   *
+   * Four records show 0/0 with no territory marks at all. That is not a game
+   * where neither side held a point — it is a game that never reached a
+   * count, because the loser resigned. Territory is only scored when both
+   * sides play it out, so for these the printed 0/0 is the absence of a
+   * score rather than a score of zero, and the position the record ends on
+   * is a middlegame one nobody agreed was final.
+   *
+   * The consequence matters more than the label: a conversion rate off such
+   * a game would be measuring where somebody gave up, so these are excluded
+   * from every territory statistic. Their moves are real and complete, so
+   * they remain usable as seeds and as position data.
    */
   score: { first: number; second: number } | null;
   /**
@@ -87,7 +96,7 @@ const DIAGRAMS: Diagram[] = [
     secondRole: "pro",
     firstPlayer: "이정수",
     secondPlayer: "이세돌",
-    score: null,
+    score: null, // resigned
     rows: [
       ".  6  16 30 25 .  27 12 .",
       ".  .  5  26 10 13 9  20 .",
@@ -167,7 +176,7 @@ const DIAGRAMS: Diagram[] = [
     secondRole: "amateur",
     firstPlayer: "레이지니",
     secondPlayer: "종쌤",
-    score: null,
+    score: null, // resigned
     rows: [
       ".  42 .  19 44 .  .  14 .",
       "7  43 3  18 16 17 13 30 .",
@@ -187,7 +196,7 @@ const DIAGRAMS: Diagram[] = [
     secondRole: "amateur",
     firstPlayer: "종쌤",
     secondPlayer: "레이지니",
-    score: null,
+    score: null, // resigned
     rows: [
       ".  .  .  .  .  .  .  7  .",
       ".  .  .  .  10 .  4  .  .",
@@ -254,7 +263,7 @@ const DIAGRAMS: Diagram[] = [
     secondRole: "amateur",
     firstPlayer: "레이지니",
     secondPlayer: "종쌤",
-    score: null,
+    score: null, // resigned
     rows: [
       ".  .  .  .  .  .  .  10 .",
       ".  .  29 .  11 .  9  .  .",
@@ -438,7 +447,7 @@ for (const diagram of DIAGRAMS) {
   console.log(`  ${parsed.moves.length} moves, all legal: ${illegal === null ? "yes" : `NO — ${illegal}`}`);
   console.log(
     diagram.score === null
-      ? `  territory replayed ${replayed.first}/${replayed.second}; diagram not marked up, nothing to check against`
+      ? `  territory replayed ${replayed.first}/${replayed.second} at the point of resignation; not a final score`
       : `  territory replayed ${replayed.first}/${replayed.second}, ` +
         `diagram ${parsed.territory.first}/${parsed.territory.second} — ${scoreMatches ? "match" : "MISMATCH"}`,
   );
@@ -464,11 +473,11 @@ for (const diagram of DIAGRAMS) {
     winReason: state.winReason ?? null,
     territoryA: replayed.first,
     territoryB: replayed.second,
-    // The source scored four of the five. Game two's diagram carries no
-    // territory marks and its score field reads 0/0 while the replay gives
-    // 3/4, so its endpoint is not confirmed by anything and no conversion
-    // rate should be quoted from it. Its moves are verified either way.
+    // False on the resigned games. Their recorded position is wherever the
+    // loser stopped, so its territory is a middlegame snapshot and no
+    // conversion rate may be quoted from it.
     territoryVerified: diagram.score !== null,
+    endReason: diagram.score === null ? "RESIGNATION" : "COUNTED",
     moveHistory: parsed.moves.map((move) => ({ type: "PLACE", row: move.row, col: move.col })),
   });
 }

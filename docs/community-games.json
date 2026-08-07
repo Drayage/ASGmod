@@ -16,6 +16,7 @@
       "territoryA": 0,
       "territoryB": 4,
       "territoryVerified": false,
+      "endReason": "RESIGNATION",
       "moveHistory": [
         {
           "type": "PLACE",
@@ -252,6 +253,7 @@
       "territoryA": 1,
       "territoryB": 0,
       "territoryVerified": false,
+      "endReason": "RESIGNATION",
       "moveHistory": [
         {
           "type": "PLACE",
@@ -363,6 +365,7 @@
       "territoryA": 18,
       "territoryB": 13,
       "territoryVerified": true,
+      "endReason": "COUNTED",
       "moveHistory": [
         {
           "type": "PLACE",
@@ -605,6 +608,7 @@
       "territoryA": 16,
       "territoryB": 8,
       "territoryVerified": true,
+      "endReason": "COUNTED",
       "moveHistory": [
         {
           "type": "PLACE",
@@ -871,6 +875,7 @@
       "territoryA": 3,
       "territoryB": 1,
       "territoryVerified": false,
+      "endReason": "RESIGNATION",
       "moveHistory": [
         {
           "type": "PLACE",
@@ -1102,6 +1107,7 @@
       "territoryA": 11,
       "territoryB": 8,
       "territoryVerified": true,
+      "endReason": "COUNTED",
       "moveHistory": [
         {
           "type": "PLACE",
@@ -1423,6 +1429,7 @@
       "territoryA": 3,
       "territoryB": 3,
       "territoryVerified": true,
+      "endReason": "COUNTED",
       "moveHistory": [
         {
           "type": "PLACE",
@@ -1655,6 +1662,7 @@
       "territoryA": 10,
       "territoryB": 10,
       "territoryVerified": true,
+      "endReason": "COUNTED",
       "moveHistory": [
         {
           "type": "PLACE",
@@ -1943,6 +1951,7 @@
       "territoryA": 11,
       "territoryB": 17,
       "territoryVerified": true,
+      "endReason": "COUNTED",
       "moveHistory": [
         {
           "type": "PLACE",
