@@ -52,6 +52,11 @@ interface RecordedGame {
 export const DEFAULT_SEED_FILES = [
   "src/games/alley-boss-cats/testdata/humanGames.json",
   "docs/newbuild-games-32293a1.json",
+  // Five verified exhibition games. Clusters are what the honest interval is
+  // computed over and there were only twenty, so five more is a quarter more
+  // power — and these are the longest, most territorial positions available,
+  // which is the condition the candidates are meant to act in.
+  "docs/pro-games-20230822.json",
 ];
 
 /**
