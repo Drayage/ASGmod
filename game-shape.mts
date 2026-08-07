@@ -39,13 +39,29 @@ interface Move {
 interface Record_ {
   /** Absent in the three held-out games, which record no side for the human. */
   playerSide?: Player;
+  /** Set on the exhibition games: the side the stronger player took. */
+  strongSide?: Player;
   moveHistory: Move[];
 }
 
 const humanFiles = [
   "src/games/alley-boss-cats/testdata/humanGames.json",
   "docs/newbuild-games-32293a1.json",
+  "docs/pro-games-20230822.json",
 ].filter((path) => existsSync(path));
+
+/**
+ * Final territory and peak influence per role, so a conversion rate can be
+ * quoted for each. Roles come from the record and are never inferred.
+ */
+const byRole = new Map<string, { territory: number[]; peak: number[] }>();
+const role = (label: string) => {
+  const found = byRole.get(label);
+  if (found) return found;
+  const made = { territory: [] as number[], peak: [] as number[] };
+  byRole.set(label, made);
+  return made;
+};
 
 const humanPlies: number[] = [];
 const humanTerritory: number[] = [];
@@ -85,7 +101,20 @@ for (const path of humanFiles) {
     // Which side was the human is only recorded in some of the files, and a
     // guess would put the loser's ground in the winner's column, so the split
     // is taken only where the record actually says.
-    if (record.playerSide) {
+    const known = record.strongSide ?? record.playerSide;
+    if (known) {
+      const other: Player = known === "A" ? "B" : "A";
+      const labels: Record<Player, string> = record.strongSide
+        ? ({ [known]: "pro", [other]: "amateur" } as Record<Player, string>)
+        : ({ [known]: "human", [other]: "engine" } as Record<Player, string>);
+      for (const side of ["A", "B"] as const) {
+        const into = role(labels[side]);
+        into.territory.push(state.territories[side].length);
+        into.peak.push(peak[side]);
+      }
+    }
+
+    if (record.playerSide && !record.strongSide) {
       const engineSide: Player = record.playerSide === "A" ? "B" : "A";
       humanTerritory.push(state.territories[record.playerSide].length);
       humanLosingTerritory.push(state.territories[engineSide].length);
@@ -156,5 +185,19 @@ if (arena.length > 0) {
   );
   console.log(
     `  ${show("self-play Y peak", yPeak)}   -> ${rate(arena.map((game) => game.finalTerritory.Y), yPeak)}`,
+  );
+}
+
+console.log("\nby role — final territory and what share of peak influence it was:");
+for (const [label, data] of byRole) {
+  const territory = summarize(data.territory);
+  const peak = summarize(data.peak);
+  const rate =
+    peak.mean && territory.mean !== null ? `${((territory.mean / peak.mean) * 100).toFixed(1)}%` : "—";
+  console.log(
+    `  ${label.padEnd(9)} n=${String(territory.count).padStart(3)}  ` +
+      `peak ${String(peak.mean ?? "—").padStart(9)}  ` +
+      `territory ${String(territory.mean ?? "—").padStart(9)}  ` +
+      `conversion ${rate.padStart(7)}`,
   );
 }

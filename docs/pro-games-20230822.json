@@ -1,0 +1,1059 @@
+{
+  "format": "alley-boss-cats-games",
+  "version": 1,
+  "note": "2023-08-22 exhibition, 이세돌 playing four amateurs two boards at a time, second seat in every game. Transcribed from the published diagrams and verified: move numbering complete, every move legal under these rules, final territory equal to the printed score. Validation only; never train on these.",
+  "records": [
+    {
+      "id": "20230822-jongssam",
+      "playerSide": "B",
+      "strongSide": "B",
+      "firstPlayer": "종쌤",
+      "secondPlayer": "이세돌",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 7,
+      "territoryB": 14,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 6
+        }
+      ]
+    },
+    {
+      "id": "20230822-leejeongsu",
+      "playerSide": "B",
+      "strongSide": "B",
+      "firstPlayer": "이정수",
+      "secondPlayer": "이세돌",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 3,
+      "territoryB": 4,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 4
+        }
+      ]
+    },
+    {
+      "id": "20230822-leejunyoung",
+      "playerSide": "B",
+      "strongSide": "B",
+      "firstPlayer": "이준영",
+      "secondPlayer": "이세돌",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 12,
+      "territoryB": 14,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 6
+        }
+      ]
+    },
+    {
+      "id": "20230822-jangwoncheol",
+      "playerSide": "B",
+      "strongSide": "B",
+      "firstPlayer": "장원철",
+      "secondPlayer": "이세돌",
+      "winner": null,
+      "winReason": null,
+      "territoryA": 11,
+      "territoryB": 12,
+      "moveHistory": [
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 4
+        },
+        {
+          "type": "PLACE",
+          "row": 6,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 5,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 4,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 7
+        },
+        {
+          "type": "PLACE",
+          "row": 1,
+          "col": 8
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 5
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 1
+        },
+        {
+          "type": "PLACE",
+          "row": 7,
+          "col": 0
+        },
+        {
+          "type": "PLACE",
+          "row": 2,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 8,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 6
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 2
+        },
+        {
+          "type": "PLACE",
+          "row": 0,
+          "col": 3
+        },
+        {
+          "type": "PLACE",
+          "row": 3,
+          "col": 4
+        }
+      ]
+    }
+  ]
+}

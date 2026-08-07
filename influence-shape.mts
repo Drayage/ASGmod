@@ -37,6 +37,8 @@ interface Move {
 }
 interface Record_ {
   playerSide?: Player;
+  /** Set on the exhibition games: the side the stronger player took. */
+  strongSide?: Player;
   moveHistory: Move[];
 }
 
@@ -108,19 +110,40 @@ function shapeOf(owners: Array<Player | null>, board: GameState["board"], side: 
   };
 }
 
-const files = DEFAULT_SEED_FILES.filter((path) => existsSync(path));
-const stats: Record<"human" | "engine", { regions: number[]; largest: number[]; open: number[]; total: number[] }> = {
-  human: { regions: [], largest: [], open: [], total: [] },
-  engine: { regions: [], largest: [], open: [], total: [] },
+const files = [...DEFAULT_SEED_FILES, "docs/pro-games-20230822.json"].filter((path) =>
+  existsSync(path),
+);
+
+interface Bucket {
+  regions: number[];
+  largest: number[];
+  open: number[];
+  total: number[];
+  positions: number;
+}
+const stats = new Map<string, Bucket>();
+const bucket = (label: string): Bucket => {
+  const found = stats.get(label);
+  if (found) return found;
+  const made: Bucket = { regions: [], largest: [], open: [], total: [], positions: 0 };
+  stats.set(label, made);
+  return made;
 };
 let sampled = 0;
 
 for (const path of files) {
   const parsed = JSON.parse(readFileSync(path, "utf8")) as { records: Record_[] };
   for (const record of parsed.records) {
-    if (!record.playerSide) continue; // side not recorded; a guess would swap the columns
-    const human = record.playerSide;
-    const engine: Player = human === "A" ? "B" : "A";
+    // Which side is which has to be recorded, never inferred — a guess swaps
+    // the two columns and the whole comparison with them. The exhibition games
+    // name a stronger side; the rest are this project's own games against the
+    // engine.
+    const known = record.strongSide ?? record.playerSide;
+    if (!known) continue;
+    const other: Player = known === "A" ? "B" : "A";
+    const labels: Record<Player, string> = record.strongSide
+      ? ({ [known]: "pro", [other]: "amateur" } as Record<Player, string>)
+      : ({ [known]: "human", [other]: "engine" } as Record<Player, string>);
     let state: GameState = createInitialState();
     let ply = 0;
 
@@ -137,13 +160,15 @@ for (const path of files) {
       if (ply < 12) continue;
       const owners = influenceOwnerMap(state.board);
       sampled += 1;
-      for (const [who, side] of [["human", human], ["engine", engine]] as const) {
+      for (const side of ["A", "B"] as const) {
         const shape = shapeOf(owners, state.board, side);
         if (shape.regions === 0) continue;
-        stats[who].regions.push(shape.regions);
-        stats[who].largest.push(shape.largest);
-        stats[who].open.push(shape.openBoundaryShare);
-        stats[who].total.push(owners.filter((owner) => owner === side).length);
+        const into = bucket(labels[side]);
+        into.positions += 1;
+        into.regions.push(shape.regions);
+        into.largest.push(shape.largest);
+        into.open.push(shape.openBoundaryShare);
+        into.total.push(owners.filter((owner) => owner === side).length);
       }
     }
   }
@@ -154,8 +179,7 @@ console.log(
   `${"".padEnd(9)}${"influence".padStart(11)}${"regions".padStart(10)}` +
     `${"largest".padStart(10)}${"largest share".padStart(15)}${"open boundary".padStart(15)}`,
 );
-for (const who of ["human", "engine"] as const) {
-  const s = stats[who];
+for (const [who, s] of stats) {
   const total = summarize(s.total).mean ?? 0;
   const largest = summarize(s.largest).mean ?? 0;
   console.log(
