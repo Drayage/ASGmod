@@ -381,8 +381,33 @@ function libertyGainingMoves(
 
 /** Liberty count a thin group is allowed to sit at before this check starts
  * looking for reinforcement. Kept equal to captureSearch's own tracked
- * ceiling: below this, findForcedCapture is already the tool for the job. */
+ * ceiling: below this, findForcedCapture is already the tool for the job.
+ *
+ * Three is what shipped, and it is the reason this guard decides 23.8% of the
+ * engine's moves. Split by what triggered it over 604 recorded AI turns, the
+ * firing is halved between real urgency and not: 1.3% on a group already in
+ * atari, 23.3% on two liberties — one move from atari, genuinely pressing —
+ * and 23.0% on three, which takes three opponent moves against two replies.
+ *
+ * Settable so the arena can price dropping it to 2, which would hand that last
+ * 23.0% back to the full search and leave the guard covering every group that
+ * is actually one move from trouble.
+ */
 const THIN_GROUP_LIBERTY_THRESHOLD = 3;
+
+/**
+ * The same ceiling, for `thinGroupDanger` alone.
+ *
+ * Split out rather than making the constant itself settable, because the other
+ * two readers of it — `avoidSelfInflictedThin` — are asking a different
+ * question ("would this move leave me thin?") and have no part in the 23.8%
+ * measured above. Moving them together would change two behaviours and let the
+ * arena attribute the result to neither.
+ */
+let thinGroupLibertyThreshold = THIN_GROUP_LIBERTY_THRESHOLD;
+export function setThinGroupLibertyThreshold(value: number): void {
+  thinGroupLibertyThreshold = value;
+}
 
 /**
  * A cheaper, earlier net than existingGroupDanger above. That check only
@@ -417,7 +442,7 @@ function thinGroupDanger(rootState: GameState, aiPlayer: Player): AIAction[] {
 
   for (const group of getAllGroups(rootState.board, aiPlayer)) {
     const liberties = getGroupLiberties(rootState.board, group);
-    if (liberties.size === 0 || liberties.size > THIN_GROUP_LIBERTY_THRESHOLD) continue;
+    if (liberties.size === 0 || liberties.size > thinGroupLibertyThreshold) continue;
     // A liberty inside the mover's own confirmed territory can never be
     // filled by anyone — this group is permanently safe, not thin.
     if ([...liberties].some((l) => ownTerritory.has(l))) continue;
