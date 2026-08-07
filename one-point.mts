@@ -18,6 +18,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { applyAction } from "./src/games/alley-boss-cats/ai";
 import { createInitialState } from "./src/games/alley-boss-cats/rules";
 import { findSealingMoves } from "./src/games/alley-boss-cats/engine/territoryPlanner";
+import { evaluateState, getSafeActions, tuning, type AIAction } from "./src/games/alley-boss-cats/ai";
 import type { GameState, Player } from "./src/games/alley-boss-cats/types";
 import { DEFAULT_SEED_FILES } from "./arena-seeds";
 
@@ -105,6 +106,53 @@ for (const path of files) {
   }
 }
 
+/**
+ * The same question asked of the engine's own choices rather than the record:
+ * from each engine turn, pick a move by static evaluation and see how often
+ * the *next* position offers a seal of two cells or more. Both settings of
+ * `frameWeight`, same positions, so the comparison is the term and nothing
+ * else. A depth-one proxy for the search, and stated as one.
+ */
+function frameRate(weight: number): { turns: number; withSeal: number } {
+  let turns = 0;
+  let withSeal = 0;
+  for (const path of files) {
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as { records: Record_[] };
+    for (const record of parsed.records) {
+      if (!record.playerSide) continue;
+      const engineSide: Player = record.playerSide === "A" ? "B" : "A";
+      let state: GameState = createInitialState();
+      for (const move of record.moveHistory) {
+        if (state.winner) break;
+        const mover = state.currentPlayer;
+        const before = state;
+        state =
+          move.type === "PASS"
+            ? applyAction(state, { type: "PASS" })
+            : applyAction(state, { type: "PLACE", row: move.row!, col: move.col! });
+        if (mover !== engineSide) continue;
+        const { pool } = getSafeActions(before, mover);
+        if (pool.length < 2) continue;
+        tuning.frameWeight = weight;
+        let best: AIAction = pool[0];
+        let bestScore = -Infinity;
+        for (const action of pool) {
+          const score = evaluateState(applyAction(before, action), mover);
+          if (score > bestScore) {
+            bestScore = score;
+            best = action;
+          }
+        }
+        const after = applyAction(before, best);
+        turns += 1;
+        if (findSealingMoves(after, mover).some((seal) => seal.gained.length >= 2)) withSeal += 1;
+      }
+    }
+  }
+  tuning.frameWeight = 14;
+  return { turns, withSeal };
+}
+
 const pct = (part: number, whole: number) => (whole === 0 ? "—" : `${((part / whole) * 100).toFixed(1)}%`);
 console.log(`recorded games from ${files.length} file(s)\n`);
 console.log(
@@ -120,3 +168,12 @@ for (const [label, t] of tallies) {
       `${pct(t.biggerTaken, t.biggerAvailable).padStart(10)}`,
   );
 }
+
+console.log("\nafter the engine's own move, is a 2+ seal on offer? (depth-1 proxy)");
+for (const weight of [0, 14, 30, 60]) {
+  const { turns, withSeal } = frameRate(weight);
+  console.log(`  frameWeight ${String(weight).padStart(2)}:  ${pct(withSeal, turns)}  (${withSeal}/${turns})`);
+}
+console.log("  the engine's real moves, same question: 11.4%; humans 26-29%");
+console.log("  (the proxy scores below the engine it stands in for — it reads one");
+console.log("   ply where the engine reads seven. Weights compare to each other.)");

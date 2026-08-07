@@ -27,11 +27,23 @@ const MAX_TRACKED_LIBERTIES = 3;
  * `ai.ts -> frameworks.ts -> captureSearch.ts` is already a chain and reaching
  * back for `tuning` closes it into a cycle. The engine's other switchable
  * behaviours are set the same way for the same reason.
+ *
+ * One by default. At the settings the engine actually reads at — depth 7, a
+ * 600ms slice of the move budget — this takes the four published life-and-death
+ * problems from one right to four, in 2, 41, 43 and 44ms. Off, the same four
+ * take 3, 28, 26 and 4ms and answer only the first. The arena says it costs
+ * nothing over 240 games (clustered margin -0.099, captures 64:64), and
+ * `captureSoundness.test.ts` says the extra captures it claims are real ones.
  */
-let captureRetargets = 0;
+let captureRetargets = 1;
 
 export function setCaptureRetargets(value: number): void {
   captureRetargets = value;
+}
+
+/** What the engine is actually reading with, for harnesses that report it. */
+export function getCaptureRetargets(): number {
+  return captureRetargets;
 }
 
 function key(row: number, col: number): string {

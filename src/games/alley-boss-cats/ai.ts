@@ -2,6 +2,7 @@ import { getAllGroups, getGroupLiberties } from "./groups";
 import { applyMove, getLegalMoves, passTurn } from "./rules";
 import {
   closableInfluence,
+  framePotential,
   influenceCount,
   influenceCountFromMap,
   influenceOwnerMap,
@@ -229,6 +230,37 @@ export const tuning = {
    * is also a stone that can be hunted, and a capture loses outright.
    */
   connectionWeight: 1,
+  /**
+   * Points scored per empty point that is one stone away from being territory.
+   *
+   * Aimed at one measured number. A seal of two cells or more is available to
+   * the engine on 11% of its turns and to every human category on 24 to 27,
+   * and every territory candidate so far has been a knob acting on structure
+   * that was not there. This is the first that tries to create it.
+   *
+   * An evaluation term rather than a shortlist. Offering these moves as a
+   * candidate list instead took the move away from answering the opponent and
+   * broke two tests that exist to keep those answers — building a frame is
+   * what to do when nothing else is demanded, which is a matter of degree and
+   * so belongs in the score.
+   *
+   * Zero, because it does not work. Measured over 589 recorded engine turns by
+   * re-picking each move on static evaluation alone, the share of turns leaving
+   * a 2+ seal on offer went 5.9% at weight 0 to 5.8% at 14 and 30, and 7.0% at
+   * 60. The target was 26-29%.
+   *
+   * Not inert for a mechanical reason, which was the first thing checked: the
+   * term spreads 2.14 points across the average move pool and changes the
+   * chosen move on 3.5% of turns at weight 14, 7.5% at 30 and 15.8% at 60. It
+   * moves the engine; the seals just do not follow, and weight 60 is already
+   * loud enough to drown terms that decide games.
+   *
+   * The likely reason, consistent with everything else measured here: a point
+   * three-quarters walled is a consequence of a wall, not a cause of one, so
+   * paying for it buys the symptom. Kept at zero rather than deleted because
+   * the term is the cheapest handle on that structure if a later idea needs one.
+   */
+  frameWeight: 0,
   /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
    * 1.0). Zero reproduces the evaluation exactly as it was before that term
    * existed, so the arena can play the two head to head. */
@@ -346,7 +378,12 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
     // A permanently alive group is a lasting asset, for either side.
     mine.immortal * 30 -
     theirs.immortal * 30 +
-    (mine.connectedBonus * 3 - mine.isolated * 5) * tuning.connectionWeight
+    (mine.connectedBonus * 3 - mine.isolated * 5) * tuning.connectionWeight +
+    // Closable structure, the one thing measurement says the engine never
+    // builds. Counted for both sides: denying the opponent a frame is worth
+    // as much as making one.
+    (framePotential(state.board, aiPlayer) - framePotential(state.board, opp)) *
+      tuning.frameWeight
   );
 }
 

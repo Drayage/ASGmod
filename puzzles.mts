@@ -14,8 +14,11 @@
  *
  *   npx vite-node puzzles.mts
  */
-import { findForcedCapture } from "./src/games/alley-boss-cats/engine/captureSearch";
-import { setCaptureRetargets } from "./src/games/alley-boss-cats/engine/captureSearch";
+import {
+  findForcedCapture,
+  setCaptureRetargets,
+  getCaptureRetargets,
+} from "./src/games/alley-boss-cats/engine/captureSearch";
 import { getLegalMoves } from "./src/games/alley-boss-cats/rules";
 import { getAllGroups, getGroupLiberties } from "./src/games/alley-boss-cats/groups";
 import { BOARD_SIZE, CENTER, STARTING_CATS, playerCell } from "./src/games/alley-boss-cats/types";
@@ -109,9 +112,11 @@ function groupsOf(state: GameState, player: Player) {
 
 const DEPTH = Number(process.env.DEPTH ?? 10);
 const BUDGET = Number(process.env.BUDGET ?? 20000);
-const RETARGETS = Number(process.env.RETARGETS ?? 0);
-setCaptureRetargets(RETARGETS);
-console.log(`captureRetargets = ${RETARGETS}, depth ${DEPTH}, budget ${BUDGET}ms`);
+// Only override when asked. Left alone, this reports what the engine actually
+// reads with, so the run is a statement about shipped behaviour rather than
+// about whatever this file happened to default to.
+if (process.env.RETARGETS !== undefined) setCaptureRetargets(Number(process.env.RETARGETS));
+console.log(`captureRetargets = ${getCaptureRetargets()}, depth ${DEPTH}, budget ${BUDGET}ms`);
 
 for (const puzzle of PUZZLES) {
   const state = build(puzzle, BLUE);
@@ -216,7 +221,17 @@ function attackerWins(
   return { win: result, move: best };
 }
 
+/**
+ * Unbudgeted on purpose — the point is to answer "is there anything there?"
+ * without a clock deciding for us, and problem 3 has taken 52 seconds. That
+ * makes it easy to leave running by accident, so `DEEP=0` skips it and the
+ * reader's own results, which are what the engine actually does, print first
+ * and alone.
+ */
 const DEEP = Number(process.env.DEEP ?? 7);
+if (DEEP > 0) runSecondOpinion();
+
+function runSecondOpinion(): void {
 console.log(`\n\n=== second opinion: wide alpha-beta to ${DEEP} plies ===`);
 for (const puzzle of PUZZLES) {
   const state = build(puzzle, BLUE);
@@ -233,4 +248,5 @@ for (const puzzle of PUZZLES) {
     }
   }
   if (!answer.win) console.log(`  ${puzzle.name}: nothing forced within ${DEEP} plies (${Date.now() - started}ms)`);
+}
 }

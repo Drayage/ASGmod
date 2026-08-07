@@ -75,7 +75,9 @@ type Engine =
   | "VH_CLOSE"
   | "VH_NOCLOSE"
   | "VH_RETARGET"
-  | "VH_NORETARGET";
+  | "VH_NORETARGET"
+  | "VH_FRAME2"
+  | "VH_NOFRAME2";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -93,6 +95,8 @@ const CLOSE_DECAY = Number(process.env.CLOSE_DECAY ?? 0.6);
 const TESTING_CLOSE = process.env.ONLY === "CLOSE";
 const RETARGETS = Number(process.env.RETARGETS ?? 1);
 const TESTING_RETARGET = process.env.ONLY === "RETARGET";
+const FRAME_SEAL = Number(process.env.FRAME_SEAL ?? 2);
+const TESTING_FRAME2 = process.env.ONLY === "FRAME2";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -167,6 +171,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_CLOSE) tuning.closabilityDecay = engine === "VH_CLOSE" ? CLOSE_DECAY : 1;
   // 0 is the shipped read: one target group, no switching.
   if (TESTING_RETARGET) setCaptureRetargets(engine === "VH_RETARGET" ? RETARGETS : 0);
+  // 0 is the off value: the frame-building shortlist is skipped entirely.
+  if (TESTING_FRAME2) tuning.frameSealSize = engine === "VH_FRAME2" ? FRAME_SEAL : 0;
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -214,7 +220,9 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_CLOSE" ||
     engine === "VH_NOCLOSE" ||
     engine === "VH_RETARGET" ||
-    engine === "VH_NORETARGET"
+    engine === "VH_NORETARGET" ||
+    engine === "VH_FRAME2" ||
+    engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
   }
@@ -532,6 +540,9 @@ if (only === "TT") addMatch("VH+ttscores vs VH-nottscores", "VH_TT", "VH_NOTT");
 if (only === "OWN") addMatch(`VH+ownership(${OWN_W}) vs VERY_HARD`, "VH_OWN", "VH_NOOWN");
 if (only === "SEALURG") {
   addMatch(`VH+urgentSeal(${SEAL_URG}) vs VERY_HARD`, "VH_SEALURG", "VH_NOSEALURG");
+}
+if (only === "FRAME2") {
+  addMatch(`VH+frame(${FRAME_SEAL}) vs VERY_HARD`, "VH_FRAME2", "VH_NOFRAME2");
 }
 if (only === "RETARGET") {
   addMatch(`VH+retarget(${RETARGETS}) vs VERY_HARD`, "VH_RETARGET", "VH_NORETARGET");

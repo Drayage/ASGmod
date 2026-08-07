@@ -203,6 +203,50 @@ export function closableInfluence(
   return credit;
 }
 
+/**
+ * Empty points one move away from being this player's territory.
+ *
+ * A point becomes territory when everything around it is one colour or the
+ * board edge, so a point with three such neighbours and one gap is a frame
+ * waiting for a single stone. Counting them says how much closable structure a
+ * position holds, which is the thing the engine turns out not to build: a seal
+ * of two cells or more is available to it on 11% of its turns and to every
+ * human category on 24 to 27.
+ *
+ * Deliberately cheap — one pass, no board clones — because unlike
+ * `findSealingMoves` this runs at every leaf the search touches. It is an
+ * approximation of that function and not a replacement for it: it does not
+ * check whether the gap is legal to play, nor whether an enemy stone sits
+ * inside the region, so it over-counts. Bias is acceptable in an evaluation
+ * term; the exact version is still what the sealing stages use.
+ */
+export function framePotential(board: Board, player: Player): number {
+  const size = board.length;
+  const mine = playerCell(player);
+  let count = 0;
+
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      if (board[row][col] !== "EMPTY") continue;
+      let walls = 0;
+      let gaps = 0;
+      for (const [dr, dc] of DIRECTIONS) {
+        const r = row + dr;
+        const c = col + dc;
+        if (!inBounds(r, c)) {
+          walls += 1;
+          continue;
+        }
+        if (board[r][c] === mine) walls += 1;
+        else if (board[r][c] === "EMPTY") gaps += 1;
+        else gaps += 2; // an opponent stone can never become my wall
+      }
+      if (walls >= 3 && gaps <= 1) count += 1;
+    }
+  }
+  return count;
+}
+
 /** A single move that would settle a worthwhile number of cells. */
 export interface SealingMove {
   move: Coord;
