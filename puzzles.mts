@@ -15,6 +15,7 @@
  *   npx vite-node puzzles.mts
  */
 import { findForcedCapture } from "./src/games/alley-boss-cats/engine/captureSearch";
+import { setCaptureRetargets } from "./src/games/alley-boss-cats/engine/captureSearch";
 import { getLegalMoves } from "./src/games/alley-boss-cats/rules";
 import { getAllGroups, getGroupLiberties } from "./src/games/alley-boss-cats/groups";
 import { BOARD_SIZE, CENTER, STARTING_CATS, playerCell } from "./src/games/alley-boss-cats/types";
@@ -31,6 +32,14 @@ interface Puzzle {
   blue: string[];
   orange: string[];
 }
+
+/** First move of the published answer, recovered from the answer diagrams. */
+const ANSWERS: Record<string, string> = {
+  "1 (top left)": "F8",
+  "2 (top right)": "B8",
+  "3 (bottom left)": "F8",
+  "4 (bottom right)": "E8",
+};
 
 const PUZZLES: Puzzle[] = [
   { name: "1 (top left)", blue: ["E7", "D8", "D9"], orange: ["F7", "E8", "E9"] },
@@ -97,6 +106,9 @@ function groupsOf(state: GameState, player: Player) {
 
 const DEPTH = Number(process.env.DEPTH ?? 10);
 const BUDGET = Number(process.env.BUDGET ?? 20000);
+const RETARGETS = Number(process.env.RETARGETS ?? 0);
+setCaptureRetargets(RETARGETS);
+console.log(`captureRetargets = ${RETARGETS}, depth ${DEPTH}, budget ${BUDGET}ms`);
 
 for (const puzzle of PUZZLES) {
   const state = build(puzzle, BLUE);
@@ -114,12 +126,13 @@ for (const puzzle of PUZZLES) {
 
   if (forced) {
     const move = forced.move.type === "PLACE" ? name(forced.move.row, forced.move.col) : "PASS";
+    const published = ANSWERS[puzzle.name];
     console.log(
-      `  ANSWER: blue plays ${move}, capturing {${name(forced.target.row, forced.target.col)}}'s group ` +
-        `by force (${took}ms, depth ${DEPTH})`,
+      `  engine: ${move} (${took}ms) — published answer ${published}` +
+        `${move === published ? "  MATCH" : "  different move, may still win"}`,
     );
   } else {
-    console.log(`  no forced capture found at depth ${DEPTH} in ${took}ms`);
+    console.log(`  engine: nothing at depth ${DEPTH} in ${took}ms — published answer ${ANSWERS[puzzle.name]}  MISS`);
     // Say something useful about why rather than just failing.
     const legal = getLegalMoves(state, BLUE).length;
     console.log(`  (${legal} legal blue moves searched)`);

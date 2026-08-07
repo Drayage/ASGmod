@@ -20,6 +20,20 @@ import type { Board, Coord, GameState, Player } from "../types";
 
 const MAX_TRACKED_LIBERTIES = 3;
 
+/**
+ * How many times one read may switch which group it is hunting.
+ *
+ * A module-level setting rather than a field on `tuning`, because
+ * `ai.ts -> frameworks.ts -> captureSearch.ts` is already a chain and reaching
+ * back for `tuning` closes it into a cycle. The engine's other switchable
+ * behaviours are set the same way for the same reason.
+ */
+let captureRetargets = 0;
+
+export function setCaptureRetargets(value: number): void {
+  captureRetargets = value;
+}
+
 function key(row: number, col: number): string {
   return `${row},${col}`;
 }
@@ -92,6 +106,21 @@ interface ReadContext {
   /** Stone identifying the group under attack. */
   anchor: Coord;
   deadline: number;
+  /**
+   * How many times this line may still switch which group it is hunting.
+   *
+   * The read follows one group, which is what keeps it cheap enough to run at
+   * every node. The cost of that was measured against the publisher's own
+   * life-and-death problems: it solves one of four, and the three it misses
+   * are all the same shape. Blue threatens two groups, the defender saves one
+   * by abandoning the other, and the tracked group climbing past
+   * MAX_TRACKED_LIBERTIES reads as an escape — while the same position asked
+   * fresh finds the kill on the group that was given up.
+   *
+   * Each retarget is a whole new read, so this is a budget rather than a
+   * flag. Zero reproduces the old behaviour exactly.
+   */
+  retargets: number;
 }
 
 /** The group currently containing the anchor stone, or null once captured. */
@@ -108,16 +137,46 @@ function attackerCanForce(state: GameState, depth: number, ctx: ReadContext): bo
   const target = currentTarget(state.board, ctx);
   if (!target) return false;
   const targetLiberties = getGroupLiberties(state.board, target);
-  if (targetLiberties.size > MAX_TRACKED_LIBERTIES) return false;
+  // The hunted group has room to run. Before giving up on the line, see
+  // whether the defender bought that room by abandoning something else.
+  if (targetLiberties.size > MAX_TRACKED_LIBERTIES) return retarget(state, depth, ctx, target);
   // Escaped into permanent life: a liberty inside the defender's own
   // territory can never be filled by anyone.
-  if (hasTerritoryLiberty(state, ctx.defender, targetLiberties)) return false;
+  if (hasTerritoryLiberty(state, ctx.defender, targetLiberties)) {
+    return retarget(state, depth, ctx, target);
+  }
 
   for (const move of movesWithin(state, ctx.attacker, focusAround(state.board, target))) {
     const next = applyMove(state, move.row, move.col);
     if (next.winner === ctx.attacker) return true;
     if (next.winner) continue; // somehow lost — not a forcing line
     if (!defenderCanEscape(next, depth - 1, ctx)) return true;
+  }
+  return false;
+}
+
+/**
+ * The hunted group got away. Is some *other* defender group now catchable?
+ *
+ * Only groups the read would have accepted at the root are considered, and
+ * never the one just abandoned. Each attempt spends a retarget, so a line can
+ * only change its mind a bounded number of times however the fight develops.
+ */
+function retarget(state: GameState, depth: number, ctx: ReadContext, escaped: Coord[]): boolean {
+  if (ctx.retargets <= 0 || depth <= 0 || Date.now() >= ctx.deadline) return false;
+
+  const escapedKeys = coordKeySet(escaped);
+  const candidates = getAllGroups(state.board, ctx.defender)
+    .filter((group) => !escapedKeys.has(`${group[0].row},${group[0].col}`))
+    .map((group) => ({ group, liberties: getGroupLiberties(state.board, group) }))
+    .filter(({ liberties }) => liberties.size <= MAX_TRACKED_LIBERTIES)
+    .filter(({ liberties }) => !hasTerritoryLiberty(state, ctx.defender, liberties))
+    .sort((a, b) => a.liberties.size - b.liberties.size);
+
+  for (const { group } of candidates) {
+    if (Date.now() >= ctx.deadline) return false;
+    const next: ReadContext = { ...ctx, anchor: group[0], retargets: ctx.retargets - 1 };
+    if (attackerCanForce(state, depth, next)) return true;
   }
   return false;
 }
@@ -176,7 +235,13 @@ export function findForcedCapture(
 
   for (const { group } of targets) {
     if (Date.now() >= deadline) break;
-    const ctx: ReadContext = { attacker, defender, anchor: group[0], deadline };
+    const ctx: ReadContext = {
+      attacker,
+      defender,
+      anchor: group[0],
+      deadline,
+      retargets: captureRetargets,
+    };
 
     for (const move of movesWithin(state, attacker, focusAround(state.board, group))) {
       const next = applyMove(state, move.row, move.col);
