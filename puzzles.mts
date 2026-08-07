@@ -38,7 +38,10 @@ const ANSWERS: Record<string, string> = {
   "1 (top left)": "F8",
   "2 (top right)": "B8",
   "3 (bottom left)": "F8",
-  "4 (bottom right)": "E8",
+  // D7, not the E8 I first read off the answer diagram: D7 is the shared
+  // liberty of {D6} and {E7}, and confirmed by the author. E8 is blue's
+  // second move.
+  "4 (bottom right)": "D7",
 };
 
 const PUZZLES: Puzzle[] = [

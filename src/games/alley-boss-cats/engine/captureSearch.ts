@@ -141,10 +141,18 @@ function attackerCanForce(state: GameState, depth: number, ctx: ReadContext): bo
   // whether the defender bought that room by abandoning something else.
   if (targetLiberties.size > MAX_TRACKED_LIBERTIES) return retarget(state, depth, ctx, target);
   // Escaped into permanent life: a liberty inside the defender's own
-  // territory can never be filled by anyone.
+  // territory can never be filled by anyone. An eye is a stronger escape than
+  // extra liberties, not a weaker one, so this retargets for the same reason.
   if (hasTerritoryLiberty(state, ctx.defender, targetLiberties)) {
     return retarget(state, depth, ctx, target);
   }
+  // Out of road. Filling L liberties takes L attacker moves, so 2L-1 plies at
+  // best, and below that this group cannot be taken however the read goes.
+  // Switching here is what catches a defender who answered and simply lives
+  // without ever crossing the liberty cap — arithmetic rather than a guess,
+  // which is what keeps it from exploding the way retargeting on every
+  // failure did.
+  if (targetLiberties.size * 2 - 1 > depth) return retarget(state, depth, ctx, target);
 
   for (const move of movesWithin(state, ctx.attacker, focusAround(state.board, target))) {
     const next = applyMove(state, move.row, move.col);
@@ -152,6 +160,14 @@ function attackerCanForce(state: GameState, depth: number, ctx: ReadContext): bo
     if (next.winner) continue; // somehow lost — not a forcing line
     if (!defenderCanEscape(next, depth - 1, ctx)) return true;
   }
+
+  // Deliberately no retarget here, though this is where "let that one live
+  // and take the other" would have to come from — it is why problem 4 stays
+  // unsolved. Retargeting on every failed node rather than only on an escape
+  // was tried and is not viable: it never returned on that problem even at a
+  // 200ms budget, because each failure spawns a fresh read against every
+  // other group at the same depth and the deadline checks cannot unwind a
+  // tree growing that fast. Making it work needs a real bound, not a knob.
   return false;
 }
 
