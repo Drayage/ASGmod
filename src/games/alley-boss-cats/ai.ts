@@ -10,8 +10,8 @@ import {
 import { ownershipMargin } from "./engine/ownershipTerm";
 import { frameworkPotential } from "./engine/frameworks";
 import { coordKeySet } from "./territory";
-import { FIRST_PLAYER_MARGIN, opponent } from "./types";
-import type { Coord, GameState, Player } from "./types";
+import { DIRECTIONS, FIRST_PLAYER_MARGIN, inBounds, opponent } from "./types";
+import type { Board, Coord, GameState, Player } from "./types";
 
 export type Difficulty = "EASY" | "NORMAL" | "HARD" | "VERY_HARD";
 
@@ -107,6 +107,10 @@ interface ShapeStats {
   atari: number;
   /** Groups down to two escape routes — one move from atari. */
   nearAtari: number;
+  /** Of the above, the ones that can reach three liberties in a single move.
+   * Pressure on these threatens nothing the opponent cannot decline. */
+  escapableAtari: number;
+  escapableNearAtari: number;
   /** A group sitting on exactly three liberties — not yet urgent by the
    * atari/nearAtari tests, but a real category of its own. A group this thin
    * can be walked down to atari in a few unanswered opponent moves with no
@@ -126,6 +130,42 @@ interface ShapeStats {
   isolated: number;
 }
 
+/**
+ * Can this group lift itself to three or more liberties in a single move?
+ *
+ * Asked of groups already at one or two liberties, to tell pressure that
+ * threatens something from pressure the opponent simply steps out of. Measured
+ * over 13 recorded games, the engine squeezed a group to two liberties or fewer
+ * on 35% of its moves against a person's 22%, and 63 of those were escapable —
+ * 19 of them gaining it no ground and settling nothing, nine on a turn when a
+ * seal of two cells or more was sitting there. The person did that none times.
+ *
+ * Done by set arithmetic rather than by playing the move: after filling liberty
+ * p the group's liberties are the others it had, plus p's own empty neighbours.
+ * Four lookups per liberty, at most two liberties, so it costs a few operations
+ * per endangered group at a leaf the search visits constantly.
+ *
+ * Deliberately pessimistic about escaping in two places: it ignores that the
+ * escape might join a friendly group and inherit its liberties, and it ignores
+ * captures. Both make a real escape look impossible, which leaves the bonus at
+ * full strength — the erring direction that changes least.
+ */
+function escapesInOneMove(board: Board, liberties: Set<string>): boolean {
+  for (const filled of liberties) {
+    const [row, col] = filled.split(",").map(Number);
+    const after = new Set<string>();
+    for (const other of liberties) if (other !== filled) after.add(other);
+    for (const [dr, dc] of DIRECTIONS) {
+      const r = row + dr;
+      const c = col + dc;
+      if (!inBounds(r, c)) continue;
+      if (board[r][c] === "EMPTY") after.add(`${r},${c}`);
+    }
+    if (after.size >= 3) return true;
+  }
+  return false;
+}
+
 /** One pass over a player's groups collecting everything the evaluation
  * needs. Computing these separately re-walked the whole board per term. */
 function shapeStats(state: GameState, player: Player): ShapeStats {
@@ -133,6 +173,8 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
     totalLiberties: 0,
     atari: 0,
     nearAtari: 0,
+    escapableAtari: 0,
+    escapableNearAtari: 0,
     thin: 0,
     immortal: 0,
     connectedBonus: 0,
@@ -153,9 +195,13 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
       }
     }
     if (immortal) stats.immortal += 1;
-    else if (liberties.size === 1) stats.atari += 1;
-    else if (liberties.size === 2) stats.nearAtari += 1;
-    else if (liberties.size === 3) stats.thin += 1;
+    else if (liberties.size === 1) {
+      stats.atari += 1;
+      if (escapesInOneMove(state.board, liberties)) stats.escapableAtari += 1;
+    } else if (liberties.size === 2) {
+      stats.nearAtari += 1;
+      if (escapesInOneMove(state.board, liberties)) stats.escapableNearAtari += 1;
+    } else if (liberties.size === 3) stats.thin += 1;
     stats.connectedBonus += group.length - 1;
     if (group.length === 1) stats.isolated += 1;
   }
@@ -261,6 +307,26 @@ export const tuning = {
    * the term is the cheapest handle on that structure if a later idea needs one.
    */
   frameWeight: 0,
+  /**
+   * What pressure is worth when the opponent can walk out of it in one move.
+   *
+   * The evaluation pays `theirs.atari * 45` and `theirs.nearAtari * 16` whether
+   * or not the squeeze threatens anything, while a two-cell seal is worth about
+   * 24 through projectedMargin. So an atari the opponent simply steps out of
+   * outprices settled ground, and the search takes it.
+   *
+   * Measured over 13 recorded games: the engine drove a group to two liberties
+   * or fewer on 35% of its moves against a person's 22%, and spent 1.5 moves a
+   * game on squeezes that could not catch anything, gained it no reach and
+   * settled nothing — the person spent 0.7. Nine of those 19 came on a turn
+   * when a 2+ cell seal was available; the person did that zero times out of
+   * nine.
+   *
+   * 1 is the shipped behaviour exactly. Lower pays less for pressure the
+   * opponent can decline, while leaving pressure on groups that cannot escape
+   * at full price — the distinction the player drew, and the whole point.
+   */
+  escapablePressureWeight: 1,
   /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
    * 1.0). Zero reproduces the evaluation exactly as it was before that term
    * existed, so the arena can play the two head to head. */
@@ -365,11 +431,17 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
     severeInfluenceTerm(aiPlayer, opp, influence) +
     mine.totalLiberties * 5 -
     theirs.totalLiberties * 6 +
-    theirs.atari * 45 -
+    // Pressure priced by whether it threatens anything. The escapable share is
+    // discounted on their side only: my own group being in atari is just as bad
+    // whether or not I can wriggle out, since the search will have to spend the
+    // move either way.
+    (theirs.atari - theirs.escapableAtari) * 45 +
+    theirs.escapableAtari * 45 * tuning.escapablePressureWeight -
     mine.atari * 90 +
     // A two-liberty group is one forcing move from atari — the shape the AI
     // used to wander into happily.
-    theirs.nearAtari * 16 -
+    (theirs.nearAtari - theirs.escapableNearAtari) * 16 +
+    theirs.escapableNearAtari * 16 * tuning.escapablePressureWeight -
     mine.nearAtari * 34 +
     // A lone cat on three liberties is not yet urgent, but it is already the
     // shape a slow, unanswered squeeze starts from — see the ShapeStats

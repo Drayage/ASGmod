@@ -83,7 +83,9 @@ type Engine =
   | "VH_THINGUARD"
   | "VH_NOTHINGUARD"
   | "VH_THIN2"
-  | "VH_NOTHIN2";
+  | "VH_NOTHIN2"
+  | "VH_ESCP"
+  | "VH_NOESCP";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -109,6 +111,9 @@ const TESTING_THINGUARD = process.env.ONLY === "THINGUARD";
 // from three liberties to two.
 const THIN_LIBS = Number(process.env.THIN_LIBS ?? 2);
 const TESTING_THIN2 = process.env.ONLY === "THIN2";
+// What pressure the opponent can step out of is worth. 1 is shipped.
+const ESC_W = Number(process.env.ESC_W ?? 0);
+const TESTING_ESCP = process.env.ONLY === "ESCP";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -187,6 +192,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_FRAME2) tuning.frameSealSize = engine === "VH_FRAME2" ? FRAME_SEAL : 0;
   if (TESTING_THINGUARD) setThinGroupGuardEnabled(engine === "VH_THINGUARD");
   if (TESTING_THIN2) setThinGroupLibertyThreshold(engine === "VH_THIN2" ? THIN_LIBS : 3);
+  if (TESTING_ESCP) tuning.escapablePressureWeight = engine === "VH_ESCP" ? ESC_W : 1;
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -240,6 +246,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOTHINGUARD" ||
     engine === "VH_THIN2" ||
     engine === "VH_NOTHIN2" ||
+    engine === "VH_ESCP" ||
+    engine === "VH_NOESCP" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -590,6 +598,10 @@ if (only === "THINGUARD") {
 }
 if (only === "THIN2") {
   addMatch(`VH thinGuard@${THIN_LIBS} vs thinGuard@3`, "VH_THIN2", "VH_NOTHIN2");
+}
+// Candidate first: VH_ESCP discounts escapable pressure, VH_NOESCP is shipped.
+if (only === "ESCP") {
+  addMatch(`VH escapablePressure(${ESC_W}) vs VERY_HARD`, "VH_ESCP", "VH_NOESCP");
 }
 if (only === "CLOSE") {
   addMatch(`VH+closable(${CLOSE_DECAY}) vs VERY_HARD`, "VH_CLOSE", "VH_NOCLOSE");
