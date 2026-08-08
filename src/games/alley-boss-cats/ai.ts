@@ -114,6 +114,16 @@ interface ShapeStats {
   /** Groups at three liberties or fewer that no move can give more of.
    * Not a count of how thin they are — a count of the ones already finished. */
   sealed: number;
+  /**
+   * Liberties of an endangered group that could still be enclosed into an eye:
+   * no enemy stone beside them, and at most two empty neighbours to fill.
+   *
+   * One eye is life here, because confirmed territory can never be played by
+   * either side, so this is the count of a thin group's ways to live. It falls
+   * when the opponent takes one — and it falls when the group's own owner plays
+   * on it, which is how the engine lost both games it was traced through.
+   */
+  eyeSpace: number;
   /** A group sitting on exactly three liberties — not yet urgent by the
    * atari/nearAtari tests, but a real category of its own. A group this thin
    * can be walked down to atari in a few unanswered opponent moves with no
@@ -221,6 +231,7 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
     escapableAtari: 0,
     escapableNearAtari: 0,
     sealed: 0,
+    eyeSpace: 0,
     thin: 0,
     immortal: 0,
     connectedBonus: 0,
@@ -233,6 +244,8 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
   // ply at every leaf for a number nothing read.
   const splitEscapable = tuning.escapablePressureWeight !== 1;
   const countSealed = tuning.sealedWeight !== 0;
+  const countEyeSpace = tuning.eyeSpaceWeight !== 0;
+  const enemyCell = playerCell(opponent(player));
   for (const group of getAllGroups(state.board, player)) {
     const liberties = getGroupLiberties(state.board, group);
     stats.totalLiberties += liberties.size;
@@ -265,6 +278,23 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
       !canBreathe(state.board, group, liberties, player)
     ) {
       stats.sealed += 1;
+    }
+    // Counted in the same pass over the same liberties, so it costs a neighbour
+    // scan and nothing else. Gated all the same.
+    if (countEyeSpace && !immortal && liberties.size <= 3) {
+      for (const key of liberties) {
+        const [row, col] = key.split(",").map(Number);
+        let empties = 0;
+        let enemyBeside = false;
+        for (const [dr, dc] of DIRECTIONS) {
+          const r = row + dr;
+          const c = col + dc;
+          if (!inBounds(r, c)) continue;
+          if (state.board[r][c] === enemyCell) { enemyBeside = true; break; }
+          if (state.board[r][c] === "EMPTY") empties += 1;
+        }
+        if (!enemyBeside && empties <= 2) stats.eyeSpace += 1;
+      }
     }
     stats.connectedBonus += group.length - 1;
     if (group.length === 1) stats.isolated += 1;
@@ -418,6 +448,26 @@ export const tuning = {
    * time was never going to be enough.
    */
   sealedWeight: 0,
+  /**
+   * Points per liberty of a thin group that could still be closed into an eye.
+   * Zero is the shipped evaluation exactly, and skips the count.
+   *
+   * The player's read of why groups die: with nobody to connect to, the move is
+   * to wall off a point of your own rather than keep extending, and the engine
+   * never tries it. Traced through both lost games and it is worse than that —
+   * the eye was available for nine turns in each, and on turn 13 the engine
+   * played the eye point itself, which is what ended the group.
+   *
+   * `immortal` pays 30 for a finished eye and nothing for one two moves off, so
+   * an extension that adds liberties immediately always outbids starting one.
+   * This is the missing half: ground that is still closeable is worth something
+   * while it is still closeable.
+   *
+   * Unlike the three terms that measured zero today, this one bites on the move
+   * itself rather than through lookahead — filling the point drops the count at
+   * depth one, in the same evaluation that is choosing the move.
+   */
+  eyeSpaceWeight: 0,
   /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
    * 1.0). Zero reproduces the evaluation exactly as it was before that term
    * existed, so the arena can play the two head to head. */
@@ -540,6 +590,8 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
     (theirs.thin * 7 - mine.thin * 15) * tuning.thinWeight +
     // A group that cannot gain a liberty is not thin, it is finished.
     (theirs.sealed - mine.sealed) * tuning.sealedWeight +
+    // Ways left for a thin group to live, counted for both sides.
+    (mine.eyeSpace - theirs.eyeSpace) * tuning.eyeSpaceWeight +
     // A permanently alive group is a lasting asset, for either side.
     mine.immortal * 30 -
     theirs.immortal * 30 +
@@ -599,6 +651,7 @@ export function evaluateComponents(
     myNearAtari: -(mine.nearAtari * 34),
     thin: (theirs.thin * 7 - mine.thin * 15) * tuning.thinWeight,
     sealed: (theirs.sealed - mine.sealed) * tuning.sealedWeight,
+    eyeSpace: (mine.eyeSpace - theirs.eyeSpace) * tuning.eyeSpaceWeight,
     immortal: mine.immortal * 30 - theirs.immortal * 30,
     connection: (mine.connectedBonus * 3 - mine.isolated * 5) * tuning.connectionWeight,
     frame:
