@@ -14,7 +14,7 @@
 import { readFileSync } from "node:fs";
 import { applyAction, tuning } from "./src/games/alley-boss-cats/ai";
 import { createInitialState } from "./src/games/alley-boss-cats/rules";
-import { findBestMoveVeryHard } from "./src/games/alley-boss-cats/engine/minimax";
+import { findBestMoveVeryHard, lastDecision } from "./src/games/alley-boss-cats/engine/minimax";
 import { getAllGroups, getConnectedGroup, getGroupLiberties } from "./src/games/alley-boss-cats/groups";
 import { getSafeActions } from "./src/games/alley-boss-cats/ai";
 import { influenceOwnerMap, influenceCountFromMap } from "./src/games/alley-boss-cats/engine/territoryPlanner";
@@ -60,6 +60,7 @@ function isEmptyChase(state: GameState, move: AIAction, mover: Player): boolean 
   return reachAfter <= reachBefore && !settled;
 }
 
+const byStage = new Map<string, number>();
 const result = new Map<number, { turns: number; chases: number; changed: number }>();
 for (const weight of [1, 0]) result.set(weight, { turns: 0, chases: 0, changed: 0 });
 let differ = 0;
@@ -76,9 +77,15 @@ for (const path of process.argv.slice(2)) {
           tuning.escapablePressureWeight = weight;
           const mv = findBestMoveVeryHard(state, ai, BUDGET);
           picks[weight] = mv;
+          const stage = lastDecision.stage;
           const r = result.get(weight)!;
           r.turns += 1;
-          if (isEmptyChase(state, mv, ai)) r.chases += 1;
+          if (isEmptyChase(state, mv, ai)) {
+            r.chases += 1;
+            // Which stage picked it. If a guard did, no evaluation weight can
+            // stop it — that is what the thin-group finding looked like too.
+            byStage.set(`${weight}|${stage}`, (byStage.get(`${weight}|${stage}`) ?? 0) + 1);
+          }
         }
         tuning.escapablePressureWeight = 1;
         const a = picks[1], b = picks[0];
@@ -100,3 +107,8 @@ for (const weight of [1, 0]) {
   );
 }
 console.log(`\n  the two weights chose a different move on ${differ} turns`);
+console.log(`\n  which stage picked the empty chases:`);
+for (const [k, n] of [...byStage.entries()].sort((a, b) => b[1] - a[1])) {
+  const [w, stage] = k.split("|");
+  console.log(`    weight ${w}  ${stage.padEnd(26)} ${n}`);
+}

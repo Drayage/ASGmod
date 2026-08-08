@@ -30,10 +30,14 @@ interface Side {
   escapable: number;
   /** Escapable squeezes that gained the mover no reach and settled nothing. */
   pureLoss: number;
+  /** ...of those, the ones that did not shrink the opponent's reach either.
+   * Denying them ground is worth a move even when it wins me none, and the
+   * first version of this metric missed that entirely. */
+  pureLossEvenForThem: number;
   /** ...and a 2+ seal was available instead on that same turn. */
   sealWasAvailable: number;
 }
-const blank = (): Side => ({ moves: 0, squeezes: 0, escapable: 0, pureLoss: 0, sealWasAvailable: 0 });
+const blank = (): Side => ({ moves: 0, squeezes: 0, escapable: 0, pureLoss: 0, pureLossEvenForThem: 0, sealWasAvailable: 0 });
 const stats = new Map<string, { ai: Side; human: Side; games: number }>();
 const gkey = (g: Array<{ row: number; col: number }>) =>
   g.map((s) => `${s.row},${s.col}`).sort().join("|");
@@ -58,7 +62,9 @@ for (const path of process.argv.slice(2)) {
 
       const before = new Map<string, number>();
       for (const g of getAllGroups(state.board, foe)) before.set(gkey(g), getGroupLiberties(state.board, g).size);
-      const reachBefore = influenceCountFromMap(influenceOwnerMap(state.board))[mover];
+      const infBefore = influenceCountFromMap(influenceOwnerMap(state.board));
+      const reachBefore = infBefore[mover];
+      const foeReachBefore = infBefore[foe];
       const sealHere = findSealingMoves(state, mover).some((x) => x.gained.length >= 2);
 
       const after = applyAction(state, { type: "PLACE", row: m.row, col: m.col });
@@ -89,11 +95,12 @@ for (const path of process.argv.slice(2)) {
       side.escapable += 1;
 
       // Did the move do anything else for the mover?
-      const reachAfter = influenceCountFromMap(influenceOwnerMap(after.board))[mover];
+      const infAfter = influenceCountFromMap(influenceOwnerMap(after.board));
       const settled = after.territories[mover].length > state.territories[mover].length;
-      if (reachAfter <= reachBefore && !settled) {
+      if (infAfter[mover] <= reachBefore && !settled) {
         side.pureLoss += 1;
         if (sealHere) side.sealWasAvailable += 1;
+        if (infAfter[foe] >= foeReachBefore) side.pureLossEvenForThem += 1;
       }
       state = after;
     }
@@ -105,13 +112,14 @@ for (const [build, s] of [...stats.entries()].sort((a, b) => a[1].games - b[1].g
   console.log(`\n=== ${build}  (${s.games} games)`);
   console.log(
     `${"".padEnd(8)}${"moves".padStart(7)}${"squeeze".padStart(9)}${"escapable".padStart(11)}` +
-      `${"gained nothing".padStart(16)}${"per game".padStart(10)}${"seal was there".padStart(16)}`,
+      `${"gained nothing".padStart(16)}${"nor denied".padStart(12)}${"per game".padStart(10)}${"seal was there".padStart(16)}`,
   );
   for (const [who, d] of [["AI", s.ai], ["human", s.human]] as const) {
     console.log(
       `${who.padEnd(8)}${String(d.moves).padStart(7)}${String(d.squeezes).padStart(9)}` +
         `${String(d.escapable).padStart(11)}${String(d.pureLoss).padStart(16)}` +
-        `${(d.pureLoss / s.games).toFixed(1).padStart(10)}${String(d.sealWasAvailable).padStart(16)}`,
+        `${String(d.pureLossEvenForThem).padStart(12)}` +
+        `${(d.pureLossEvenForThem / s.games).toFixed(1).padStart(10)}${String(d.sealWasAvailable).padStart(16)}`,
     );
   }
 }
