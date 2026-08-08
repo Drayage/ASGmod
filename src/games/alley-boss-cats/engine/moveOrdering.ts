@@ -86,6 +86,11 @@ export function localMoveScore(board: Board, row: number, col: number, player: P
  * ends the game on the spot, since one capture wins outright here. Neither may
  * be dropped for scoring badly on a shape heuristic.
  */
+export let decisivePointsEnabled = true;
+export function setDecisivePointsEnabled(value: boolean): void {
+  decisivePointsEnabled = value;
+}
+
 function decisivePoints(state: GameState, player: Player): AIAction[] {
   const out: AIAction[] = [];
   const seen = new Set<string>();
@@ -124,7 +129,7 @@ export function orderedCandidates(
   const present = new Set(
     top.map((a) => (a.type === "PLACE" ? `${a.row},${a.col}` : "PASS")),
   );
-  for (const action of decisivePoints(state, player)) {
+  if (decisivePointsEnabled) for (const action of decisivePoints(state, player)) {
     if (action.type !== "PLACE") continue;
     const key = `${action.row},${action.col}`;
     if (present.has(key)) continue;
