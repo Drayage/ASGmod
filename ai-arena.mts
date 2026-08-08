@@ -11,6 +11,7 @@ import {
   findBestMoveVeryHard,
   setSelfInflictedThinGuardEnabled,
   setThinGroupGuardEnabled,
+  setEyeMakingDefenceEnabled,
   setThinGroupLibertyThreshold,
   setDominatedPocketGuardEnabled,
   setExistingGroupDangerRankingEnabled,
@@ -88,7 +89,9 @@ type Engine =
   | "VH_ESCP"
   | "VH_NOESCP"
   | "VH_DECISIVE"
-  | "VH_NODECISIVE";
+  | "VH_NODECISIVE"
+  | "VH_EYE"
+  | "VH_NOEYE";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -119,6 +122,10 @@ const ESC_W = Number(process.env.ESC_W ?? 0);
 const TESTING_ESCP = process.env.ONLY === "ESCP";
 // Restoring the atari escape / kill point that move ordering was cutting.
 const TESTING_DECISIVE = process.env.ONLY === "DECISIVE";
+// Eye-space term plus the walling candidates in the danger guard, together —
+// the term is only ever consulted when the guard offers something to choose.
+const EYE_W = Number(process.env.EYE_W ?? 60);
+const TESTING_EYE = process.env.ONLY === "EYE";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -199,6 +206,11 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_THIN2) setThinGroupLibertyThreshold(engine === "VH_THIN2" ? THIN_LIBS : 3);
   if (TESTING_ESCP) tuning.escapablePressureWeight = engine === "VH_ESCP" ? ESC_W : 1;
   if (TESTING_DECISIVE) setDecisivePointsEnabled(engine === "VH_DECISIVE");
+  if (TESTING_EYE) {
+    const on = engine === "VH_EYE";
+    tuning.eyeSpaceWeight = on ? EYE_W : 0;
+    setEyeMakingDefenceEnabled(on);
+  }
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -256,6 +268,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOESCP" ||
     engine === "VH_DECISIVE" ||
     engine === "VH_NODECISIVE" ||
+    engine === "VH_EYE" ||
+    engine === "VH_NOEYE" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -614,6 +628,9 @@ if (only === "ESCP") {
 // Candidate first: VH_DECISIVE keeps the atari points, VH_NODECISIVE is shipped.
 if (only === "DECISIVE") {
   addMatch("VH+decisivePoints vs VERY_HARD", "VH_DECISIVE", "VH_NODECISIVE");
+}
+if (only === "EYE") {
+  addMatch(`VH+eye(${EYE_W})+walling vs VERY_HARD`, "VH_EYE", "VH_NOEYE");
 }
 if (only === "CLOSE") {
   addMatch(`VH+closable(${CLOSE_DECAY}) vs VERY_HARD`, "VH_CLOSE", "VH_NOCLOSE");
