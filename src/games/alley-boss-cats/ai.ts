@@ -459,6 +459,60 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
   );
 }
 
+/**
+ * The same score, itemised, for working out *why* a move was chosen.
+ *
+ * Kept as a second function rather than a refactor of evaluateState, because
+ * that function runs at every leaf of every search and reordering its
+ * arithmetic risks changing results for no benefit. The two are held together
+ * by a test asserting they agree, so this cannot silently drift.
+ *
+ * The short-circuit branches are reported as themselves: when one fires it is
+ * the whole score, and knowing that is usually the answer.
+ */
+export function evaluateComponents(
+  state: GameState,
+  aiPlayer: Player,
+): Record<string, number> {
+  if (state.winner === aiPlayer) return { winner: 1_000_000 };
+  if (state.winner && state.winner !== aiPlayer) return { winner: -1_000_000 };
+
+  const opp = opponent(aiPlayer);
+  const mine = shapeStats(state, aiPlayer);
+  const theirs = shapeStats(state, opp);
+  if (mine.atari > 0 && state.currentPlayer === opp) return { myGroupIsLost: -NEAR_DECISIVE };
+  if (theirs.atari > 0 && state.currentPlayer === aiPlayer) return { theirGroupIsLost: NEAR_DECISIVE };
+
+  const owners = influenceOwnerMap(state.board);
+  const influence = influenceCountFromMap(owners);
+  const open =
+    tuning.closabilityDecay < 1
+      ? closableInfluence(state.board, owners, tuning.closabilityDecay)
+      : influence;
+
+  return {
+    territory: projectedMarginFrom(state, aiPlayer, influence, open) * 100,
+    framework: frameworkTerm(state, aiPlayer, opp),
+    severeInfluence: severeInfluenceTerm(aiPlayer, opp, influence),
+    myLiberties: mine.totalLiberties * 5,
+    theirLiberties: -(theirs.totalLiberties * 6),
+    theirAtari:
+      (theirs.atari - theirs.escapableAtari) * 45 +
+      theirs.escapableAtari * 45 * tuning.escapablePressureWeight,
+    myAtari: -(mine.atari * 90),
+    theirNearAtari:
+      (theirs.nearAtari - theirs.escapableNearAtari) * 16 +
+      theirs.escapableNearAtari * 16 * tuning.escapablePressureWeight,
+    myNearAtari: -(mine.nearAtari * 34),
+    thin: (theirs.thin * 7 - mine.thin * 15) * tuning.thinWeight,
+    immortal: mine.immortal * 30 - theirs.immortal * 30,
+    connection: (mine.connectedBonus * 3 - mine.isolated * 5) * tuning.connectionWeight,
+    frame:
+      (framePotential(state.board, aiPlayer) - framePotential(state.board, opp)) *
+      tuning.frameWeight,
+  };
+}
+
 export function candidateActions(state: GameState, player: Player): AIAction[] {
   const placements: AIAction[] = getLegalMoves(state, player).map(
     (coord: Coord): AIAction => ({ type: "PLACE", row: coord.row, col: coord.col }),
