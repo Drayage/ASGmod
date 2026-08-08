@@ -186,12 +186,25 @@ function actionKey(action: AIAction): string {
 
 /** Branch factor narrows as the search deepens so the tree stays inside its
  * time budget while still following the critical line a long way. */
+/**
+ * Scale on how many moves each inner node considers. 1 is shipped.
+ *
+ * Settable so the "the defender's escape was never in the list" explanation for
+ * the engine's phantom captures can be tested by widening rather than argued.
+ */
+export let branchLimitScale = 1;
+export function setBranchLimitScale(value: number): void {
+  branchLimitScale = value;
+}
+
 function branchLimit(remainingDepth: number): number {
-  if (remainingDepth >= 5) return 14;
-  if (remainingDepth === 4) return 12;
-  if (remainingDepth === 3) return 10;
-  if (remainingDepth === 2) return 8;
-  return 6;
+  const base =
+    remainingDepth >= 5 ? 14
+    : remainingDepth === 4 ? 12
+    : remainingDepth === 3 ? 10
+    : remainingDepth === 2 ? 8
+    : 6;
+  return Math.round(base * branchLimitScale);
 }
 
 function minimax(

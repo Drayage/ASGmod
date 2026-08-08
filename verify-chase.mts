@@ -18,7 +18,7 @@
 import { readFileSync } from "node:fs";
 import { applyAction, getSafeActions } from "./src/games/alley-boss-cats/ai";
 import { createInitialState } from "./src/games/alley-boss-cats/rules";
-import { findBestMoveVeryHard, lastSearchScore } from "./src/games/alley-boss-cats/engine/minimax";
+import { findBestMoveVeryHard, lastSearchScore, setBranchLimitScale } from "./src/games/alley-boss-cats/engine/minimax";
 import { getAllGroups, getConnectedGroup, getGroupLiberties } from "./src/games/alley-boss-cats/groups";
 import { influenceOwnerMap, influenceCountFromMap } from "./src/games/alley-boss-cats/engine/territoryPlanner";
 import { opponent } from "./src/games/alley-boss-cats/types";
@@ -26,6 +26,8 @@ import type { AIAction, GameState, Player } from "./src/games/alley-boss-cats/ai
 
 const BUDGET = Number(process.env.BUDGET ?? 800);
 const PLAYOUT = Number(process.env.PLAYOUT ?? 10);
+const SCALE = Number(process.env.SCALE ?? 1);
+setBranchLimitScale(SCALE);
 const gkey = (g: Array<{ row: number; col: number }>) =>
   g.map((s) => `${s.row},${s.col}`).sort().join("|");
 
@@ -100,7 +102,7 @@ for (const path of process.argv.slice(2)) {
 }
 
 console.log(`moves my metric flagged as wasted chases: ${flagged}`);
-console.log(`played out ${PLAYOUT} plies at ${BUDGET}ms with both sides searching\n`);
+console.log(`played out ${PLAYOUT} plies at ${BUDGET}ms, branch limit x${SCALE}\n`);
 for (const [k, n] of [...outcomes.entries()].sort((a, b) => b[1] - a[1])) {
   console.log(`  ${k.padEnd(52)} ${n}`);
 }
