@@ -1,6 +1,6 @@
 import type { AIAction } from "../ai";
-import { getConnectedGroup, getGroupLiberties } from "../groups";
-import { getLegalMoves } from "../rules";
+import { getAllGroups, getConnectedGroup, getGroupLiberties } from "../groups";
+import { getLegalMoves, isLegalMove } from "../rules";
 import { DIRECTIONS, inBounds, opponent, playerCell } from "../types";
 import type { Board, GameState, Player } from "../types";
 
@@ -66,6 +66,44 @@ export function localMoveScore(board: Board, row: number, col: number, player: P
  * captures and escapes dominate the score, trimming the tail never drops a
  * tactically relevant move.
  */
+/**
+ * The points where this game is decided on the very next move, for either side.
+ *
+ * Every inner node keeps only the top `limit` moves by `localMoveScore`, and at
+ * depth one that is six of roughly fifty. Nothing was making sure the move that
+ * saves a group in atari survived that cut — and when it did not, the search
+ * watched the defender fail to save it and scored the line as a capture. It had
+ * not refuted the escape; it had never generated it.
+ *
+ * Measured on 17 fruitless chases from recorded games: the search called two of
+ * them already-won and four near-decisive, and playing them out captured
+ * nothing at all. Widening every node fourfold made all six disappear, which is
+ * the same fix as this one but paid for at every node instead of the few where
+ * something is actually in atari.
+ *
+ * Both sides' ataris matter and for the same reason. The liberty of my own
+ * endangered group is the only move that can save it; the liberty of theirs
+ * ends the game on the spot, since one capture wins outright here. Neither may
+ * be dropped for scoring badly on a shape heuristic.
+ */
+function decisivePoints(state: GameState, player: Player): AIAction[] {
+  const out: AIAction[] = [];
+  const seen = new Set<string>();
+  for (const side of [player, opponent(player)]) {
+    for (const group of getAllGroups(state.board, side)) {
+      const liberties = getGroupLiberties(state.board, group);
+      if (liberties.size !== 1) continue;
+      const [only] = liberties;
+      if (seen.has(only)) continue;
+      const [row, col] = only.split(",").map(Number);
+      if (!isLegalMove(state, row, col, player)) continue;
+      seen.add(only);
+      out.push({ type: "PLACE", row, col });
+    }
+  }
+  return out;
+}
+
 export function orderedCandidates(
   state: GameState,
   player: Player,
@@ -79,6 +117,20 @@ export function orderedCandidates(
 
   scored.sort((a, b) => b.score - a.score);
   const top = scored.slice(0, limit).map(({ action }) => action);
+
+  // Put back anything decisive that the cut removed. Added rather than
+  // substituted: these are extra moves to look at, never a replacement for the
+  // ones the ordering already liked.
+  const present = new Set(
+    top.map((a) => (a.type === "PLACE" ? `${a.row},${a.col}` : "PASS")),
+  );
+  for (const action of decisivePoints(state, player)) {
+    if (action.type !== "PLACE") continue;
+    const key = `${action.row},${action.col}`;
+    if (present.has(key)) continue;
+    present.add(key);
+    top.unshift(action);
+  }
 
   if (!preferredKey) return top;
 
