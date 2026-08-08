@@ -380,7 +380,21 @@ function existingGroupDanger(rootState: GameState, aiPlayer: Player, budgetMs: n
   const improving = existingGroupDangerRankingEnabled
     ? libertyGainingMoves(rootState, aiPlayer, liberties, liberties.size)
     : [];
-  if (improving.length > 0) return improving;
+  // Added to the extending moves rather than replacing them, so the search
+  // still chooses — the guard's job is to make sure the answer is on the list,
+  // not to decide which answer it is.
+  const walling = eyeMakingDefenceEnabled ? eyeMakingMoves(rootState, aiPlayer, liberties) : [];
+  if (improving.length > 0 || walling.length > 0) {
+    const both = [...improving];
+    const have = new Set(
+      improving.map((a) => (a.type === "PLACE" ? `${a.row},${a.col}` : "PASS")),
+    );
+    for (const move of walling) {
+      const key = move.type === "PLACE" ? `${move.row},${move.col}` : "PASS";
+      if (!have.has(key)) both.push(move);
+    }
+    return both;
+  }
 
   const candidates: AIAction[] = [];
   for (const liberty of liberties) {
@@ -388,6 +402,65 @@ function existingGroupDanger(rootState: GameState, aiPlayer: Player, budgetMs: n
     if (isLegalMove(rootState, row, col, aiPlayer)) candidates.push({ type: "PLACE", row, col });
   }
   return candidates;
+}
+
+/**
+ * Off by default until the positions say otherwise.
+ *
+ * Whether a threatened group may also be defended by walling one of its
+ * liberties into an eye, rather than only by extending onto one.
+ */
+export let eyeMakingDefenceEnabled = false;
+export function setEyeMakingDefenceEnabled(value: boolean): void {
+  eyeMakingDefenceEnabled = value;
+}
+
+/**
+ * Moves that would enclose one of this group's liberties into an eye.
+ *
+ * `existingGroupDanger` can only ever offer the group's own liberties, so the
+ * only defence it can express is "extend". Walling off a point beside the group
+ * is not in its vocabulary, and in this game that is the stronger answer: one
+ * eye is life, because confirmed territory can never be played by either side.
+ *
+ * Traced through two lost games. The group's eye point was a liberty of it, the
+ * two stones that would have closed the eye were neighbours of that liberty and
+ * therefore not liberties of the group, and so were never candidates at all.
+ * The guard offered the eye point itself — extending onto it raises the liberty
+ * count, which is the only thing it measures — and playing it destroyed the eye.
+ *
+ * So: for each liberty that could still become an eye (no enemy stone beside
+ * it, at most two empty neighbours to fill), offer those empty neighbours.
+ */
+function eyeMakingMoves(
+  rootState: GameState,
+  aiPlayer: Player,
+  liberties: Iterable<string>,
+): AIAction[] {
+  const enemy = playerCell(opponent(aiPlayer));
+  const moves: AIAction[] = [];
+  const seen = new Set<string>();
+  for (const libertyKey of liberties) {
+    const [row, col] = libertyKey.split(",").map(Number);
+    const empties: Array<{ row: number; col: number }> = [];
+    let enemyBeside = false;
+    for (const [dr, dc] of DIRECTIONS) {
+      const r = row + dr;
+      const c = col + dc;
+      if (!inBounds(r, c)) continue;
+      if (rootState.board[r][c] === enemy) { enemyBeside = true; break; }
+      if (rootState.board[r][c] === "EMPTY") empties.push({ row: r, col: c });
+    }
+    if (enemyBeside || empties.length === 0 || empties.length > 2) continue;
+    for (const { row: r, col: c } of empties) {
+      const key = `${r},${c}`;
+      if (seen.has(key)) continue;
+      if (!isLegalMove(rootState, r, c, aiPlayer)) continue;
+      seen.add(key);
+      moves.push({ type: "PLACE", row: r, col: c });
+    }
+  }
+  return moves;
 }
 
 /** The subset of `liberties` (a group's own liberties) where playing there
