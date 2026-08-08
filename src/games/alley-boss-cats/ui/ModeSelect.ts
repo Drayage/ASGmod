@@ -1,6 +1,7 @@
 import type { Difficulty } from "../ai";
 import { createInitialState } from "../rules";
 import { loadGame, loadSettings, saveSettings, type DangerLevel, type Mode } from "../storage";
+import { AI_VARIANTS, type AIVariant } from "../aiVariant";
 import type { GameState, Player } from "../types";
 import { renderRecords } from "./RecordsScreen";
 import { renderSettingsPanel } from "./SettingsPanel";
@@ -10,6 +11,7 @@ export interface StartConfig {
   mode: Mode;
   difficulty: Difficulty;
   humanSide: Player;
+  aiVariant: AIVariant;
   initialState: GameState;
 }
 
@@ -24,6 +26,7 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   let difficulty: Difficulty = settings.lastDifficulty;
   let humanSide: Player = settings.lastHumanSide;
   let dangerLevel: DangerLevel = settings.dangerLevel;
+  let aiVariant: AIVariant = settings.lastAIVariant;
 
   const wrap = document.createElement("div");
   wrap.className = "abc-mode-select";
@@ -43,6 +46,7 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
         mode: saved.mode,
         difficulty: saved.difficulty,
         humanSide: saved.playerSide,
+        aiVariant: saved.aiVariant ?? "STANDARD",
         initialState: saved.state,
       });
     });
@@ -77,10 +81,31 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
     difficultyGroup.appendChild(
       radioButton("difficulty", label, difficulty === value, () => {
         difficulty = value;
+        updateVisibility();
       }),
     );
   }
   wrap.appendChild(difficultyGroup);
+
+  // Only meaningful on the searching difficulty — the easier ones do not run
+  // the engine these switches belong to.
+  const variantGroup = document.createElement("div");
+  variantGroup.className = "abc-option-group";
+  variantGroup.innerHTML = `<span class="abc-option-label">특별 AI (매우 어려움)</span>`;
+  const variantHelp = document.createElement("p");
+  variantHelp.className = "abc-option-help";
+  for (const { value, label, help } of AI_VARIANTS) {
+    variantGroup.appendChild(
+      radioButton("variant", label, aiVariant === value, () => {
+        aiVariant = value;
+        variantHelp.textContent = help;
+      }),
+    );
+  }
+  variantHelp.textContent =
+    AI_VARIANTS.find((v) => v.value === aiVariant)?.help ?? AI_VARIANTS[0].help;
+  variantGroup.appendChild(variantHelp);
+  wrap.appendChild(variantGroup);
 
   const sideGroup = document.createElement("div");
   sideGroup.className = "abc-option-group";
@@ -124,6 +149,7 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   function updateVisibility() {
     const showAIOptions = mode === "AI";
     difficultyGroup.style.display = showAIOptions ? "" : "none";
+    variantGroup.style.display = showAIOptions && difficulty === "VERY_HARD" ? "" : "none";
     sideGroup.style.display = showAIOptions ? "" : "none";
   }
   updateVisibility();
@@ -139,8 +165,9 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
       lastDifficulty: difficulty,
       lastHumanSide: humanSide,
       dangerLevel,
+      lastAIVariant: aiVariant,
     });
-    onStart({ mode, difficulty, humanSide, initialState: createInitialState() });
+    onStart({ mode, difficulty, humanSide, aiVariant, initialState: createInitialState() });
   });
   wrap.appendChild(startBtn);
 

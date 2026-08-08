@@ -1,5 +1,6 @@
 import type { SearchDifficulty } from "../ai";
 import type { GameState, Player } from "../types";
+import type { AIVariant } from "../aiVariant";
 import type { AIWorkerRequest, AIWorkerResponse } from "../aiWorker";
 
 export const TIME_LIMIT_MS: Record<SearchDifficulty, number> = {
@@ -23,7 +24,12 @@ export class SearchAIClient {
     return this.worker;
   }
 
-  requestMove(state: GameState, player: Player, difficulty: SearchDifficulty): Promise<AIWorkerResponse> {
+  requestMove(
+    state: GameState,
+    player: Player,
+    difficulty: SearchDifficulty,
+    variant: AIVariant = "STANDARD",
+  ): Promise<AIWorkerResponse> {
     const worker = this.ensureWorker();
     const timeLimitMs = TIME_LIMIT_MS[difficulty];
 
@@ -49,7 +55,7 @@ export class SearchAIClient {
 
       worker.addEventListener("message", handleMessage);
       worker.addEventListener("error", handleError);
-      worker.postMessage({ state, player, timeLimitMs, difficulty } satisfies AIWorkerRequest);
+      worker.postMessage({ state, player, timeLimitMs, difficulty, variant } satisfies AIWorkerRequest);
     });
   }
 

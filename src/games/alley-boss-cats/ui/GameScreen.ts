@@ -1,4 +1,5 @@
 import type { AIAction, Difficulty } from "../ai";
+import type { AIVariant } from "../aiVariant";
 import { getAIMove } from "../ai";
 import { SearchAIClient, TIME_LIMIT_MS } from "../engine/aiWorkerClient";
 import { applyMove, isLegalMove, isTerritoryCell, passTurn } from "../rules";
@@ -14,6 +15,8 @@ import { renderSettingsPanel } from "./SettingsPanel";
 export interface GameScreenConfig {
   mode: Mode;
   difficulty: Difficulty;
+  /** Named engine settings for the AI side. Defaults to the shipped engine. */
+  aiVariant?: AIVariant;
   humanSide: Player;
   initialState: GameState;
 }
@@ -56,6 +59,7 @@ export function mountGameScreen(
       saveGame({
         mode: config.mode,
         difficulty: config.difficulty,
+        aiVariant: config.aiVariant ?? "STANDARD",
         playerSide: config.humanSide,
         state,
       });
@@ -137,6 +141,7 @@ export function mountGameScreen(
         saveRecord({
           mode: config.mode,
           difficulty: config.difficulty,
+          aiVariant: config.aiVariant ?? "STANDARD",
           playerSide: config.humanSide,
           winner: state.winner,
           winReason: reason,
@@ -283,7 +288,7 @@ export function mountGameScreen(
 
     const budgetMs = TIME_LIMIT_MS[config.difficulty];
     try {
-      const { action, depth } = await searchAI.requestMove(state, aiPlayer, config.difficulty);
+      const { action, depth } = await searchAI.requestMove(state, aiPlayer, config.difficulty, config.aiVariant ?? "STANDARD");
       note(budgetMs, { depth });
       return action;
     } catch {

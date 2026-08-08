@@ -1,4 +1,5 @@
 import type { Difficulty } from "./ai";
+import type { AIVariant } from "./aiVariant";
 import type { GameState, Move, Player, WinReason } from "./types";
 import { APP_VERSION, BUILD_TIME } from "./version";
 
@@ -19,6 +20,8 @@ export interface SavedGame {
   version: number;
   mode: Mode;
   difficulty: Difficulty;
+  /** Kept so resuming carries on with the same engine it started with. */
+  aiVariant?: AIVariant;
   playerSide: Player;
   state: GameState;
   savedAt: number;
@@ -48,6 +51,8 @@ export interface Settings {
    * instead of resetting to the defaults on every visit. */
   lastMode: Mode;
   lastDifficulty: Difficulty;
+  /** Which named engine settings the last game used. */
+  lastAIVariant: AIVariant;
   lastHumanSide: Player;
 }
 
@@ -79,6 +84,9 @@ export interface MatchRecord {
   buildTime: string;
   mode: Mode;
   difficulty: Difficulty;
+  /** Which named engine settings played this game, so records can be
+   * grouped by it later. Absent on games recorded before variants existed. */
+  aiVariant?: AIVariant;
   playerSide: Player;
   winner: Player;
   winReason: Exclude<WinReason, null>;
@@ -119,6 +127,7 @@ const DEFAULT_SETTINGS: Settings = {
   tutorialCompleted: false,
   lastMode: "AI",
   lastDifficulty: "NORMAL",
+  lastAIVariant: "STANDARD",
   lastHumanSide: "A",
 };
 
