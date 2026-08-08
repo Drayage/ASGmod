@@ -63,6 +63,13 @@ function isWastedChase(state: GameState, move: AIAction, mover: Player): boolean
   return infAfter[mover] <= infBefore[mover] && infAfter[foe] >= infBefore[foe] && !settled;
 }
 
+/**
+ * Ranks say which way a term leans; they cannot say whether it decides
+ * anything. So the same comparison in points: the chase against the best move
+ * the evaluation offers that is *not* a chase, term by term. A positive number
+ * is what that term pays for taking the chase instead.
+ */
+const deltas = new Map<string, number[]>();
 const ranks = new Map<string, number[]>();
 const stages = new Map<string, number>();
 let found = 0;
@@ -83,6 +90,29 @@ for (const path of process.argv.slice(2)) {
           const scored = pool.map((a) => ({ a, parts: evaluateComponents(applyAction(state, a), ai) }));
           const names = new Set<string>();
           for (const s of scored) for (const k of Object.keys(s.parts)) names.add(k);
+          // Best alternative the evaluation itself would rank first among moves
+          // that are not this same mistake.
+          const totals = scored.map((s) => ({
+            a: s.a,
+            parts: s.parts,
+            total: Object.values(s.parts).reduce((x, y) => x + y, 0),
+          }));
+          const alt = totals
+            .filter((t) => !(t.a.type === "PLACE" && chosen.type === "PLACE" &&
+              t.a.row === chosen.row && t.a.col === chosen.col))
+            .filter((t) => !isWastedChase(state, t.a, ai))
+            .sort((x, y) => y.total - x.total)[0];
+          const chasePartsEntry = totals.find(
+            (t) => t.a.type === "PLACE" && chosen.type === "PLACE" &&
+              t.a.row === chosen.row && t.a.col === chosen.col,
+          );
+          if (alt && chasePartsEntry) {
+            for (const name of names) {
+              const d = (chasePartsEntry.parts[name] ?? 0) - (alt.parts[name] ?? 0);
+              (deltas.get(name) ?? deltas.set(name, []).get(name)!).push(d);
+            }
+          }
+
           for (const name of names) {
             const values = scored.map((s) => ({ a: s.a, v: s.parts[name] ?? 0 }));
             values.sort((x, y) => y.v - x.v);
@@ -111,3 +141,13 @@ console.log(`  (100 = this term likes it best of everything on offer, 50 = mid-f
 for (const [name, xs] of [...ranks.entries()].sort((a, b) => mean(b[1]) - mean(a[1]))) {
   console.log(`    ${name.padEnd(18)}${mean(xs).toFixed(0).padStart(5)}   (n=${xs.length})`);
 }
+
+console.log(`\n  in points: the chase minus the best move that is not a chase`);
+console.log(`  (positive = what this term pays for taking the chase)\n`);
+let net = 0;
+for (const [name, xs] of [...deltas.entries()].sort((a, b) => mean(b[1]) - mean(a[1]))) {
+  const m = mean(xs);
+  net += m;
+  console.log(`    ${name.padEnd(18)}${m.toFixed(1).padStart(8)}`);
+}
+console.log(`    ${"NET".padEnd(18)}${net.toFixed(1).padStart(8)}`);
