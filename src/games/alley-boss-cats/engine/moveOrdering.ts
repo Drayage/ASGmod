@@ -86,7 +86,15 @@ export function localMoveScore(board: Board, row: number, col: number, player: P
  * ends the game on the spot, since one capture wins outright here. Neither may
  * be dropped for scoring badly on a shape heuristic.
  */
-export let decisivePointsEnabled = true;
+/**
+ * Off, pending a cost measurement that is actually representative.
+ *
+ * Shipped on, and the recorded games said what a 1200ms bench had not: mean
+ * search depth in real play fell from 5.87 to 5.00 and 8% of moves overran the
+ * 3000ms budget, against 0% on both previous builds. Correctness was right and
+ * the price was wrong.
+ */
+export let decisivePointsEnabled = false;
 export function setDecisivePointsEnabled(value: boolean): void {
   decisivePointsEnabled = value;
 }

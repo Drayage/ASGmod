@@ -181,6 +181,11 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
     isolated: 0,
   };
   const ownTerritory = coordKeySet(state.territories[player]);
+  // At weight 1 the escapable split cannot change the score — the two branches
+  // add back to exactly what the term was before it existed — so the work must
+  // not be done. Shipped with this ungated, and it cost the search most of a
+  // ply at every leaf for a number nothing read.
+  const splitEscapable = tuning.escapablePressureWeight !== 1;
   for (const group of getAllGroups(state.board, player)) {
     const liberties = getGroupLiberties(state.board, group);
     stats.totalLiberties += liberties.size;
@@ -197,10 +202,12 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
     if (immortal) stats.immortal += 1;
     else if (liberties.size === 1) {
       stats.atari += 1;
-      if (escapesInOneMove(state.board, liberties)) stats.escapableAtari += 1;
+      if (splitEscapable && escapesInOneMove(state.board, liberties)) stats.escapableAtari += 1;
     } else if (liberties.size === 2) {
       stats.nearAtari += 1;
-      if (escapesInOneMove(state.board, liberties)) stats.escapableNearAtari += 1;
+      if (splitEscapable && escapesInOneMove(state.board, liberties)) {
+        stats.escapableNearAtari += 1;
+      }
     } else if (liberties.size === 3) stats.thin += 1;
     stats.connectedBonus += group.length - 1;
     if (group.length === 1) stats.isolated += 1;
