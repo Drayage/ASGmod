@@ -23,6 +23,15 @@ import { Bound, TranspositionTable } from "./transpositionTable";
  * synchronous and single-threaded, so reading it straight afterwards is sound.
  */
 export let lastSearchDepth = 0;
+/**
+ * What the last completed iteration scored its chosen move at.
+ *
+ * Diagnostic only, written where lastSearchDepth already is. Exists because
+ * "the evaluation scores this move 190 points below the alternative and the
+ * search plays it anyway" is only answerable by asking the search what it
+ * thinks it is getting.
+ */
+export let lastSearchScore = 0;
 
 /** Testing-only escape hatch for avoidSelfInflictedThin below, so the arena
  * can play the guarded and unguarded engine head-to-head. Always on in the
@@ -1494,6 +1503,7 @@ function searchWithin(
 
   let bestAction: AIAction = rootActions[0];
   lastSearchDepth = 0;
+  lastSearchScore = 0;
 
   for (let depth = 1; depth <= MAX_DEPTH; depth++) {
     if (Date.now() >= deadline) break;
@@ -1533,6 +1543,7 @@ function searchWithin(
 
     bestAction = bestAtThisDepth;
     lastSearchDepth = depth;
+    lastSearchScore = bestScore;
     if (bestScore >= WIN_SCORE) break; // forced win found, no need to search deeper
   }
 

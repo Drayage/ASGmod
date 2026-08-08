@@ -19,7 +19,7 @@
 import { readFileSync } from "node:fs";
 import { applyAction, evaluateComponents, getSafeActions } from "./src/games/alley-boss-cats/ai";
 import { createInitialState } from "./src/games/alley-boss-cats/rules";
-import { findBestMoveVeryHard, lastDecision } from "./src/games/alley-boss-cats/engine/minimax";
+import { findBestMoveVeryHard, lastDecision, lastSearchScore } from "./src/games/alley-boss-cats/engine/minimax";
 import { getAllGroups, getConnectedGroup, getGroupLiberties } from "./src/games/alley-boss-cats/groups";
 import { influenceOwnerMap, influenceCountFromMap } from "./src/games/alley-boss-cats/engine/territoryPlanner";
 import { opponent } from "./src/games/alley-boss-cats/types";
@@ -69,6 +69,7 @@ function isWastedChase(state: GameState, move: AIAction, mover: Player): boolean
  * the evaluation offers that is *not* a chase, term by term. A positive number
  * is what that term pays for taking the chase instead.
  */
+const searchScores: number[] = [];
 const deltas = new Map<string, number[]>();
 const ranks = new Map<string, number[]>();
 const stages = new Map<string, number>();
@@ -83,8 +84,10 @@ for (const path of process.argv.slice(2)) {
       if (state.currentPlayer === ai) {
         const chosen = findBestMoveVeryHard(state, ai, BUDGET);
         const stage = lastDecision.stage;
+        const searchScore = lastSearchScore;
         if (isWastedChase(state, chosen, ai)) {
           found += 1;
+          searchScores.push(searchScore);
           stages.set(stage, (stages.get(stage) ?? 0) + 1);
           const { pool } = getSafeActions(state, ai);
           const scored = pool.map((a) => ({ a, parts: evaluateComponents(applyAction(state, a), ai) }));
@@ -151,3 +154,13 @@ for (const [name, xs] of [...deltas.entries()].sort((a, b) => mean(b[1]) - mean(
   console.log(`    ${name.padEnd(18)}${m.toFixed(1).padStart(8)}`);
 }
 console.log(`    ${"NET".padEnd(18)}${net.toFixed(1).padStart(8)}`);
+
+// What the search believed it was getting. NEAR_DECISIVE is 400,000 and fires
+// whenever the opponent has any group in atari on the engine's turn, escapable
+// or not — a value no amount of territory can compete with.
+console.log(`\n  what the search scored the chase at:`);
+const sorted = [...searchScores].sort((a, b) => a - b);
+console.log(`    median ${sorted[Math.floor(sorted.length / 2)].toFixed(0)}`);
+console.log(`    at or above 400000 (a capture it thinks is forced): ` +
+  `${searchScores.filter((v) => v >= 400000).length}/${searchScores.length}`);
+console.log(`    all: ${sorted.map((v) => v.toFixed(0)).join(", ")}`);
