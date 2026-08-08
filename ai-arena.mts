@@ -21,6 +21,7 @@ import {
   setTtScoresEnabled,
 } from "./src/games/alley-boss-cats/engine/minimax";
 import { setCaptureRetargets } from "./src/games/alley-boss-cats/engine/captureSearch";
+import { setDecisivePointsEnabled } from "./src/games/alley-boss-cats/engine/moveOrdering";
 import { influenceCount } from "./src/games/alley-boss-cats/engine/territoryPlanner";
 import { wideAreaBotMove } from "./src/games/alley-boss-cats/engine/wideAreaBot";
 import { sealingBotMove } from "./src/games/alley-boss-cats/engine/sealingBot";
@@ -85,7 +86,9 @@ type Engine =
   | "VH_THIN2"
   | "VH_NOTHIN2"
   | "VH_ESCP"
-  | "VH_NOESCP";
+  | "VH_NOESCP"
+  | "VH_DECISIVE"
+  | "VH_NODECISIVE";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -114,6 +117,8 @@ const TESTING_THIN2 = process.env.ONLY === "THIN2";
 // What pressure the opponent can step out of is worth. 1 is shipped.
 const ESC_W = Number(process.env.ESC_W ?? 0);
 const TESTING_ESCP = process.env.ONLY === "ESCP";
+// Restoring the atari escape / kill point that move ordering was cutting.
+const TESTING_DECISIVE = process.env.ONLY === "DECISIVE";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -193,6 +198,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_THINGUARD) setThinGroupGuardEnabled(engine === "VH_THINGUARD");
   if (TESTING_THIN2) setThinGroupLibertyThreshold(engine === "VH_THIN2" ? THIN_LIBS : 3);
   if (TESTING_ESCP) tuning.escapablePressureWeight = engine === "VH_ESCP" ? ESC_W : 1;
+  if (TESTING_DECISIVE) setDecisivePointsEnabled(engine === "VH_DECISIVE");
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -248,6 +254,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOTHIN2" ||
     engine === "VH_ESCP" ||
     engine === "VH_NOESCP" ||
+    engine === "VH_DECISIVE" ||
+    engine === "VH_NODECISIVE" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -602,6 +610,10 @@ if (only === "THIN2") {
 // Candidate first: VH_ESCP discounts escapable pressure, VH_NOESCP is shipped.
 if (only === "ESCP") {
   addMatch(`VH escapablePressure(${ESC_W}) vs VERY_HARD`, "VH_ESCP", "VH_NOESCP");
+}
+// Candidate first: VH_DECISIVE keeps the atari points, VH_NODECISIVE is shipped.
+if (only === "DECISIVE") {
+  addMatch("VH+decisivePoints vs VERY_HARD", "VH_DECISIVE", "VH_NODECISIVE");
 }
 if (only === "CLOSE") {
   addMatch(`VH+closable(${CLOSE_DECAY}) vs VERY_HARD`, "VH_CLOSE", "VH_NOCLOSE");
