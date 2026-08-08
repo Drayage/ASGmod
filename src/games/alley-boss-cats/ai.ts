@@ -466,6 +466,20 @@ export const tuning = {
    * Unlike the three terms that measured zero today, this one bites on the move
    * itself rather than through lookahead — filling the point drops the count at
    * depth one, in the same evaluation that is choosing the move.
+   *
+   * Zero, and the reason is not that the count is wrong. It moves exactly as
+   * intended: at turn 13 of the first lost game, filling the eye scores three
+   * units below the best alternative, which at weight 60 is 180 points.
+   *
+   * The evaluation is simply not asked. `existingGroupDanger` — stage 1.5 —
+   * fires on that position and hands the search one candidate out of sixty-six,
+   * and that candidate is the eye-filling move. At weight 300 the engine still
+   * plays it. The guard defines defence as raising the group's liberty count,
+   * and filling your own eye raises the liberty count.
+   *
+   * So the fix belongs in what that guard offers, not in what the evaluation
+   * pays for. This is the second time a guard's candidate list, rather than any
+   * term, turned out to be what chose a losing move.
    */
   eyeSpaceWeight: 0,
   /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
