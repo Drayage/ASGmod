@@ -87,14 +87,25 @@ export function localMoveScore(board: Board, row: number, col: number, player: P
  * be dropped for scoring badly on a shape heuristic.
  */
 /**
- * Off, pending a cost measurement that is actually representative.
+ * On. Turned off once on a bad number, and back on once that number was checked.
  *
- * Shipped on, and the recorded games said what a 1200ms bench had not: mean
- * search depth in real play fell from 5.87 to 5.00 and 8% of moves overran the
- * 3000ms budget, against 0% on both previous builds. Correctness was right and
- * the price was wrong.
+ * The recorded games appeared to show mean depth falling from 5.87 to 5.00 on
+ * the build carrying this. They did not. All three games in that sample ended
+ * before turn 40, and turns 40+ are the deepest part of any game at 7.7 — so a
+ * sample missing its endgame was being compared against samples that had one.
+ * Matched on shared turn ranges the gap is 0.30, resting on buckets of eleven
+ * and ten moves, and the 10-19 bucket is deeper on the new build.
+ *
+ * Paired at the shipped 3000ms budget, same positions, over 263 of them:
+ * +0.01 ply for this, +0.03 for the leaf computation now gated below. Both
+ * effectively free, and those are the measurements to trust — same position,
+ * alternating order, one variable.
+ *
+ * Against that, what it buys is verified by playing the positions out: the
+ * engine's phantom captures went 6 to 0, and the arena had it winning 41-27
+ * while being captured 17 times against 24.
  */
-export let decisivePointsEnabled = false;
+export let decisivePointsEnabled = true;
 export function setDecisivePointsEnabled(value: boolean): void {
   decisivePointsEnabled = value;
 }
