@@ -1,6 +1,6 @@
 import type { Difficulty } from "../ai";
 import { createInitialState } from "../rules";
-import { loadGame, loadSettings, saveSettings, type Mode } from "../storage";
+import { loadGame, loadSettings, saveSettings, type DangerLevel, type Mode } from "../storage";
 import type { GameState, Player } from "../types";
 import { renderRecords } from "./RecordsScreen";
 import { renderSettingsPanel } from "./SettingsPanel";
@@ -23,6 +23,7 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   let mode: Mode = settings.lastMode;
   let difficulty: Difficulty = settings.lastDifficulty;
   let humanSide: Player = settings.lastHumanSide;
+  let dangerLevel: DangerLevel = settings.dangerLevel;
 
   const wrap = document.createElement("div");
   wrap.className = "abc-mode-select";
@@ -96,6 +97,30 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   );
   wrap.appendChild(sideGroup);
 
+  // Applies to both modes: reading danger is a matter of how much help the
+  // player wants, not of who is sitting opposite.
+  const dangerGroup = document.createElement("div");
+  dangerGroup.className = "abc-option-group";
+  dangerGroup.innerHTML = `<span class="abc-option-label">위기 감지</span>`;
+  const DANGER_LEVELS: Array<[DangerLevel, string]> = [
+    [0, "끄기"],
+    [1, "1단계"],
+    [2, "2단계"],
+  ];
+  for (const [value, label] of DANGER_LEVELS) {
+    dangerGroup.appendChild(
+      radioButton("danger", label, dangerLevel === value, () => {
+        dangerLevel = value;
+      }),
+    );
+  }
+  const dangerHelp = document.createElement("p");
+  dangerHelp.className = "abc-option-help";
+  dangerHelp.textContent =
+    "끄기: 표시 없음 · 1단계: 잡히기 직전인 고양이 · 2단계: 두면 바로 잡히는 빈칸까지";
+  dangerGroup.appendChild(dangerHelp);
+  wrap.appendChild(dangerGroup);
+
   function updateVisibility() {
     const showAIOptions = mode === "AI";
     difficultyGroup.style.display = showAIOptions ? "" : "none";
@@ -108,7 +133,13 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   startBtn.className = "abc-primary-btn";
   startBtn.textContent = "게임 시작";
   startBtn.addEventListener("click", () => {
-    saveSettings({ ...loadSettings(), lastMode: mode, lastDifficulty: difficulty, lastHumanSide: humanSide });
+    saveSettings({
+      ...loadSettings(),
+      lastMode: mode,
+      lastDifficulty: difficulty,
+      lastHumanSide: humanSide,
+      dangerLevel,
+    });
     onStart({ mode, difficulty, humanSide, initialState: createInitialState() });
   });
   wrap.appendChild(startBtn);

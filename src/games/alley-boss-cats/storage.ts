@@ -24,12 +24,25 @@ export interface SavedGame {
   savedAt: number;
 }
 
+/**
+ * How much of the danger on the board to draw.
+ *
+ * 0 marks nothing, for players who would rather read it themselves.
+ * 1 rings cats already one move from being taken — what the game has always
+ *   shown.
+ * 2 also dots every empty point where placing a cat would hand the opponent a
+ *   capture on their next move. That is the same fact one move earlier, and it
+ *   is the one a player cannot see by looking at what is on the board.
+ */
+export type DangerLevel = 0 | 1 | 2;
+
 export interface Settings {
   version: number;
   soundEnabled: boolean;
   musicEnabled: boolean;
   moveConfirmation: boolean;
   showHints: boolean;
+  dangerLevel: DangerLevel;
   tutorialCompleted: boolean;
   /** How the last game was set up, so the title screen can offer it again
    * instead of resetting to the defaults on every visit. */
@@ -100,6 +113,9 @@ const DEFAULT_SETTINGS: Settings = {
   musicEnabled: false,
   moveConfirmation: false,
   showHints: false,
+  // 1 is what every existing save was playing with before this setting existed,
+  // and loadSettings merges over the defaults, so they keep it.
+  dangerLevel: 1,
   tutorialCompleted: false,
   lastMode: "AI",
   lastDifficulty: "NORMAL",

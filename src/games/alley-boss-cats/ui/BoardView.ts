@@ -1,6 +1,8 @@
 import { findEndangeredGroups } from "../groups";
+import { applyMove, getLegalMoves } from "../rules";
 import { BOARD_SIZE } from "../types";
-import type { GameState } from "../types";
+import type { Coord, GameState } from "../types";
+import type { DangerLevel } from "../storage";
 
 export interface BoardRenderOptions {
   state: GameState;
@@ -11,10 +13,10 @@ export interface BoardRenderOptions {
   /** Cell to play the illegal-move shake animation on, if any. */
   shakeCell?: { row: number; col: number } | null;
   /**
-   * Ring cats that the opponent could capture with a single move. Off by
-   * default so the replay screen can show a position exactly as it was played.
+   * How much danger to draw — see DangerLevel. 0 by default so the replay
+   * screen shows a position exactly as it was played.
    */
-  showDanger?: boolean;
+  dangerLevel?: DangerLevel;
 }
 
 function coordKeys(cells: Iterable<{ row: number; col: number }>): Set<string> {
@@ -33,6 +35,32 @@ function endangeredKeys(state: GameState): Set<string> {
   ]);
 }
 
+/**
+ * Empty points where placing a cat would hand the opponent a capture next move.
+ *
+ * Only points that *create* the danger are returned. A group already down to
+ * its last liberty is in trouble wherever the player moves, so counting it
+ * again here would dot the whole board and say nothing; it is already ringed by
+ * level 1. So the endangered set before the move is subtracted from the one
+ * after, and what remains is the harm this particular point does.
+ *
+ * Costs one placement and one group walk per legal point, which is the same
+ * order as the board render around it.
+ */
+export function trapCells(state: GameState): Set<string> {
+  const player = state.currentPlayer;
+  const before = coordKeys(findEndangeredGroups(state, player).flat());
+  const traps = new Set<string>();
+  for (const { row, col } of getLegalMoves(state, player)) {
+    const after = applyMove(state, row, col);
+    // A move that ends the game by capturing *their* cats is not a trap.
+    if (after.winner) continue;
+    const risked: Coord[] = findEndangeredGroups(after, player).flat();
+    if (risked.some((c) => !before.has(`${c.row},${c.col}`))) traps.add(`${row},${col}`);
+  }
+  return traps;
+}
+
 function lastPlacedCell(state: GameState): { row: number; col: number } | null {
   const last = [...state.moveHistory].reverse().find((m) => m.type === "PLACE");
   return last && last.type === "PLACE" ? { row: last.row, col: last.col } : null;
@@ -45,7 +73,7 @@ function territoryOwner(state: GameState, row: number, col: number): "A" | "B" |
 }
 
 export function renderBoard(host: HTMLElement, options: BoardRenderOptions): void {
-  const { state, onCellClick, interactive, shakeCell, showDanger = false } = options;
+  const { state, onCellClick, interactive, shakeCell, dangerLevel = 0 } = options;
   host.innerHTML = "";
 
   const grid = document.createElement("div");
@@ -57,7 +85,9 @@ export function renderBoard(host: HTMLElement, options: BoardRenderOptions): voi
   // captured it is no longer "one move from" anything, it is the reason the
   // game is over, and it gets the stronger marking.
   const captured = coordKeys(state.capturedGroup ?? []);
-  const endangered = showDanger && !state.winner ? endangeredKeys(state) : new Set<string>();
+  const live = dangerLevel > 0 && !state.winner;
+  const endangered = live ? endangeredKeys(state) : new Set<string>();
+  const traps = live && dangerLevel >= 2 ? trapCells(state) : new Set<string>();
 
   for (let row = 0; row < BOARD_SIZE; row++) {
     for (let col = 0; col < BOARD_SIZE; col++) {
@@ -96,6 +126,9 @@ export function renderBoard(host: HTMLElement, options: BoardRenderOptions): voi
       } else if (endangered.has(key)) {
         cell.classList.add("abc-cell--danger");
         cell.setAttribute("aria-label", `${cell.getAttribute("aria-label") ?? ""} — 도망길이 하나 남음`);
+      } else if (traps.has(key)) {
+        cell.classList.add("abc-cell--trap");
+        cell.setAttribute("aria-label", `${cell.getAttribute("aria-label") ?? ""} — 여기 두면 잡힘`);
       }
       if (lastPlaced && lastPlaced.row === row && lastPlaced.col === col) {
         cell.classList.add("abc-cell--last-move");

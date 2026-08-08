@@ -200,6 +200,16 @@
   z-index: 1;
 }
 
+/* Level 2 of danger detection: an empty point that would lose a group if
+ * played. Dotted rather than dashed, and thinner, so it never reads as the
+ * same statement as a cat that is actually in danger right now. */
+.abc-cell--trap {
+  outline: 2px dotted var(--marker-danger);
+  outline-offset: -3px;
+  opacity: 0.85;
+  z-index: 1;
+}
+
 .abc-cell--captured {
   background: var(--marker-danger) !important;
   outline: 3px solid var(--marker-danger);
@@ -601,4 +611,13 @@
   height: 0;
   opacity: 0;
   position: absolute;
+}
+
+/* One line of explanation under an option group, for settings whose labels
+ * cannot carry their own meaning. */
+.abc-option-help {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  opacity: 0.72;
 }

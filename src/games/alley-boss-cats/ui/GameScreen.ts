@@ -3,7 +3,7 @@ import { getAIMove } from "../ai";
 import { SearchAIClient, TIME_LIMIT_MS } from "../engine/aiWorkerClient";
 import { applyMove, isLegalMove, isTerritoryCell, passTurn } from "../rules";
 import * as sound from "../sound";
-import { clearGame, recordResult, saveGame, saveRecord, type AITiming, type Mode } from "../storage";
+import { clearGame, loadSettings, recordResult, saveGame, saveRecord, type AITiming, type Mode } from "../storage";
 import { opponent } from "../types";
 import type { GameState, Player } from "../types";
 import { renderBoard } from "./BoardView";
@@ -102,7 +102,7 @@ export function mountGameScreen(
       state,
       interactive: !state.winner && !aiThinking && humanTurnNow(),
       shakeCell,
-      showDanger: true,
+      dangerLevel: loadSettings().dangerLevel,
       onCellClick: handleCellClick,
     });
 
