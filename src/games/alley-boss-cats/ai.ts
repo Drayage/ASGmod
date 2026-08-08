@@ -1,4 +1,4 @@
-import { getAllGroups, getGroupLiberties } from "./groups";
+import { getAllGroups, getConnectedGroup, getGroupLiberties } from "./groups";
 import { applyMove, getLegalMoves, passTurn } from "./rules";
 import {
   closableInfluence,
@@ -10,7 +10,7 @@ import {
 import { ownershipMargin } from "./engine/ownershipTerm";
 import { frameworkPotential } from "./engine/frameworks";
 import { coordKeySet } from "./territory";
-import { DIRECTIONS, FIRST_PLAYER_MARGIN, inBounds, opponent } from "./types";
+import { DIRECTIONS, FIRST_PLAYER_MARGIN, inBounds, opponent, playerCell } from "./types";
 import type { Board, Coord, GameState, Player } from "./types";
 
 export type Difficulty = "EASY" | "NORMAL" | "HARD" | "VERY_HARD";
@@ -111,6 +111,9 @@ interface ShapeStats {
    * Pressure on these threatens nothing the opponent cannot decline. */
   escapableAtari: number;
   escapableNearAtari: number;
+  /** Groups at three liberties or fewer that no move can give more of.
+   * Not a count of how thin they are — a count of the ones already finished. */
+  sealed: number;
   /** A group sitting on exactly three liberties — not yet urgent by the
    * atari/nearAtari tests, but a real category of its own. A group this thin
    * can be walked down to atari in a few unanswered opponent moves with no
@@ -166,6 +169,48 @@ function escapesInOneMove(board: Board, liberties: Set<string>): boolean {
   return false;
 }
 
+/**
+ * Can this group ever hold more liberties than it does now?
+ *
+ * Liberty counts alone do not separate a group with three liberties in open
+ * space from one with three inside a pocket that is being closed. The engine
+ * priced both at `thin`, fifteen points, and lost two recorded games the same
+ * way: a group sat at three liberties for four of its own turns with escapes
+ * available the whole time, the opponent finished the wall, and from that move
+ * on nothing could raise its liberty count. It only registered at atari, two
+ * moves later, when the search returns -1,000,000 and there is nothing to play.
+ *
+ * The dividing question is this one, and it flips exactly where the games did.
+ * Liberties only grow by playing on one of them, so it needs no move
+ * enumeration: after filling p the group holds its other liberties, p's empty
+ * neighbours, and — if p touches a friendly group — that group's liberties too.
+ * Checked against full enumeration over 9,112 recorded positions, it never once
+ * called a group sealed that could still breathe; it under-reports instead,
+ * which is the direction that cannot invent a dead group.
+ */
+function canBreathe(board: Board, group: Coord[], liberties: Set<string>, player: Player): boolean {
+  const own = playerCell(player);
+  const inGroup = new Set(group.map((stone) => `${stone.row},${stone.col}`));
+  for (const filled of liberties) {
+    const [row, col] = filled.split(",").map(Number);
+    const after = new Set<string>();
+    for (const other of liberties) if (other !== filled) after.add(other);
+    for (const [dr, dc] of DIRECTIONS) {
+      const r = row + dr;
+      const c = col + dc;
+      if (!inBounds(r, c)) continue;
+      if (board[r][c] === "EMPTY") after.add(`${r},${c}`);
+      else if (board[r][c] === own && !inGroup.has(`${r},${c}`)) {
+        for (const key of getGroupLiberties(board, getConnectedGroup(board, r, c))) {
+          if (key !== filled) after.add(key);
+        }
+      }
+    }
+    if (after.size > liberties.size) return true;
+  }
+  return false;
+}
+
 /** One pass over a player's groups collecting everything the evaluation
  * needs. Computing these separately re-walked the whole board per term. */
 function shapeStats(state: GameState, player: Player): ShapeStats {
@@ -175,6 +220,7 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
     nearAtari: 0,
     escapableAtari: 0,
     escapableNearAtari: 0,
+    sealed: 0,
     thin: 0,
     immortal: 0,
     connectedBonus: 0,
@@ -186,6 +232,7 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
   // not be done. Shipped with this ungated, and it cost the search most of a
   // ply at every leaf for a number nothing read.
   const splitEscapable = tuning.escapablePressureWeight !== 1;
+  const countSealed = tuning.sealedWeight !== 0;
   for (const group of getAllGroups(state.board, player)) {
     const liberties = getGroupLiberties(state.board, group);
     stats.totalLiberties += liberties.size;
@@ -209,6 +256,16 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
         stats.escapableNearAtari += 1;
       }
     } else if (liberties.size === 3) stats.thin += 1;
+    // Asked of anything already down to three, and only when the term is on —
+    // the cost of a number nothing reads is what broke the last build.
+    if (
+      countSealed &&
+      !immortal &&
+      liberties.size <= 3 &&
+      !canBreathe(state.board, group, liberties, player)
+    ) {
+      stats.sealed += 1;
+    }
     stats.connectedBonus += group.length - 1;
     if (group.length === 1) stats.isolated += 1;
   }
@@ -334,6 +391,22 @@ export const tuning = {
    * at full price — the distinction the player drew, and the whole point.
    */
   escapablePressureWeight: 1,
+  /**
+   * Points charged for one of my own groups that can no longer gain a liberty,
+   * and credited for one of theirs. Zero is the shipped evaluation exactly, and
+   * skips the test entirely.
+   *
+   * Aimed at the way the engine actually loses groups. Traced over two recorded
+   * games: three liberties for four of its own turns with escapes available,
+   * then the wall closes and nothing raises the count again, then atari, then
+   * captured. `thin` charges fifteen points for that whole slide and never
+   * distinguishes the half of it that is already lost.
+   *
+   * It works through the search rather than at the root — the position where a
+   * group becomes sealed is a few plies ahead of the move that allows it, and
+   * that is the move this is meant to change.
+   */
+  sealedWeight: 0,
   /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
    * 1.0). Zero reproduces the evaluation exactly as it was before that term
    * existed, so the arena can play the two head to head. */
@@ -454,6 +527,8 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
     // shape a slow, unanswered squeeze starts from — see the ShapeStats
     // comment on `thin`.
     (theirs.thin * 7 - mine.thin * 15) * tuning.thinWeight +
+    // A group that cannot gain a liberty is not thin, it is finished.
+    (theirs.sealed - mine.sealed) * tuning.sealedWeight +
     // A permanently alive group is a lasting asset, for either side.
     mine.immortal * 30 -
     theirs.immortal * 30 +
@@ -512,6 +587,7 @@ export function evaluateComponents(
       theirs.escapableNearAtari * 16 * tuning.escapablePressureWeight,
     myNearAtari: -(mine.nearAtari * 34),
     thin: (theirs.thin * 7 - mine.thin * 15) * tuning.thinWeight,
+    sealed: (theirs.sealed - mine.sealed) * tuning.sealedWeight,
     immortal: mine.immortal * 30 - theirs.immortal * 30,
     connection: (mine.connectedBonus * 3 - mine.isolated * 5) * tuning.connectionWeight,
     frame:
