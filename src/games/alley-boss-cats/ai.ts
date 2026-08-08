@@ -405,6 +405,17 @@ export const tuning = {
    * It works through the search rather than at the root — the position where a
    * group becomes sealed is a few plies ahead of the move that allows it, and
    * that is the move this is meant to change.
+   *
+   * Zero, because it does not. Playing both lost positions out from turn 13 at
+   * the shipped budget: game one survives at weight 0, loses at 60, survives at
+   * 150; game two loses at all three. Noise, and worse than off in one of them.
+   *
+   * The detection is sound and the play is not, which are separate things. And
+   * one playout says why the shape of this was wrong: in game two the tracked
+   * group ends alive on four liberties and the engine still loses by capture,
+   * because a different group went the same way. The slow enclosure happens
+   * wherever a group is left at three liberties, so answering it one group at a
+   * time was never going to be enough.
    */
   sealedWeight: 0,
   /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
