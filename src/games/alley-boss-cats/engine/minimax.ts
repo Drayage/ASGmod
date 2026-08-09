@@ -253,6 +253,11 @@ function minimax(
     playerToMove,
     branchLimit(remainingDepth),
     tt.getBestMoveKey(key),
+    // Only near the top of the tree. The nodes at small remaining depth are
+    // the overwhelming majority, and an extra candidate there costs a whole
+    // subtree each; up here it costs one leaf and is what lets a frame appear
+    // at all.
+    remainingDepth >= 3,
   );
   if (actions.length === 0) return evaluateState(state, rootPlayer);
 

@@ -128,11 +128,102 @@ function decisivePoints(state: GameState, player: Player): AIAction[] {
   return out;
 }
 
+/**
+ * Off until measured. See `edgeFramingPoints`.
+ */
+export let edgeFramingEnabled = false;
+export function setEdgeFramingEnabled(value: boolean): void {
+  edgeFramingEnabled = value;
+}
+
+/** How far along the edge an extension may reach. The human's spacing between
+ * consecutively played wall stones is 46% one, 27% two, 18% three. */
+const MAX_EDGE_STEP = 3;
+
+/**
+ * Extensions along the board edge from a stone already sitting near it.
+ *
+ * Measured over six recorded games: humans take 1.22 cells of final territory
+ * per wall stone against the engine's 0.82, and 43% of a human large region's
+ * boundary is board edge against the engine's 13%. Humans wall against the edge
+ * and let the board supply half the enclosure; the engine builds in the open and
+ * pays seven stones for the same six cells.
+ *
+ * The engine is not scoring those points badly so much as never reaching them.
+ * Ranked by `localMoveScore`, a human first-line move averages 35.9th of 50 and
+ * enters a 14-move candidate list 19% of the time, where the same human's
+ * fourth-line moves enter it 80% of the time. The root searches the whole safe
+ * pool, so the first edge stone is always considered — but every inner node
+ * keeps only its top few, so the follow-up that turns one stone into a wall is
+ * pruned, and the leaf never sees a frame that a human would already be
+ * counting.
+ *
+ * Raising the edge's score does not fix that: the moves beating it are contact
+ * and atari moves scoring 130 and 900, and a blanket first-line bonus promotes
+ * the rival edge moves along with the intended one — +20 recovers 22% of the
+ * misses. So this reserves a slot instead, which is the shape of the two
+ * changes in this engine that did work.
+ *
+ * Deliberately narrow and local: from each own stone on the first or second
+ * line, step 1 to 3 cells along the edge, stop at the first occupied cell, skip
+ * anything an enemy stone already touches, and keep the two best by how much
+ * empty edge the extension spans.
+ */
+export function edgeFramingPoints(state: GameState, player: Player, max = 2): AIAction[] {
+  const own = playerCell(player);
+  const enemy = playerCell(opponent(player));
+  const found = new Map<string, number>();
+
+  for (let row = 0; row < state.board.length; row += 1) {
+    for (let col = 0; col < state.board.length; col += 1) {
+      if (state.board[row][col] !== own) continue;
+      const line = Math.min(row, col, state.board.length - 1 - row, state.board.length - 1 - col);
+      if (line > 1) continue;
+
+      for (const [dr, dc] of DIRECTIONS) {
+        for (let step = 1; step <= MAX_EDGE_STEP; step += 1) {
+          const r = row + dr * step;
+          const c = col + dc * step;
+          if (!inBounds(r, c) || state.board[r][c] !== "EMPTY") break;
+          // Stay near the edge: an extension that walks inward is an ordinary
+          // move and the ordering already judges it on its own merits.
+          const stepLine = Math.min(r, c, state.board.length - 1 - r, state.board.length - 1 - c);
+          if (stepLine > 1) break;
+
+          let touchesEnemy = false;
+          for (const [er, ec] of DIRECTIONS) {
+            if (inBounds(r + er, c + ec) && state.board[r + er][c + ec] === enemy) {
+              touchesEnemy = true;
+              break;
+            }
+          }
+          if (touchesEnemy) continue;
+          if (!isLegalMove(state, r, c, player)) continue;
+
+          // Reaching further claims more, but only up to what stays defensible;
+          // ties go to the wider extension.
+          const key = `${r},${c}`;
+          found.set(key, Math.max(found.get(key) ?? 0, step));
+        }
+      }
+    }
+  }
+
+  return [...found.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, max)
+    .map(([key]) => {
+      const [row, col] = key.split(",").map(Number);
+      return { type: "PLACE", row, col } as AIAction;
+    });
+}
+
 export function orderedCandidates(
   state: GameState,
   player: Player,
   limit: number,
   preferredKey?: string,
+  framing = false,
 ): AIAction[] {
   const scored = getLegalMoves(state, player).map((move) => ({
     action: { type: "PLACE", row: move.row, col: move.col } as AIAction,
@@ -154,6 +245,16 @@ export function orderedCandidates(
     if (present.has(key)) continue;
     present.add(key);
     top.unshift(action);
+  }
+
+  // Appended, not unshifted: a decisive point has to be looked at first, an
+  // edge extension only has to be looked at.
+  if (framing && edgeFramingEnabled) for (const action of edgeFramingPoints(state, player)) {
+    if (action.type !== "PLACE") continue;
+    const key = `${action.row},${action.col}`;
+    if (present.has(key)) continue;
+    present.add(key);
+    top.push(action);
   }
 
   if (!preferredKey) return top;
