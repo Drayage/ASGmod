@@ -13,6 +13,7 @@ import {
   setThinGroupGuardEnabled,
   setEyeMakingDefenceEnabled,
   setThinGroupLibertyThreshold,
+  setPocketSealTerritoryUnionEnabled,
   setDominatedPocketGuardEnabled,
   setExistingGroupDangerRankingEnabled,
   setPocketSealDangerGuardEnabled,
@@ -93,7 +94,9 @@ type Engine =
   | "VH_EYE"
   | "VH_NOEYE"
   | "VH_EDGE"
-  | "VH_NOEDGE";
+  | "VH_NOEDGE"
+  | "VH_SEALUNION"
+  | "VH_NOSEALUNION";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -131,6 +134,10 @@ const TESTING_EYE = process.env.ONLY === "EYE";
 // Edge framing sits on top of the shipped eye default rather than replacing it,
 // so both arms here keep the eye behaviour and differ only in the extra slot.
 const TESTING_EDGE = process.env.ONLY === "EDGE";
+// Stage 1.85 keeps its defensive shortlist; the arm adds the ground-taking
+// moves to it rather than removing the guard, which the guard-off run did not
+// support.
+const TESTING_SEALUNION = process.env.ONLY === "SEALUNION";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -217,6 +224,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     setEyeMakingDefenceEnabled(on);
   }
   if (TESTING_EDGE) setEdgeFramingEnabled(engine === "VH_EDGE");
+  if (TESTING_SEALUNION) setPocketSealTerritoryUnionEnabled(engine === "VH_SEALUNION");
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -278,6 +286,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOEYE" ||
     engine === "VH_EDGE" ||
     engine === "VH_NOEDGE" ||
+    engine === "VH_SEALUNION" ||
+    engine === "VH_NOSEALUNION" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -647,6 +657,10 @@ if (only === "DECISIVE") {
 }
 if (only === "EYE") {
   addMatch(`VH+eye(${EYE_W})+walling vs VERY_HARD`, "VH_EYE", "VH_NOEYE");
+}
+// Candidate first: VH_SEALUNION adds seals to 1.85's list, VH_NOSEALUNION is shipped.
+if (only === "SEALUNION") {
+  addMatch("VH 1.85+seals vs VERY_HARD", "VH_SEALUNION", "VH_NOSEALUNION");
 }
 // Candidate first: VH_EDGE reserves the edge-extension slot, VH_NOEDGE is shipped.
 if (only === "EDGE") {

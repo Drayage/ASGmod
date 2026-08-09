@@ -1058,6 +1058,57 @@ const POCKET_SEAL_LIBERTY_CEILING = 6;
  * would not have surfaced them either — what made them work was keeping the
  * *outside* space open, not the group's own breath.
  */
+/**
+ * Off until measured. See `unionWithSeals`.
+ */
+export let pocketSealTerritoryUnionEnabled = false;
+export function setPocketSealTerritoryUnionEnabled(value: boolean): void {
+  pocketSealTerritoryUnionEnabled = value;
+}
+
+/**
+ * Adds the ground-taking moves to a defensive shortlist, without removing any
+ * of the defence.
+ *
+ * Stage 1.85 sits ahead of every territorial stage, so whenever it fires the
+ * engine defends. Counted over 32 recorded games it fires on 11% of engine
+ * turns and in 78% of games, while the engine loses a group in 19% of them, and
+ * 52% of its firings happen with a seal of two cells or more sitting on the
+ * table. Re-deciding the seals the engine walked past put 10 of 38 positions
+ * here, and it took the seal in none.
+ *
+ * Removing the guard is not the answer the arena supports: over 186 games it
+ * costs 0.37 +/- 0.35 cells but the side without it lost 63 groups against 56,
+ * so it is doing something, and the capture difference is well inside noise
+ * either way. What the numbers do not support is the guard being the *only*
+ * thing on the list. So this is the same union the eye-making defence uses:
+ * the guard's job is to make sure its answer is available, not to be the only
+ * answer available.
+ *
+ * Seals that would themselves thin the group are left out, for the reason
+ * `pocketSealDenialFilterEnabled` exists — a shortlist that offers a losing
+ * move undifferentiated is how a traced loss happened once already.
+ */
+function unionWithSeals(
+  rootState: GameState,
+  aiPlayer: Player,
+  defence: AIAction[],
+): AIAction[] {
+  const out = [...defence];
+  const have = new Set(
+    defence.map((a) => (a.type === "PLACE" ? `${a.row},${a.col}` : "PASS")),
+  );
+  for (const { move } of findSealingMoves(rootState, aiPlayer)) {
+    const key = `${move.row},${move.col}`;
+    if (have.has(key)) continue;
+    const action: AIAction = { type: "PLACE", row: move.row, col: move.col };
+    if (createsVoluntaryThinGroup(rootState, aiPlayer, action)) continue;
+    have.add(key);
+    out.push(action);
+  }
+  return out;
+}
+
 // Exported so its firing rate can be counted against what it is defending
 // against, rather than argued about.
 export function pocketSealDanger(rootState: GameState, aiPlayer: Player): AIAction[] {
@@ -1362,8 +1413,11 @@ export function findBestMoveVeryHard(
   const pocketSealMoves = pocketSealDangerGuardEnabled ? pocketSealDanger(rootState, aiPlayer) : [];
   if (pocketSealMoves.length > 0) {
     const sealBudget = Math.max(300, deadline - Date.now());
-    note("1.85 pocket seal danger", pocketSealMoves.length, pool.length);
-    return searchVerified(rootState, aiPlayer, pocketSealMoves, sealBudget, pool);
+    const withGround = pocketSealTerritoryUnionEnabled
+      ? unionWithSeals(rootState, aiPlayer, pocketSealMoves)
+      : pocketSealMoves;
+    note("1.85 pocket seal danger", withGround.length, pool.length);
+    return searchVerified(rootState, aiPlayer, withGround, sealBudget, pool);
   }
 
   // 1.86. Nothing is in danger. Is there ground here that will not still be
