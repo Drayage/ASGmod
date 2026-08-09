@@ -1058,7 +1058,9 @@ const POCKET_SEAL_LIBERTY_CEILING = 6;
  * would not have surfaced them either — what made them work was keeping the
  * *outside* space open, not the group's own breath.
  */
-function pocketSealDanger(rootState: GameState, aiPlayer: Player): AIAction[] {
+// Exported so its firing rate can be counted against what it is defending
+// against, rather than argued about.
+export function pocketSealDanger(rootState: GameState, aiPlayer: Player): AIAction[] {
   const opponentPlayer = opponent(aiPlayer);
   const ownTerritory = new Set(rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`));
   const moves: AIAction[] = [];
