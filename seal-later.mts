@@ -27,6 +27,13 @@ const MIN_CELLS = Number(process.env.MIN_CELLS ?? 2);
  * short by a capture leaves everything unsettled, which would read as the
  * engine losing ground it simply never had time to settle. */
 const ONLY = process.env.ONLY_REASON ?? "";
+/**
+ * Which side's declined seals to follow. The engine's were the question first,
+ * but the human plays the same way on purpose — start small, and take the
+ * bigger frame when the opponent does not contest it — so the same measurement
+ * on their side says whether declining is a skill or a leak.
+ */
+const SIDE = process.env.SIDE === "human" ? "human" : "ai";
 
 let skips = 0;
 let cellsDeclined = 0;
@@ -53,7 +60,9 @@ for (const path of process.argv.slice(2)) {
     if (rec.id && seen.has(rec.id)) continue;
     if (rec.id) seen.add(rec.id);
     if (ONLY && rec.winReason !== ONLY) continue;
-    const ai: Player = opponent(rec.playerSide);
+    const human: Player = rec.playerSide;
+    const ai: Player = opponent(human);
+    const mover: Player = SIDE === "human" ? human : ai;
 
     // The final board of the game as it was actually played.
     let final: GameState = createInitialState();
@@ -64,22 +73,22 @@ for (const path of process.argv.slice(2)) {
         : applyAction(final, { type: "PLACE", row: m.row!, col: m.col! });
     }
     const finalT = calculateTerritories(final.board);
-    const mine = new Set(finalT[ai].map((c: Coord) => `${c.row},${c.col}`));
-    const theirs = new Set(finalT[opponent(ai)].map((c: Coord) => `${c.row},${c.col}`));
+    const mine = new Set(finalT[mover].map((c: Coord) => `${c.row},${c.col}`));
+    const theirs = new Set(finalT[opponent(mover)].map((c: Coord) => `${c.row},${c.col}`));
 
     games += 1;
     const declinedCells = new Set<string>();
     let state: GameState = createInitialState();
     for (const m of rec.moveHistory) {
       if (state.winner) break;
-      const isAI = state.currentPlayer === ai;
+      const isAI = state.currentPlayer === mover;
       const before = state;
       state = m.type === "PASS"
         ? applyAction(state, { type: "PASS" })
         : applyAction(state, { type: "PLACE", row: m.row!, col: m.col! });
       if (!isAI || m.type !== "PLACE") continue;
 
-      const seals = findSealingMoves(before, ai).filter((s) => s.gained.length >= MIN_CELLS);
+      const seals = findSealingMoves(before, mover).filter((s) => s.gained.length >= MIN_CELLS);
       if (seals.length === 0) continue;
       const playedKey = `${m.row},${m.col}`;
       if (seals.some((s) => `${s.move.row},${s.move.col}` === playedKey)) continue;
@@ -126,6 +135,7 @@ for (const path of process.argv.slice(2)) {
 }
 
 const pct = (n: number, d: number) => (d ? `${((n / d) * 100).toFixed(0)}%` : "-");
+console.log(`side: ${SIDE}`);
 console.log(`skipped seals: ${skips}, cells declined: ${cellsDeclined}\n`);
 console.log(`where those cells ended up:`);
 console.log(`  the engine's territory anyway : ${kept} (${pct(kept, cellsDeclined)})`);
