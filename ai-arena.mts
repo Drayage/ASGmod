@@ -22,7 +22,7 @@ import {
   setTtScoresEnabled,
 } from "./src/games/alley-boss-cats/engine/minimax";
 import { setCaptureRetargets } from "./src/games/alley-boss-cats/engine/captureSearch";
-import { setDecisivePointsEnabled } from "./src/games/alley-boss-cats/engine/moveOrdering";
+import { setDecisivePointsEnabled, setEdgeFramingEnabled } from "./src/games/alley-boss-cats/engine/moveOrdering";
 import { influenceCount } from "./src/games/alley-boss-cats/engine/territoryPlanner";
 import { wideAreaBotMove } from "./src/games/alley-boss-cats/engine/wideAreaBot";
 import { sealingBotMove } from "./src/games/alley-boss-cats/engine/sealingBot";
@@ -91,7 +91,9 @@ type Engine =
   | "VH_DECISIVE"
   | "VH_NODECISIVE"
   | "VH_EYE"
-  | "VH_NOEYE";
+  | "VH_NOEYE"
+  | "VH_EDGE"
+  | "VH_NOEDGE";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -126,6 +128,9 @@ const TESTING_DECISIVE = process.env.ONLY === "DECISIVE";
 // the term is only ever consulted when the guard offers something to choose.
 const EYE_W = Number(process.env.EYE_W ?? 60);
 const TESTING_EYE = process.env.ONLY === "EYE";
+// Edge framing sits on top of the shipped eye default rather than replacing it,
+// so both arms here keep the eye behaviour and differ only in the extra slot.
+const TESTING_EDGE = process.env.ONLY === "EDGE";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -211,6 +216,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     tuning.eyeSpaceWeight = on ? EYE_W : 0;
     setEyeMakingDefenceEnabled(on);
   }
+  if (TESTING_EDGE) setEdgeFramingEnabled(engine === "VH_EDGE");
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -270,6 +276,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NODECISIVE" ||
     engine === "VH_EYE" ||
     engine === "VH_NOEYE" ||
+    engine === "VH_EDGE" ||
+    engine === "VH_NOEDGE" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -631,6 +639,10 @@ if (only === "DECISIVE") {
 }
 if (only === "EYE") {
   addMatch(`VH+eye(${EYE_W})+walling vs VERY_HARD`, "VH_EYE", "VH_NOEYE");
+}
+// Candidate first: VH_EDGE reserves the edge-extension slot, VH_NOEDGE is shipped.
+if (only === "EDGE") {
+  addMatch("VH+edgeFraming vs VERY_HARD", "VH_EDGE", "VH_NOEDGE");
 }
 if (only === "CLOSE") {
   addMatch(`VH+closable(${CLOSE_DECAY}) vs VERY_HARD`, "VH_CLOSE", "VH_NOCLOSE");
