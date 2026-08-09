@@ -405,12 +405,14 @@ function existingGroupDanger(rootState: GameState, aiPlayer: Player, budgetMs: n
 }
 
 /**
- * Off by default until the positions say otherwise.
- *
  * Whether a threatened group may also be defended by walling one of its
  * liberties into an eye, rather than only by extending onto one.
+ *
+ * On by default — see `tuning.eyeSpaceWeight` for the measurement. The two
+ * belong together: this puts the walling move on the shortlist, and the weight
+ * is what lets the search prefer it.
  */
-export let eyeMakingDefenceEnabled = false;
+export let eyeMakingDefenceEnabled = true;
 export function setEyeMakingDefenceEnabled(value: boolean): void {
   eyeMakingDefenceEnabled = value;
 }

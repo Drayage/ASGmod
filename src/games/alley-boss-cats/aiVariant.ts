@@ -27,12 +27,12 @@ export const AI_VARIANTS: ReadonlyArray<{
 }> = [
   {
     value: "STANDARD",
-    label: "기본",
-    help: "현재 엔진 그대로. 비교 기준입니다.",
+    label: "이전 엔진",
+    help: "눈 만들기가 없던 예전 동작. 비교용입니다.",
   },
   {
     value: "EYE",
-    label: "눈 만들기",
+    label: "기본 (눈 만들기)",
     help: "위험한 그룹을 뻗어서 살리는 대신 눈을 만들어 살리는 수도 후보에 넣습니다.",
   },
   {

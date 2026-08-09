@@ -471,17 +471,25 @@ export const tuning = {
    * intended: at turn 13 of the first lost game, filling the eye scores three
    * units below the best alternative, which at weight 60 is 180 points.
    *
-   * The evaluation is simply not asked. `existingGroupDanger` — stage 1.5 —
-   * fires on that position and hands the search one candidate out of sixty-six,
-   * and that candidate is the eye-filling move. At weight 300 the engine still
-   * plays it. The guard defines defence as raising the group's liberty count,
-   * and filling your own eye raises the liberty count.
+   * The evaluation is simply not asked unless `eyeMakingDefenceEnabled` puts
+   * something on the list to choose between: `existingGroupDanger` builds its
+   * candidates from the group's own liberties, and on the traced position that
+   * left one candidate out of sixty-six — the eye-filling move — unchanged even
+   * at weight 300. The two are one change and are shipped together.
    *
-   * So the fix belongs in what that guard offers, not in what the evaluation
-   * pays for. This is the second time a guard's candidate list, rather than any
-   * term, turned out to be what chose a losing move.
+   * On by default. Over 68 paired arena games the pair is worth +2.43 cells
+   * with the interval clear of zero, 24 source games to 7 at p = 0.0033, and it
+   * lifts conversion of reach into territory from 15.2% to 22.9% where the
+   * human range measured from recorded games is 24-29%. That is the first
+   * result in this work to clear significance rather than merely trend, and it
+   * came from a life-and-death change after five terms that priced territory
+   * directly had all measured zero.
+   *
+   * Watch the capture column if this is revisited: the same run had the eye
+   * side captured 23 times against 19, not significant but the direction a
+   * change preferring walls to extensions would be expected to go.
    */
-  eyeSpaceWeight: 0,
+  eyeSpaceWeight: 60,
   /** Multiplier on the `thin` shape term below (mine * -15, theirs * 7 at
    * 1.0). Zero reproduces the evaluation exactly as it was before that term
    * existed, so the arena can play the two head to head. */

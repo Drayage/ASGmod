@@ -127,7 +127,7 @@ const DEFAULT_SETTINGS: Settings = {
   tutorialCompleted: false,
   lastMode: "AI",
   lastDifficulty: "NORMAL",
-  lastAIVariant: "STANDARD",
+  lastAIVariant: "EYE",
   lastHumanSide: "A",
 };
 
