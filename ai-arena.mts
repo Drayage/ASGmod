@@ -37,7 +37,7 @@ import {
 import { firstTerritoryTurn } from "./src/games/alley-boss-cats/arenaMetrics";
 import { replaySeed, loadSeeds, DEFAULT_SEED_FILES, type Seed } from "./arena-seeds";
 import { setOwnershipNet } from "./src/games/alley-boss-cats/engine/ownershipTerm";
-import type { GameState, Player } from "./src/games/alley-boss-cats/types";
+import type { GameState, Move, Player } from "./src/games/alley-boss-cats/types";
 import {
   aggregateRecords,
   rounded,
@@ -319,6 +319,7 @@ interface GameResult {
   peakInfluence: Record<Player, number>;
   finalTerritory: Record<Player, number>;
   safeMovesAt: Record<Player, number | null>;
+  moveHistory: Move[];
 }
 
 function playGame(
@@ -355,6 +356,12 @@ function playGame(
     peakInfluence,
     finalTerritory: { A: state.territories.A.length, B: state.territories.B.length },
     safeMovesAt,
+    // Kept so the finished game can be scored on how its territory was built,
+    // not only on how much of it there was. Margin has a 7.2-cell spread across
+    // games, so 186 of them cannot resolve the two or three cells a candidate
+    // is worth — but a change aimed at how regions get walled can be checked
+    // against the walls themselves, of which one game supplies several.
+    moveHistory: state.moveHistory,
   });
 
   // Peak influence spans the seed's own history too, so it means the same
@@ -495,6 +502,7 @@ function runMatch(label: string, engineX: Engine, engineY: Engine, requestedGame
         A: result.finalTerritory.A,
         B: result.finalTerritory.B,
       },
+      moveHistory: result.moveHistory,
       influenceToTerritoryConversionPercent: {
         X: conversionRate(xFinal, xPeak),
         Y: conversionRate(yFinal, yPeak),
