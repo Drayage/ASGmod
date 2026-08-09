@@ -63,6 +63,12 @@ if (!DECIDE) process.exit(0);
 let changed = 0;
 let considered = 0;
 const key = (a: any) => (a.type === "PLACE" ? `${a.row},${a.col}` : "PASS");
+/** Where the chosen move lands, by distance from the edge, per arm. The arena
+ * reported no change in how regions get walled — but its own engines already
+ * take 38% of a region's boundary from the board edge where the shipped engine
+ * took 13% against the human, so it was not reproducing the defect. This asks
+ * the same question in the condition that has it. */
+const lines: Record<string, number[]> = { true: new Array(5).fill(0), false: new Array(5).fill(0) };
 const STRIDE = Number(process.env.STRIDE ?? 1);
 positions.forEach(({ state, player }, i) => {
   if (i % STRIDE !== 0) return;
@@ -72,10 +78,25 @@ positions.forEach(({ state, player }, i) => {
   const got: Record<string, string> = {};
   for (const on of runs) {
     setEdgeFramingEnabled(on);
-    got[String(on)] = key(findBestMoveVeryHard(state, player, BUDGET));
+    const chosen = findBestMoveVeryHard(state, player, BUDGET);
+    got[String(on)] = key(chosen);
+    if (chosen.type === "PLACE") {
+      const d = Math.min(chosen.row, chosen.col, 8 - chosen.row, 8 - chosen.col);
+      lines[String(on)][d] += 1;
+    }
   }
   if (got["true"] !== got["false"]) changed += 1;
   if (considered % 25 === 0) console.log(`  ...${considered} decided, ${changed} changed`);
 });
 setEdgeFramingEnabled(false);
 console.log(`\ndecisions at ${BUDGET}ms: ${changed} of ${considered} changed (${pct(changed, considered)})`);
+console.log(`\nwhere the chosen move lands   (line 1 = board edge)`);
+console.log(`${"arm".padEnd(10)}${["1st", "2nd", "3rd", "4th", "5th"].map((s) => s.padStart(8)).join("")}`);
+for (const on of ["false", "true"]) {
+  const total = lines[on].reduce((a, b) => a + b, 0);
+  console.log(
+    `${(on === "true" ? "edge ON" : "edge OFF").padEnd(10)}` +
+      lines[on].map((c) => `${((c / total) * 100).toFixed(0)}%`.padStart(8)).join(""),
+  );
+}
+console.log(`  (the human plays 37% / 39% / 17% / 7% across these lines)`);

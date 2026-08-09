@@ -76,7 +76,7 @@ const clusterMargin = new Map<string, number[]>();
 for (const path of process.argv.slice(2)) {
   const run = JSON.parse(readFileSync(path, "utf8"));
   for (const match of run.matches) {
-    const names: Record<"X" | "Y", string> = { X: match.engineX, Y: match.engineY };
+    const names: Record<"X" | "Y", string> = match.engines;
     for (const game of match.games) {
       if (!game.moveHistory) {
         throw new Error(`${path} has no moveHistory — rerun the arena on a build that records it`);
