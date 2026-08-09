@@ -32,8 +32,13 @@ const stats = new Map<boolean, { depths: number[]; over: number; elapsed: number
   [false, { depths: [], over: 0, elapsed: [] }],
 ]);
 
+// Exports overlap — the same game appears in several files, and counting it
+// twice once made a 224-move sample read as 557.
+const seenGames = new Set<string>();
 for (const path of process.argv.slice(2)) {
   for (const rec of (JSON.parse(readFileSync(path, "utf8")) as { records: any[] }).records) {
+    if (rec.id && seenGames.has(rec.id)) continue;
+    if (rec.id) seenGames.add(rec.id);
     const ai: Player = opponent(rec.playerSide);
     let state: GameState = createInitialState();
     for (const m of rec.moveHistory) {
