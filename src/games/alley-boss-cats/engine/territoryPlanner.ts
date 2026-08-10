@@ -254,9 +254,16 @@ export function expectedOpenGroundFromMap(
  * defined in terms of this, so the two can never disagree.
  */
 /**
- * Off until measured. See `influenceOwnerMap`.
+ * On. A miscount rather than an idea, so the bar was that nothing gets worse.
+ *
+ * Arena, 186 games, counted-once against shipped: wins 102 to 84, groups lost 52
+ * against 59, final territory 6.64 against 7.02, paired margin -0.38 +/- 0.35.
+ * None of that is significant on its own — the win difference is 1.3 standard
+ * deviations — but the two things the criterion named both moved the right way,
+ * and a capture loses outright here while 0.38 cells does not. At the shipped
+ * budget the fix changes 12% of moves and costs 0.02 ply.
  */
-export let settledOutOfInfluenceEnabled = false;
+export let settledOutOfInfluenceEnabled = true;
 export function setSettledOutOfInfluenceEnabled(value: boolean): void {
   settledOutOfInfluenceEnabled = value;
 }

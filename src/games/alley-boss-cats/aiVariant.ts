@@ -1,6 +1,7 @@
 import { tuning } from "./ai";
 import { setEyeMakingDefenceEnabled, setThinGroupGuardEnabled } from "./engine/minimax";
 import { setEdgeFramingEnabled } from "./engine/moveOrdering";
+import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
 
 /**
  * Named engine settings the player can pick between before a game.
@@ -70,4 +71,8 @@ export function applyAIVariant(variant: AIVariant): void {
   // so it cannot change the choice and did not. Kept as a tuning flag for the
   // scripts, off everywhere else.
   tuning.influenceRegionCurve = false;
+  // Not a variant axis: settled ground being counted once is a correction, and
+  // every variant gets it. Set here anyway so a script that flipped the module
+  // flag cannot leak into a game.
+  setSettledOutOfInfluenceEnabled(true);
 }
