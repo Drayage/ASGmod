@@ -11,6 +11,7 @@
  */
 import { readFileSync } from "node:fs";
 import { applyAction, getSafeActions, tuning } from "./src/games/alley-boss-cats/ai";
+import { setSettledOutOfInfluenceEnabled } from "./src/games/alley-boss-cats/engine/territoryPlanner";
 import { findBestMoveVeryHard, lastSearchDepth } from "./src/games/alley-boss-cats/engine/minimax";
 import { createInitialState } from "./src/games/alley-boss-cats/rules";
 import { BOARD_SIZE, DIRECTIONS, inBounds, opponent, playerCell } from "./src/games/alley-boss-cats/types";
@@ -84,7 +85,8 @@ positions.forEach(({ state, player }, i) => {
   const runs = i % 2 === 0 ? [false, true] : [true, false];
   const got: Record<string, string> = {};
   for (const on of runs) {
-    tuning.influenceRegionCurve = on;
+    if (process.env.SWITCH === "settled") setSettledOutOfInfluenceEnabled(on);
+    else tuning.influenceRegionCurve = on;
     const chosen = findBestMoveVeryHard(state, player, BUDGET);
     got[String(on)] = key(chosen);
     depths[String(on)].push(lastSearchDepth);
@@ -94,6 +96,7 @@ positions.forEach(({ state, player }, i) => {
   if (considered % 25 === 0) console.log(`  ...${considered} decided, ${changed} changed`);
 });
 tuning.influenceRegionCurve = false;
+setSettledOutOfInfluenceEnabled(false);
 
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
 const pct = (n: number, d: number) => (d ? `${((n / d) * 100).toFixed(0)}%` : "-");

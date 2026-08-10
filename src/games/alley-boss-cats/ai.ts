@@ -8,6 +8,7 @@ import {
   influenceCountWeightedFromMap,
   influenceOwnerMap,
   expectedOpenGroundFromMap,
+  settledOutOfInfluenceEnabled,
 } from "./engine/territoryPlanner";
 import { ownershipMargin } from "./engine/ownershipTerm";
 import { frameworkPotential } from "./engine/frameworks";
@@ -620,7 +621,12 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
   // the closability term asks the same map a second question rather than
   // paying to rebuild it — the difference between costing the search a third
   // of its evaluation budget and costing it all of it.
-  const owners = influenceOwnerMap(state.board);
+  const owners = influenceOwnerMap(
+    state.board,
+    settledOutOfInfluenceEnabled
+      ? new Set([...state.territories.A, ...state.territories.B].map((c) => `${c.row},${c.col}`))
+      : undefined,
+  );
   // Weighted only when asked for. The extra pass is one flood fill over a map
   // already in hand, but "the default is unchanged" and "the default costs the
   // same" are different claims, and conflating them shipped a regression once.
@@ -704,7 +710,12 @@ export function evaluateComponents(
   if (mine.atari > 0 && state.currentPlayer === opp) return { myGroupIsLost: -NEAR_DECISIVE };
   if (theirs.atari > 0 && state.currentPlayer === aiPlayer) return { theirGroupIsLost: NEAR_DECISIVE };
 
-  const owners = influenceOwnerMap(state.board);
+  const owners = influenceOwnerMap(
+    state.board,
+    settledOutOfInfluenceEnabled
+      ? new Set([...state.territories.A, ...state.territories.B].map((c) => `${c.row},${c.col}`))
+      : undefined,
+  );
   // Weighted only when asked for. The extra pass is one flood fill over a map
   // already in hand, but "the default is unchanged" and "the default costs the
   // same" are different claims, and conflating them shipped a regression once.
