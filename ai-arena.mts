@@ -19,7 +19,6 @@ import {
   setPocketSealDangerGuardEnabled,
   setCornerBookEnabled,
   setCornerBookFinishEnabled,
-  setEyeMakingDefenceEnabled,
   setFrameworkGuardEnabled,
   setPocketSealDenialFilterEnabled,
   setOpponentFrameworkGuardEnabled,
