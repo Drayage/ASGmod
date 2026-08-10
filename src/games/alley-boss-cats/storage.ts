@@ -133,7 +133,7 @@ const DEFAULT_SETTINGS: Settings = {
   // rather than folding it in everywhere — it is the instrument, and past
   // records split by `aiVariant`, so changing what a name means would make them
   // incomparable.
-  lastAIVariant: "EYE_CORNER_DIAG",
+  lastAIVariant: "EYE_FRAME",
   lastHumanSide: "A",
 };
 

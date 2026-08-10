@@ -769,8 +769,39 @@ export function setCornerBookEnabled(value: boolean): void {
   cornerBookEnabled = value;
 }
 
+/**
+ * Off until measured. See `cornerBookFinishGate`.
+ */
+export let cornerBookFinishEnabled = false;
+export function setCornerBookFinishEnabled(value: boolean): void {
+  cornerBookFinishEnabled = value;
+}
+
 /** How many of the mover's own stones the corner book still applies for. */
 const CORNER_BOOK_STONES = 5;
+/**
+ * The same budget when the book is asked to finish what it starts.
+ *
+ * `CORNER_BOOK_STONES` counts the mover's stones on the whole board, not the
+ * stones in the corner being built, so five is spent long before any frame is
+ * done: claim two corners and three moves remain, against the four one frame
+ * needs. The records show the consequence and not the intent — an uncontested
+ * corner gets 2.14 engine stones and is dropped at turn 14.6 of a fifty-turn
+ * game, where the player's gets 5.80 and is still being played at turn 32.8.
+ *
+ * What that costs is the whole gap: uncontested corners with one or two engine
+ * stones finish worth 1.36 cells, the two that got three or four finish worth
+ * 6.00 — the frame's six, exactly — and the player's five-plus finish at 8.75.
+ *
+ * Twelve is a valve rather than a target: it is the point by which two frames
+ * and the moves around them are done, so the book can never run the middlegame.
+ * The real limits are the two below it.
+ */
+const CORNER_BOOK_STONES_FINISHING = 12;
+/** Frame stones one corner is worth, which is what encloses its six cells. */
+const CORNER_BOOK_FRAME_STONES = 4;
+/** Corners the book will open before it stops claiming and starts finishing. */
+const CORNER_BOOK_MAX_CORNERS = 2;
 /**
  * Enemy stones a corner may already hold and still be worth walking into.
  *
@@ -797,7 +828,7 @@ const CORNER_BOOK_MAX_ENEMY = 2;
  * (1,3) classes are indistinguishable on win rate, so playing this point instead
  * of whatever the search preferred costs nothing that has been measured.
  */
-function cornerBookMove(
+export function cornerBookMove(
   rootState: GameState,
   aiPlayer: Player,
   pool: AIAction[],
@@ -810,7 +841,9 @@ function cornerBookMove(
   // on an empty board, so without this the side moving second picks its opening
   // by search — and in self-play it picked the centre, which is the one class
   // the opening measurement found measurably worse.
-  if (own >= CORNER_BOOK_STONES) return null;
+  if (own >= (cornerBookFinishEnabled ? CORNER_BOOK_STONES_FINISHING : CORNER_BOOK_STONES)) {
+    return null;
+  }
 
   const safe = new Set(
     pool
@@ -829,16 +862,20 @@ function cornerBookMove(
   // already held, 118 were still alive at the end — 95% at one enemy stone, 100%
   // at two. Going in is nearly free, and refusing to hands the opponent every
   // corner they touch first.
-  const held: Record<string, { mine: number; theirs: number }> = {};
+  const held: Record<string, { mine: number; theirs: number; frame: number }> = {};
   for (let row = 0; row < size; row += 1) {
     for (let col = 0; col < size; col += 1) {
       const cell = rootState.board[row][col];
       if (cell !== playerCell(aiPlayer) && cell !== playerCell(opponent(aiPlayer))) continue;
       const q = quadrant(row, col);
       if (!q) continue;
-      held[q] ??= { mine: 0, theirs: 0 };
-      if (cell === playerCell(aiPlayer)) held[q].mine += 1;
-      else held[q].theirs += 1;
+      held[q] ??= { mine: 0, theirs: 0, frame: 0 };
+      if (cell === playerCell(aiPlayer)) {
+        held[q].mine += 1;
+        const dr = Math.min(row, size - 1 - row);
+        const dc = Math.min(col, size - 1 - col);
+        if (dr + dc === 3) held[q].frame += 1;
+      } else held[q].theirs += 1;
     }
   }
 
@@ -879,6 +916,10 @@ function cornerBookMove(
       const q = quadrant(row, col);
       if (!q) continue;
       if ((held[q]?.theirs ?? 0) > CORNER_BOOK_MAX_ENEMY) continue;
+      // The frame is four stones and encloses six cells; a fifth adds nothing
+      // the rules will pay for, and the measurement behind the depth limit says
+      // a wider one only makes the inside easier to live in.
+      if ((held[q]?.frame ?? 0) >= CORNER_BOOK_FRAME_STONES) continue;
 
       const dr = Math.min(row, size - 1 - row);
       const dc = Math.min(col, size - 1 - col);
@@ -930,6 +971,13 @@ function cornerBookMove(
       if (gaps.length > 0) return { type: "PLACE", row: gaps[0].row, col: gaps[0].col };
     }
   }
+
+  // Claiming a third corner is not what the raised budget is for. Once two are
+  // open the remaining stones belong to finishing them, which is the whole point
+  // of the change — the old budget could open corners it could never close, and
+  // an unclosed corner is worth 1.36 cells against a closed one's 6.
+  const opened = Object.values(held).filter((h) => h.mine > 0).length;
+  if (cornerBookFinishEnabled && opened >= CORNER_BOOK_MAX_CORNERS) return null;
 
   for (const { row, col } of OPENING_BOOK) {
     const q = quadrant(row, col);
