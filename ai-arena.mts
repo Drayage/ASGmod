@@ -23,7 +23,12 @@ import {
   setTtScoresEnabled,
 } from "./src/games/alley-boss-cats/engine/minimax";
 import { setCaptureRetargets } from "./src/games/alley-boss-cats/engine/captureSearch";
-import { setContactBias, setDecisivePointsEnabled, setEdgeFramingEnabled } from "./src/games/alley-boss-cats/engine/moveOrdering";
+import {
+  setContactBias,
+  setDecisivePointsEnabled,
+  setEdgeFramingEnabled,
+  setOwnDiagonalBonus,
+} from "./src/games/alley-boss-cats/engine/moveOrdering";
 import { setSettledOutOfInfluenceEnabled } from "./src/games/alley-boss-cats/engine/territoryPlanner";
 import { influenceCount } from "./src/games/alley-boss-cats/engine/territoryPlanner";
 import { wideAreaBotMove } from "./src/games/alley-boss-cats/engine/wideAreaBot";
@@ -103,7 +108,9 @@ type Engine =
   | "VH_SETTLED"
   | "VH_NOSETTLED"
   | "VH_CONTACT"
-  | "VH_NOCONTACT";
+  | "VH_NOCONTACT"
+  | "VH_DIAG"
+  | "VH_NODIAG";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -157,6 +164,11 @@ const TESTING_SETTLED = process.env.ONLY === "SETTLED";
 // and the arena is the one thing that reproduces them well.
 const CONTACT = Number(process.env.CONTACT ?? 0);
 const TESTING_CONTACT = process.env.ONLY === "CONTACT";
+// Paying for a diagonal own-neighbour in the ordering, which today pays nothing.
+// The risk is the same as any ordering change: what falls out of the candidate
+// list. Captures are what the arena reproduces, so that is what it answers.
+const DIAG = Number(process.env.DIAG ?? 15);
+const TESTING_DIAG = process.env.ONLY === "DIAG";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -247,6 +259,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_CALIB) tuning.calibratedOpenGround = engine === "VH_CALIB";
   if (TESTING_SETTLED) setSettledOutOfInfluenceEnabled(engine === "VH_SETTLED");
   if (TESTING_CONTACT) setContactBias(engine === "VH_CONTACT" ? CONTACT : 1);
+  if (TESTING_DIAG) setOwnDiagonalBonus(engine === "VH_DIAG" ? DIAG : 0);
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -316,6 +329,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOSETTLED" ||
     engine === "VH_CONTACT" ||
     engine === "VH_NOCONTACT" ||
+    engine === "VH_DIAG" ||
+    engine === "VH_NODIAG" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -685,6 +700,10 @@ if (only === "DECISIVE") {
 }
 if (only === "EYE") {
   addMatch(`VH+eye(${EYE_W})+walling vs VERY_HARD`, "VH_EYE", "VH_NOEYE");
+}
+// Candidate first: VH_DIAG pays for diagonal own-neighbours, VH_NODIAG is shipped.
+if (only === "DIAG") {
+  addMatch(`VH diagonal(${DIAG}) vs VERY_HARD`, "VH_DIAG", "VH_NODIAG");
 }
 // Candidate first: VH_CONTACT damps the pull towards enemy stones, VH_NOCONTACT is shipped.
 if (only === "CONTACT") {
