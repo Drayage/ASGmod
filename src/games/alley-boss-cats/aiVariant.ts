@@ -19,7 +19,7 @@ import { setEdgeFramingEnabled } from "./engine/moveOrdering";
  * picking a variant fully describes the engine rather than depending on what was
  * chosen before it.
  */
-export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE";
+export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPLIT";
 
 export const AI_VARIANTS: ReadonlyArray<{
   value: AIVariant;
@@ -47,6 +47,11 @@ export const AI_VARIANTS: ReadonlyArray<{
     help: "위 두 가지를 함께 켭니다.",
   },
   {
+    value: "EYE_SPLIT",
+    label: "눈 만들기 + 큰 영역",
+    help: "넓게 퍼진 빈 공간을 낮게 쳐서, 크게 벌려두기보다 나눠서 확실히 집으로 만들려 합니다. 사람은 37턴에 11칸짜리 공간을 들고 있고 엔진은 19칸을 들고 있는데, 큰 공간일수록 집이 되는 비율이 낮았습니다.",
+  },
+  {
     value: "EYE_EDGE",
     label: "눈 만들기 + 가장자리",
     help: "가장자리를 따라 벌려서 집을 짜는 수를 후보에 넣습니다. 사람은 영역 둘레의 43%를 판 가장자리로 쓰는데 엔진은 13%뿐이었습니다.",
@@ -57,12 +62,14 @@ export const AI_VARIANTS: ReadonlyArray<{
 const EYE_SPACE_WEIGHT = 60;
 
 export function applyAIVariant(variant: AIVariant): void {
-  const eye = variant === "EYE" || variant === "EYE_THIN" || variant === "EYE_EDGE";
+  const eye = variant === "EYE" || variant === "EYE_THIN" || variant === "EYE_EDGE" || variant === "EYE_SPLIT";
   const thin = variant === "THIN_GUARD" || variant === "EYE_THIN";
   const edge = variant === "EYE_EDGE";
+  const split = variant === "EYE_SPLIT";
 
   tuning.eyeSpaceWeight = eye ? EYE_SPACE_WEIGHT : 0;
   setEyeMakingDefenceEnabled(eye);
   setThinGroupGuardEnabled(thin);
   setEdgeFramingEnabled(edge);
+  tuning.influenceRegionCurve = split;
 }

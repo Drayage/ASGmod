@@ -100,6 +100,63 @@ export function influenceCountFromMap(owners: Array<Player | null>): Record<Play
 }
 
 /**
+ * The same totals, with each cell weighted by how big a region of influence it
+ * belongs to.
+ *
+ * `projectedMarginFrom` prices open ground at one flat rate per cell. That rate
+ * was tuned as a scalar and came out best as one, but a scalar cannot say what
+ * the recorded games do: measured on this very map over 17 games decided by the
+ * count, an influenced cell at turn 31 became its claimant's territory 85% of
+ * the time when it sat in a region of five to seven cells and 31% when the
+ * region ran to twelve or more. The curve is the same for both players; what
+ * differs is that the engine is the one holding the sprawling regions.
+ *
+ * So the flat rate systematically overprices exactly the middle-game frame the
+ * engine keeps and cannot close. The weights below are relative and chosen to
+ * leave the average cell near 1, so this changes the shape of the term without
+ * moving its scale — the scale has already been measured and is not what is
+ * wrong with it.
+ */
+export const LARGE_INFLUENCE_REGION = 12;
+export const SMALL_REGION_WEIGHT = 1.1;
+export const LARGE_REGION_WEIGHT = 0.55;
+
+export function influenceCountWeightedFromMap(
+  owners: Array<Player | null>,
+  size = Math.round(Math.sqrt(owners.length)),
+): Record<Player, number> {
+  const counts: Record<Player, number> = { A: 0, B: 0 };
+  const seen = new Uint8Array(owners.length);
+  const at = (row: number, col: number) => owners[row * size + col];
+
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const side = at(row, col);
+      if (!side || seen[row * size + col]) continue;
+      const stack: Array<[number, number]> = [[row, col]];
+      seen[row * size + col] = 1;
+      let region = 0;
+      while (stack.length) {
+        const [r, c] = stack.pop()!;
+        region += 1;
+        for (const [dr, dc] of DIRECTIONS) {
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nr < 0 || nc < 0 || nr >= size || nc >= size) continue;
+          const index = nr * size + nc;
+          if (seen[index] || owners[index] !== side) continue;
+          seen[index] = 1;
+          stack.push([nr, nc]);
+        }
+      }
+      counts[side] +=
+        region * (region >= LARGE_INFLUENCE_REGION ? LARGE_REGION_WEIGHT : SMALL_REGION_WEIGHT);
+    }
+  }
+  return counts;
+}
+
+/**
  * The same judgement `influenceCount` sums up, kept per cell instead of
  * totalled: for every point on the board, the side heading towards owning it,
  * or null where nobody is (an occupied cell, or open ground both sides reach

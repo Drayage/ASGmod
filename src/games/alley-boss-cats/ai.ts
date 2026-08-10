@@ -5,6 +5,7 @@ import {
   framePotential,
   influenceCount,
   influenceCountFromMap,
+  influenceCountWeightedFromMap,
   influenceOwnerMap,
 } from "./engine/territoryPlanner";
 import { ownershipMargin } from "./engine/ownershipTerm";
@@ -350,6 +351,22 @@ export const tuning = {
    */
   closabilityDecay: 1,
   /**
+   * Price open ground by the size of the region it sits in, rather than at one
+   * flat rate per cell.
+   *
+   * Measured on the engine's own influence map over 17 games decided by the
+   * count: at turn 31 a cell in a region of five to seven became its
+   * claimant's territory 85% of the time, and 31% once the region reached
+   * twelve or more. Both players sit on the same curve. What separates them is
+   * which side of it they are on — at turn 37 the human's largest dominated
+   * room is 11.1 cells and the engine's is 18.6, and the engine finishes with
+   * 1.5 cells in regions of six or more against the human's 7.0.
+   *
+   * The flat rate cannot express that, so it overprices the sprawling frame the
+   * engine keeps and never closes. Off until measured; see `aiVariant.ts`.
+   */
+  influenceRegionCurve: false,
+  /**
    * Multiplier on the two terms that pay for keeping stones together —
    * `connectedBonus * 3` and `-isolated * 5`. 1 is the shipped behaviour.
    *
@@ -579,7 +596,12 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
   // paying to rebuild it — the difference between costing the search a third
   // of its evaluation budget and costing it all of it.
   const owners = influenceOwnerMap(state.board);
-  const influence = influenceCountFromMap(owners);
+  // Weighted only when asked for. The extra pass is one flood fill over a map
+  // already in hand, but "the default is unchanged" and "the default costs the
+  // same" are different claims, and conflating them shipped a regression once.
+  const influence = tuning.influenceRegionCurve
+    ? influenceCountWeightedFromMap(owners)
+    : influenceCountFromMap(owners);
   const open =
     tuning.closabilityDecay < 1
       ? closableInfluence(state.board, owners, tuning.closabilityDecay)
@@ -651,7 +673,12 @@ export function evaluateComponents(
   if (theirs.atari > 0 && state.currentPlayer === aiPlayer) return { theirGroupIsLost: NEAR_DECISIVE };
 
   const owners = influenceOwnerMap(state.board);
-  const influence = influenceCountFromMap(owners);
+  // Weighted only when asked for. The extra pass is one flood fill over a map
+  // already in hand, but "the default is unchanged" and "the default costs the
+  // same" are different claims, and conflating them shipped a regression once.
+  const influence = tuning.influenceRegionCurve
+    ? influenceCountWeightedFromMap(owners)
+    : influenceCountFromMap(owners);
   const open =
     tuning.closabilityDecay < 1
       ? closableInfluence(state.board, owners, tuning.closabilityDecay)
