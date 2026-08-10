@@ -26,7 +26,12 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   let difficulty: Difficulty = settings.lastDifficulty;
   let humanSide: Player = settings.lastHumanSide;
   let dangerLevel: DangerLevel = settings.dangerLevel;
-  let aiVariant: AIVariant = settings.lastAIVariant;
+  // A retired variant can still be sitting in saved settings from before it came
+  // off the picker, and it would leave every radio unchecked. Fall back to the
+  // first live one instead.
+  let aiVariant: AIVariant = AI_VARIANTS.some((v) => v.value === settings.lastAIVariant)
+    ? settings.lastAIVariant
+    : AI_VARIANTS[0].value;
 
   const wrap = document.createElement("div");
   wrap.className = "abc-mode-select";

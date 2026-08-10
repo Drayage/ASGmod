@@ -24,65 +24,62 @@ import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
  * `apply` always sets every switch, never only the ones a variant changes, so
  * picking a variant fully describes the engine rather than depending on what was
  * chosen before it.
+ *
+ * The picker only lists live hypotheses. A variant whose question has been
+ * answered is retired to `RETIRED_VARIANTS` rather than deleted: forty-odd
+ * recorded games are split by these names, `applyAIVariant` still has to
+ * reproduce the engine that played them for a game resumed mid-way, and the
+ * label is what a record shows. Ten entries in the picker was nine questions
+ * being asked at once, which is not what any of them were for.
  */
 export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT";
 
-export const AI_VARIANTS: ReadonlyArray<{
+interface VariantEntry {
   value: AIVariant;
   label: string;
   help: string;
-}> = [
+}
+
+/** What the picker offers: the current engine, and the two live comparisons. */
+export const AI_VARIANTS: ReadonlyArray<VariantEntry> = [
   {
-    value: "STANDARD",
-    label: "이전 엔진",
-    help: "눈 만들기가 없던 예전 동작. 비교용입니다.",
-  },
-  {
-    value: "EYE",
-    label: "기본 (눈 만들기)",
-    help: "위험한 그룹을 뻗어서 살리는 대신 눈을 만들어 살리는 수도 후보에 넣습니다.",
-  },
-  {
-    value: "THIN_GUARD",
-    label: "얇은 그룹 방어",
-    help: "활로가 세 개 이하로 줄어든 그룹을 우선 보강합니다.",
-  },
-  {
-    value: "EYE_THIN",
-    label: "눈 만들기 + 얇은 그룹",
-    help: "위 두 가지를 함께 켭니다.",
-  },
-  {
-    value: "EYE_CORNER",
-    label: "눈 만들기 + 귀 선수점",
-    help: "초반 네 수 동안, 아무도 안 들어간 귀가 있으면 그 귀의 선수점을 둡니다. 사람은 첫 여섯 수 중 3.3개를 그 점에 두는데 엔진은 1.0개였습니다. 위험한 수가 하나도 없을 때만 적용됩니다.",
-  },
-  {
-    value: "EYE_CORNER_DIAG",
-    label: "눈 만들기 + 귀 선수점 + 대각",
-    help: "위의 귀 선수점에 더해, 자기 돌에 대각으로 붙는 수를 후보 정렬에서 직선만큼 쳐줍니다. 지금은 직선에만 점수가 있어서, 사람이 대각으로 두는 비율 66%에 엔진은 39%였습니다.",
+    value: "EYE_FRAME_TIGHT",
+    label: "기본",
+    help: "지금 엔진입니다. 귀 두 개를 네 돌짜리 정석으로 완성할 때까지 이어 두고, 위험한 그룹은 뻗는 대신 눈을 만들어 삽니다.",
   },
   {
     value: "EYE_FRAME",
-    label: "눈 만들기 + 귀 정석 완성 + 대각",
-    help: "위의 귀 선수점을 찍고 끝내지 않고, 귀 두 개를 네 돌짜리 정석으로 완성할 때까지 이어 둡니다. 지금까지 엔진은 방해받지 않은 귀에 평균 2.1돌만 두고 14수째에 손을 뗐고 2.6칸을 남겼습니다. 세 돌 이상 둔 귀는 6칸이 됐습니다.",
+    label: "기본 + 대각",
+    help: "기본에 대각 보너스만 더합니다. 빈 판 240판에서 힘은 동률(50.4%)이고 집도 차이가 없는데 잡혀서 지는 비율만 35% 대 25%로 높아, 기본에서 뺐습니다. 사람 상대에서도 그런지가 남은 질문이라 비교용으로 남겨둡니다.",
   },
   {
-    value: "EYE_FRAME_TIGHT",
-    label: "귀 정석 완성 (대각 없음)",
-    help: "위와 같은데 대각 보너스만 뺍니다. 대각을 켠 뒤로 엔진 돌의 절반이 직선 이웃 없이 대각으로만 붙어 있고(이전 17%), 잡혀서 진 판이 9%에서 30%로 늘었습니다. 아레나에서는 반대로 나왔으므로, 이 둘을 갈라 재기 위한 짝입니다.",
-  },
-  {
-    value: "EYE_SPACING",
-    label: "눈 만들기 + 거리두기",
-    help: "상대 돌에 달라붙는 성향을 뺍니다. 사람은 중반 착점의 53%가 상대 돌 옆인데 엔진은 75%였습니다. 잡기·단수 판단은 그대로입니다. 이득은 아직 확인되지 않았습니다.",
-  },
-  {
-    value: "EYE_EDGE",
-    label: "눈 만들기 + 가장자리",
-    help: "가장자리를 따라 벌려서 집을 짜는 수를 후보에 넣습니다. 사람은 영역 둘레의 43%를 판 가장자리로 쓰는데 엔진은 13%뿐이었습니다.",
+    value: "EYE",
+    label: "귀 정석 없음",
+    help: "눈 만들기만 켠 예전 동작. 귀 책이 얼마나 벌어주는지 견주는 기준선입니다.",
   },
 ];
+
+/**
+ * Answered, and off the picker. Kept so a resumed game plays as the engine that
+ * started it and a record can still be labelled.
+ */
+export const RETIRED_VARIANTS: ReadonlyArray<{ value: AIVariant; label: string; why: string }> = [
+  { value: "STANDARD", label: "이전 엔진", why: "눈 만들기 이전 동작. 기준선은 EYE로 옮겼습니다." },
+  { value: "THIN_GUARD", label: "얇은 그룹 방어", why: "이득이 확인되지 않았습니다." },
+  { value: "EYE_THIN", label: "눈 만들기 + 얇은 그룹", why: "이득이 확인되지 않았습니다." },
+  { value: "EYE_CORNER", label: "눈 만들기 + 귀 선수점", why: "귀 예산이 다섯 수에서 끊겨 정석을 못 끝냈습니다. EYE_FRAME_TIGHT이 대체합니다." },
+  { value: "EYE_CORNER_DIAG", label: "눈 만들기 + 귀 선수점 + 대각", why: "위와 같고, 대각도 기본에서 빠졌습니다." },
+  { value: "EYE_SPACING", label: "눈 만들기 + 거리두기", why: "이득이 확인되지 않았습니다." },
+  { value: "EYE_EDGE", label: "눈 만들기 + 가장자리", why: "이득이 없고 잡혀 지는 비율이 가장 높았습니다 (4판 중 2판)." },
+];
+
+/** The name a record shows, live or retired. */
+export function variantLabel(variant: AIVariant | undefined): string {
+  if (!variant) return "기록 없음";
+  const live = AI_VARIANTS.find((v) => v.value === variant);
+  if (live) return live.label;
+  return RETIRED_VARIANTS.find((v) => v.value === variant)?.label ?? variant;
+}
 
 /** Points per liberty of a thin group that could still be closed into an eye. */
 const EYE_SPACE_WEIGHT = 60;
@@ -118,9 +115,6 @@ export function applyAIVariant(variant: AIVariant): void {
   // untouched, which is why the arena's capture count did not get worse.
   setContactBias(spacing ? 0 : 1);
   setCornerBookEnabled(corner);
-  // Kept off everywhere but EYE_FRAME. The three games already played on
-  // EYE_CORNER_DIAG are the comparison, so that name has to keep meaning what it
-  // meant when they were played.
   setCornerBookFinishEnabled(finish);
   // 15 is where the diagonal overtakes the straight connection in the ordering:
   // an orthogonal neighbour scores 29-32 in a typical corner and a diagonal 15,
