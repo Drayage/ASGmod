@@ -62,6 +62,14 @@ const dist: Record<string, number[][]> = { human: BANDS.map(() => []), ai: BANDS
 const lumps: Record<string, number[][]> = { human: BANDS.map(() => []), ai: BANDS.map(() => []) };
 const levelDist: Record<string, number[]> = { human: [], ai: [] };
 const levelLumps: Record<string, number[]> = { human: [], ai: [] };
+/**
+ * And the distance to the nearest *enemy* stone. `localMoveScore` pays +6 for
+ * every enemy stone a move touches and +130 or +900 for threatening one, so the
+ * ordering pulls the engine towards the opponent. A side that always plays next
+ * to the other side never gets to enclose anything, which would produce the seal
+ * supply gap without any difference in how far it plays from its own.
+ */
+const levelEnemy: Record<string, number[]> = { human: [], ai: [] };
 
 const seen = new Set<string>();
 let games = 0;
@@ -103,6 +111,15 @@ for (const path of process.argv.slice(2)) {
       if (lead >= -2 && lead <= 1 && turn >= 11 && turn <= 40) {
         levelDist[name].push(nearest);
         levelLumps[name].push(clusters(state.board, mover));
+        const foe = playerCell(opponent(mover));
+        let nearestFoe = Infinity;
+        for (let row = 0; row < BOARD_SIZE; row += 1) {
+          for (let col = 0; col < BOARD_SIZE; col += 1) {
+            if (before.board[row][col] !== foe) continue;
+            nearestFoe = Math.min(nearestFoe, Math.max(Math.abs(row - m.row), Math.abs(col - m.col)));
+          }
+        }
+        if (Number.isFinite(nearestFoe)) levelEnemy[name].push(nearestFoe);
       }
     }
   }
@@ -131,3 +148,8 @@ const hist = (xs: number[]) => {
 };
 console.log(`\ngap distribution at a level score`);
 for (const name of ["human", "ai"]) console.log(`  ${name.padEnd(8)}${hist(levelDist[name])}`);
+
+console.log(`\ndistance to the nearest enemy stone, same turns and same score`);
+for (const name of ["human", "ai"]) {
+  console.log(`  ${name.padEnd(8)}mean ${mean(levelEnemy[name]).toFixed(2)}   ${hist(levelEnemy[name])}`);
+}
