@@ -1,6 +1,7 @@
 import { tuning } from "./ai";
 import {
   setCornerBookEnabled,
+  setCornerBookFinishEnabled,
   setEyeMakingDefenceEnabled,
   setThinGroupGuardEnabled,
 } from "./engine/minimax";
@@ -24,7 +25,7 @@ import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
  * picking a variant fully describes the engine rather than depending on what was
  * chosen before it.
  */
-export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG";
+export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME";
 
 export const AI_VARIANTS: ReadonlyArray<{
   value: AIVariant;
@@ -62,6 +63,11 @@ export const AI_VARIANTS: ReadonlyArray<{
     help: "위의 귀 선수점에 더해, 자기 돌에 대각으로 붙는 수를 후보 정렬에서 직선만큼 쳐줍니다. 지금은 직선에만 점수가 있어서, 사람이 대각으로 두는 비율 66%에 엔진은 39%였습니다.",
   },
   {
+    value: "EYE_FRAME",
+    label: "눈 만들기 + 귀 정석 완성 + 대각",
+    help: "위의 귀 선수점을 찍고 끝내지 않고, 귀 두 개를 네 돌짜리 정석으로 완성할 때까지 이어 둡니다. 지금까지 엔진은 방해받지 않은 귀에 평균 2.1돌만 두고 14수째에 손을 뗐고 2.6칸을 남겼습니다. 세 돌 이상 둔 귀는 6칸이 됐습니다.",
+  },
+  {
     value: "EYE_SPACING",
     label: "눈 만들기 + 거리두기",
     help: "상대 돌에 달라붙는 성향을 뺍니다. 사람은 중반 착점의 53%가 상대 돌 옆인데 엔진은 75%였습니다. 잡기·단수 판단은 그대로입니다. 이득은 아직 확인되지 않았습니다.",
@@ -85,12 +91,15 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_EDGE" ||
     variant === "EYE_SPACING" ||
     variant === "EYE_CORNER" ||
-    variant === "EYE_CORNER_DIAG";
+    variant === "EYE_CORNER_DIAG" ||
+    variant === "EYE_FRAME";
   const thin = variant === "THIN_GUARD" || variant === "EYE_THIN";
   const edge = variant === "EYE_EDGE";
   const spacing = variant === "EYE_SPACING";
-  const corner = variant === "EYE_CORNER" || variant === "EYE_CORNER_DIAG";
-  const diagonal = variant === "EYE_CORNER_DIAG";
+  const corner =
+    variant === "EYE_CORNER" || variant === "EYE_CORNER_DIAG" || variant === "EYE_FRAME";
+  const diagonal = variant === "EYE_CORNER_DIAG" || variant === "EYE_FRAME";
+  const finish = variant === "EYE_FRAME";
 
   tuning.eyeSpaceWeight = eye ? EYE_SPACE_WEIGHT : 0;
   setEyeMakingDefenceEnabled(eye);
@@ -100,6 +109,10 @@ export function applyAIVariant(variant: AIVariant): void {
   // untouched, which is why the arena's capture count did not get worse.
   setContactBias(spacing ? 0 : 1);
   setCornerBookEnabled(corner);
+  // Kept off everywhere but EYE_FRAME. The three games already played on
+  // EYE_CORNER_DIAG are the comparison, so that name has to keep meaning what it
+  // meant when they were played.
+  setCornerBookFinishEnabled(finish);
   // 15 is where the diagonal overtakes the straight connection in the ordering:
   // an orthogonal neighbour scores 29-32 in a typical corner and a diagonal 15,
   // so anything less leaves the order unchanged and much more would swamp the

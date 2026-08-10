@@ -256,3 +256,37 @@ for (const side of ["human", "ai"]) {
     );
   }
 }
+
+// The player's correction, and it lands on the arithmetic above: a move that
+// dies scores zero, not minus the corner. The net-margin column charged every
+// approach with the whole of what the opener kept, but that corner was never the
+// approacher's to lose — leaving it alone would have cost them the same cells
+// and one fewer stone. So the value of an approach is what it changed against
+// doing nothing: the cells it took off the opener's untouched yield, plus
+// whatever it kept, and a stone that achieved neither is worth 0, not less.
+console.log(`\nscored against doing nothing, so a dead stone is 0 and never negative\n`);
+console.log(
+  `${"side".padEnd(8)}${"stones".padStart(8)}${"n".padStart(5)}${"denied".padStart(9)}` +
+    `${"kept".padStart(8)}${"value".padStart(9)}${"per stone".padStart(11)}`,
+);
+for (const side of ["human", "ai"]) {
+  const xs = all.filter((a) => a.side === side);
+  const base = mean(untouched[side === "human" ? "ai" : "human"]);
+  for (const [label, pick] of [
+    ["1-2", (a: Approach) => a.spent <= 2],
+    ["3-4", (a: Approach) => a.spent >= 3 && a.spent <= 4],
+    ["5+", (a: Approach) => a.spent >= 5],
+    ["all", () => true],
+  ] as Array<[string, (a: Approach) => boolean]>) {
+    const g = xs.filter(pick);
+    if (g.length === 0) continue;
+    const denied = g.map((a) => Math.max(0, base - a.denied));
+    const value = g.map((a, i) => denied[i] + a.kept);
+    console.log(
+      `${side.padEnd(8)}${label.padStart(8)}${String(g.length).padStart(5)}` +
+        `${mean(denied).toFixed(2).padStart(9)}${mean(g.map((a) => a.kept)).toFixed(2).padStart(8)}` +
+        `${mean(value).toFixed(2).padStart(9)}` +
+        `${(mean(value) / mean(g.map((a) => a.spent))).toFixed(2).padStart(11)}`,
+    );
+  }
+}
