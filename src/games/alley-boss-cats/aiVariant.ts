@@ -1,5 +1,9 @@
 import { tuning } from "./ai";
-import { setEyeMakingDefenceEnabled, setThinGroupGuardEnabled } from "./engine/minimax";
+import {
+  setCornerBookEnabled,
+  setEyeMakingDefenceEnabled,
+  setThinGroupGuardEnabled,
+} from "./engine/minimax";
 import { setContactBias, setEdgeFramingEnabled } from "./engine/moveOrdering";
 import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
 
@@ -20,7 +24,7 @@ import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
  * picking a variant fully describes the engine rather than depending on what was
  * chosen before it.
  */
-export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING";
+export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER";
 
 export const AI_VARIANTS: ReadonlyArray<{
   value: AIVariant;
@@ -48,6 +52,11 @@ export const AI_VARIANTS: ReadonlyArray<{
     help: "위 두 가지를 함께 켭니다.",
   },
   {
+    value: "EYE_CORNER",
+    label: "눈 만들기 + 귀 선수점",
+    help: "초반 네 수 동안, 아무도 안 들어간 귀가 있으면 그 귀의 선수점을 둡니다. 사람은 첫 여섯 수 중 3.3개를 그 점에 두는데 엔진은 1.0개였습니다. 위험한 수가 하나도 없을 때만 적용됩니다.",
+  },
+  {
     value: "EYE_SPACING",
     label: "눈 만들기 + 거리두기",
     help: "상대 돌에 달라붙는 성향을 뺍니다. 사람은 중반 착점의 53%가 상대 돌 옆인데 엔진은 75%였습니다. 잡기·단수 판단은 그대로입니다. 이득은 아직 확인되지 않았습니다.",
@@ -67,10 +76,12 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE" ||
     variant === "EYE_THIN" ||
     variant === "EYE_EDGE" ||
-    variant === "EYE_SPACING";
+    variant === "EYE_SPACING" ||
+    variant === "EYE_CORNER";
   const thin = variant === "THIN_GUARD" || variant === "EYE_THIN";
   const edge = variant === "EYE_EDGE";
   const spacing = variant === "EYE_SPACING";
+  const corner = variant === "EYE_CORNER";
 
   tuning.eyeSpaceWeight = eye ? EYE_SPACE_WEIGHT : 0;
   setEyeMakingDefenceEnabled(eye);
@@ -79,6 +90,7 @@ export function applyAIVariant(variant: AIVariant): void {
   // Only the flat attraction to enemy stones; capture and atari scoring is
   // untouched, which is why the arena's capture count did not get worse.
   setContactBias(spacing ? 0 : 1);
+  setCornerBookEnabled(corner);
   // The region curve is not offered as a variant: measured, it moves a dividing
   // move by 3.5 points where the gap to the next candidate is 36 at the median,
   // so it cannot change the choice and did not. Kept as a tuning flag for the

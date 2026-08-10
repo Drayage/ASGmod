@@ -762,6 +762,74 @@ const OPENING_BOOK: ReadonlyArray<Coord> = [
 ];
 
 /**
+ * Off until measured. See `cornerBookMove`.
+ */
+export let cornerBookEnabled = false;
+export function setCornerBookEnabled(value: boolean): void {
+  cornerBookEnabled = value;
+}
+
+/** How many of the mover's own stones the corner book still applies for. */
+const CORNER_BOOK_STONES = 4;
+
+/**
+ * The professional point of a corner nobody has opened yet.
+ *
+ * The evidence is suggestive rather than settled, and worth stating at its real
+ * strength. Within each side's own games, the number of (1,2) stones in the
+ * first six moves correlates with that side's mean available seal at turns
+ * 21-30 at r = 0.26 for the human and r = 0.27 for the engine — the same
+ * direction independently on both sides, neither significant alone (t = 1.4 and
+ * 1.5). The engine's games split at zero: 1.00 cells of supply in the eleven
+ * games where it played no (1,2) stone early, 1.65 in the twenty where it played
+ * at least one.
+ *
+ * Against that, the opening measurement already showed the (1,2), (2,2) and
+ * (1,3) classes are indistinguishable on win rate, so playing this point instead
+ * of whatever the search preferred costs nothing that has been measured.
+ */
+function cornerBookMove(
+  rootState: GameState,
+  aiPlayer: Player,
+  pool: AIAction[],
+): AIAction | null {
+  let own = 0;
+  for (const row of rootState.board) {
+    for (const cell of row) if (cell === playerCell(aiPlayer)) own += 1;
+  }
+  if (own === 0 || own >= CORNER_BOOK_STONES) return null;
+
+  const safe = new Set(
+    pool
+      .filter((a): a is Extract<AIAction, { type: "PLACE" }> => a.type === "PLACE")
+      .map((a) => `${a.row},${a.col}`),
+  );
+  const size = rootState.board.length;
+  const quadrant = (row: number, col: number) =>
+    row === 4 || col === 4 ? null : `${row < 4 ? "T" : "B"}${col < 4 ? "L" : "R"}`;
+
+  // A corner counts as opened once anyone has a stone in it.
+  const opened = new Set<string>();
+  for (let row = 0; row < size; row += 1) {
+    for (let col = 0; col < size; col += 1) {
+      if (rootState.board[row][col] === "EMPTY" || rootState.board[row][col] === "NEUTRAL") continue;
+      const q = quadrant(row, col);
+      if (q) opened.add(q);
+    }
+  }
+
+  for (const { row, col } of OPENING_BOOK) {
+    const q = quadrant(row, col);
+    if (!q || opened.has(q)) continue;
+    if (rootState.board[row][col] !== "EMPTY") continue;
+    if (!safe.has(`${row},${col}`)) continue;
+    if (!isLegalMove(rootState, row, col, aiPlayer)) continue;
+    return { type: "PLACE", row, col };
+  }
+  return null;
+}
+
+/**
  * The book move, on move one only. Past that the board is no longer
  * symmetric and the real search should decide.
  */
@@ -1445,6 +1513,25 @@ export function findBestMoveVeryHard(
     const sealBudget = Math.max(300, deadline - Date.now());
     note("1.86 urgent seal", urgentSeals.length, pool.length);
     return searchVerified(rootState, aiPlayer, urgentSeals, sealBudget, pool);
+  }
+
+  // 1.88. Nothing is in danger and nothing is on a clock. Early on, is there a
+  //    corner nobody has opened yet, with its professional point still free?
+  //
+  //    The opening book covers move one and the search decides the rest, and the
+  //    two disagree about where to play: over 34 recorded games the human puts
+  //    3.32 of their first six stones on the (1,2) point and the engine 1.03,
+  //    scattering instead across (1,3), (2,2) and (1,4). Both sides already take
+  //    the same number of corners in that span — 2.88 — so what differs is the
+  //    point, not the corner.
+  //
+  //    Placed here rather than beside the book so it can never pre-empt a
+  //    tactic: everything above has already declined to fire, so nothing is in
+  //    atari, nothing is being sealed into a pocket, and no seal is expiring.
+  const cornerPoint = cornerBookEnabled ? cornerBookMove(rootState, aiPlayer, pool) : null;
+  if (cornerPoint) {
+    note("1.88 corner point", 1, pool.length);
+    return cornerPoint;
   }
 
   // 1.87. Nothing is in danger. Does the opponent have a corner cut that has
