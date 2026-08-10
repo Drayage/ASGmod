@@ -884,7 +884,18 @@ function cornerBookMove(
       const dc = Math.min(col, size - 1 - col);
       if (dr + dc !== 3) continue; // not a stone on this corner's frame line
 
-      let pressed = false;
+      // Size to the opposition, which is what the records show both sides
+      // doing and the player states as the rule. Cells finally held in a corner
+      // against enemy stones present when the second stone landed:
+      //
+      //            0 enemies   1     2+
+      //   human         6.18  3.04  2.47
+      //   ai            2.00  1.49  0.90
+      //
+      // The human's uncontested corner is 6.18 cells, which is the frame. So the
+      // frame is for corners with at most one enemy stone; beyond that, or with
+      // one already touching, take the small eye and be content to obstruct.
+      let pressed = (held[q]?.theirs ?? 0) >= 2;
       for (const [ar, ac] of DIRECTIONS) {
         const r = row + ar;
         const c = col + ac;
