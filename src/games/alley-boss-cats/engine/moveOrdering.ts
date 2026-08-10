@@ -30,6 +30,29 @@ export function setContactBias(value: number): void {
   contactBias = value;
 }
 
+/**
+ * What a diagonally adjacent stone of the mover's own is worth to the ordering.
+ *
+ * It is worth nothing today: the loop below pays 6 for an orthogonal neighbour
+ * and never looks at the diagonals at all. That is backwards for this game. Three
+ * stones on a corner diagonal enclose three cells and cannot be taken — each
+ * one's liberties include points that have become confirmed territory, which
+ * neither side may ever fill — while three in a straight line enclose none.
+ *
+ * And it shows. Of the stones each side lands beside one of its own, across 39
+ * recorded games, the human's are diagonal-only 66% of the time and the engine's
+ * 39%, with the engine at 35% touching both ways against the human's 14% —
+ * n = 702 and 670, z = 10.4, the largest behavioural gap measured here. The
+ * corner book moved the corner and left the habit alone, 39% to 41%.
+ *
+ * 0 is shipped, which is the current behaviour written down rather than a new
+ * choice.
+ */
+export let ownDiagonalBonus = 0;
+export function setOwnDiagonalBonus(value: number): void {
+  ownDiagonalBonus = value;
+}
+
 export function localMoveScore(board: Board, row: number, col: number, player: Player): number {
   const own = playerCell(player);
   const enemy = playerCell(opponent(player));
@@ -64,6 +87,14 @@ export function localMoveScore(board: Board, row: number, col: number, player: P
         }
       } else if (value === own) {
         score += 6; // connecting is usually solid
+      }
+    }
+
+    if (ownDiagonalBonus !== 0) {
+      for (const [dr, dc] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+        const r = row + dr;
+        const c = col + dc;
+        if (inBounds(r, c) && board[r][c] === own) score += ownDiagonalBonus;
       }
     }
 
