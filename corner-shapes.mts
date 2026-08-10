@@ -31,7 +31,12 @@ const REGION: string[] = [];
 for (let row = 0; row < LINES; row += 1) {
   for (let col = 0; col < LINES; col += 1) REGION.push(`${COLS[col]}${row + 1}`);
 }
-const START = "C2";
+/**
+ * The point every shape must contain. Empty means no constraint — which is the
+ * version that can answer "is this the most a corner can give", rather than
+ * "is this the most a corner can give once you have already played (1,2)".
+ */
+const START = process.env.START ?? "C2";
 
 function build(mine: string[]): GameState {
   const base = createInitialState();
@@ -43,15 +48,20 @@ function build(mine: string[]): GameState {
 interface Row { stones: string[]; cells: number; safe: boolean }
 const found: Row[] = [];
 const pool = REGION.filter((p) => p !== START);
+const FREE = START === "";
 
 for (let i = 0; i < pool.length; i += 1) {
   for (let j = i + 1; j < pool.length; j += 1) {
     for (let k = j + 1; k < pool.length; k += 1) {
-      const stones = [START, pool[i], pool[j], pool[k]];
+      for (let l = FREE ? k + 1 : -1; l < (FREE ? pool.length : 0); l += 1) {
+      const stones = FREE
+        ? [pool[i], pool[j], pool[k], pool[l]]
+        : [START, pool[i], pool[j], pool[k]];
       const state = build(stones);
       const cells = state.territories.A.length;
       if (cells < 4) continue;
       found.push({ stones, cells, safe: false });
+      }
     }
   }
 }
@@ -71,7 +81,10 @@ for (const row of best) {
   row.safe = findForcedCapture(build(row.stones), "B", 9, 2000) === null;
 }
 
-console.log(`four stones including the ${START} point, ranked by cells enclosed\n`);
+console.log(
+  `${FREE ? "any four stones in the corner" : `four stones including the ${START} point`}` +
+    `, ranked by cells enclosed\n`,
+);
 console.log(`${"stones".padEnd(20)}${"cells".padStart(6)}${"per stone".padStart(11)}${"opponent to move".padStart(19)}`);
 for (const row of best) {
   console.log(
