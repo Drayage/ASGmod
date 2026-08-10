@@ -24,6 +24,7 @@ import {
 } from "./src/games/alley-boss-cats/engine/minimax";
 import { setCaptureRetargets } from "./src/games/alley-boss-cats/engine/captureSearch";
 import { setDecisivePointsEnabled, setEdgeFramingEnabled } from "./src/games/alley-boss-cats/engine/moveOrdering";
+import { setSettledOutOfInfluenceEnabled } from "./src/games/alley-boss-cats/engine/territoryPlanner";
 import { influenceCount } from "./src/games/alley-boss-cats/engine/territoryPlanner";
 import { wideAreaBotMove } from "./src/games/alley-boss-cats/engine/wideAreaBot";
 import { sealingBotMove } from "./src/games/alley-boss-cats/engine/sealingBot";
@@ -98,7 +99,9 @@ type Engine =
   | "VH_SEALUNION"
   | "VH_NOSEALUNION"
   | "VH_CALIB"
-  | "VH_NOCALIB";
+  | "VH_NOCALIB"
+  | "VH_SETTLED"
+  | "VH_NOSETTLED";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -144,6 +147,9 @@ const TESTING_SEALUNION = process.env.ONLY === "SEALUNION";
 // raises what open ground is worth against every tactical term, and one capture
 // loses outright. The capture count is the thing to watch here, not the margin.
 const TESTING_CALIB = process.env.ONLY === "CALIB";
+// An accounting fix rather than an idea: settled ground was being counted once
+// as territory and again as influence. The bar here is no regression.
+const TESTING_SETTLED = process.env.ONLY === "SETTLED";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -232,6 +238,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_EDGE) setEdgeFramingEnabled(engine === "VH_EDGE");
   if (TESTING_SEALUNION) setPocketSealTerritoryUnionEnabled(engine === "VH_SEALUNION");
   if (TESTING_CALIB) tuning.calibratedOpenGround = engine === "VH_CALIB";
+  if (TESTING_SETTLED) setSettledOutOfInfluenceEnabled(engine === "VH_SETTLED");
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -297,6 +304,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOSEALUNION" ||
     engine === "VH_CALIB" ||
     engine === "VH_NOCALIB" ||
+    engine === "VH_SETTLED" ||
+    engine === "VH_NOSETTLED" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -666,6 +675,10 @@ if (only === "DECISIVE") {
 }
 if (only === "EYE") {
   addMatch(`VH+eye(${EYE_W})+walling vs VERY_HARD`, "VH_EYE", "VH_NOEYE");
+}
+// Candidate first: VH_SETTLED stops counting settled ground twice, VH_NOSETTLED is shipped.
+if (only === "SETTLED") {
+  addMatch("VH settled-once vs VERY_HARD", "VH_SETTLED", "VH_NOSETTLED");
 }
 // Candidate first: VH_CALIB prices open ground in expected cells, VH_NOCALIB is shipped.
 if (only === "CALIB") {
