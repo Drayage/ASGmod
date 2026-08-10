@@ -771,6 +771,15 @@ export function setCornerBookEnabled(value: boolean): void {
 
 /** How many of the mover's own stones the corner book still applies for. */
 const CORNER_BOOK_STONES = 4;
+/**
+ * Enemy stones a corner may already hold and still be worth walking into.
+ *
+ * Two, because that is where the record still reads as free: 40 of 42 human
+ * stones and 59 of 60 engine stones survived entering a corner holding one, and
+ * 4 of 4 on each side at two. Beyond that the sample thins out and the claim
+ * stops being supported rather than being contradicted.
+ */
+const CORNER_BOOK_MAX_ENEMY = 2;
 
 /**
  * The professional point of a corner nobody has opened yet.
@@ -797,7 +806,11 @@ function cornerBookMove(
   for (const row of rootState.board) {
     for (const cell of row) if (cell === playerCell(aiPlayer)) own += 1;
   }
-  if (own === 0 || own >= CORNER_BOOK_STONES) return null;
+  // Covers the second player's first stone too. `openingMove` above only fires
+  // on an empty board, so without this the side moving second picks its opening
+  // by search — and in self-play it picked the centre, which is the one class
+  // the opening measurement found measurably worse.
+  if (own >= CORNER_BOOK_STONES) return null;
 
   const safe = new Set(
     pool
@@ -808,19 +821,32 @@ function cornerBookMove(
   const quadrant = (row: number, col: number) =>
     row === 4 || col === 4 ? null : `${row < 4 ? "T" : "B"}${col < 4 ? "L" : "R"}`;
 
-  // A corner counts as opened once anyone has a stone in it.
-  const opened = new Set<string>();
+  // A corner is closed to us once we are already in it, or once the opponent
+  // holds enough of it to make entering a fight rather than a claim.
+  //
+  // The first version of this refused any corner with a stone in it, which the
+  // records say is too strict: of 122 stones played into a quadrant the opponent
+  // already held, 118 were still alive at the end — 95% at one enemy stone, 100%
+  // at two. Going in is nearly free, and refusing to hands the opponent every
+  // corner they touch first.
+  const held: Record<string, { mine: number; theirs: number }> = {};
   for (let row = 0; row < size; row += 1) {
     for (let col = 0; col < size; col += 1) {
-      if (rootState.board[row][col] === "EMPTY" || rootState.board[row][col] === "NEUTRAL") continue;
+      const cell = rootState.board[row][col];
+      if (cell !== playerCell(aiPlayer) && cell !== playerCell(opponent(aiPlayer))) continue;
       const q = quadrant(row, col);
-      if (q) opened.add(q);
+      if (!q) continue;
+      held[q] ??= { mine: 0, theirs: 0 };
+      if (cell === playerCell(aiPlayer)) held[q].mine += 1;
+      else held[q].theirs += 1;
     }
   }
 
   for (const { row, col } of OPENING_BOOK) {
     const q = quadrant(row, col);
-    if (!q || opened.has(q)) continue;
+    if (!q) continue;
+    const there = held[q];
+    if (there && (there.mine > 0 || there.theirs > CORNER_BOOK_MAX_ENEMY)) continue;
     if (rootState.board[row][col] !== "EMPTY") continue;
     if (!safe.has(`${row},${col}`)) continue;
     if (!isLegalMove(rootState, row, col, aiPlayer)) continue;
