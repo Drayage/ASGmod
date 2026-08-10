@@ -12,6 +12,24 @@ import type { Board, GameState, Player } from "../types";
  * than the search it was meant to speed up. This only inspects the groups
  * touching the placed cell, which is what decides captures and escapes anyway.
  */
+/**
+ * Scale on the pull towards the opponent's stones, the `group.length * 6` below.
+ *
+ * At a level settled score the engine plays within one step of an enemy stone on
+ * 75% of its middle-game moves and the human on 53% (z = 3.3). That term is what
+ * produces it: it pays for touching enemy stones in proportion to how many there
+ * are, with no tactical content of its own — the capture and atari bonuses beside
+ * it, 1,000,000 and 900 and 130, carry all the tactics and are untouched by this.
+ *
+ * 1 is shipped. Whether hugging the opponent is what starves the engine of
+ * closeable shapes is unproven: the four-turn causal test came back null, and it
+ * is too short a horizon to see an effect that accrues over twenty moves.
+ */
+export let contactBias = 1;
+export function setContactBias(value: number): void {
+  contactBias = value;
+}
+
 export function localMoveScore(board: Board, row: number, col: number, player: Player): number {
   const own = playerCell(player);
   const enemy = playerCell(opponent(player));
@@ -42,7 +60,7 @@ export function localMoveScore(board: Board, row: number, col: number, player: P
           if (liberties === 0) score += 1_000_000; // outright capture = win
           else if (liberties === 1) score += 900;
           else if (liberties === 2) score += 130;
-          score += group.length * 6;
+          score += group.length * 6 * contactBias;
         }
       } else if (value === own) {
         score += 6; // connecting is usually solid

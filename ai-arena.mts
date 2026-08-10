@@ -23,7 +23,7 @@ import {
   setTtScoresEnabled,
 } from "./src/games/alley-boss-cats/engine/minimax";
 import { setCaptureRetargets } from "./src/games/alley-boss-cats/engine/captureSearch";
-import { setDecisivePointsEnabled, setEdgeFramingEnabled } from "./src/games/alley-boss-cats/engine/moveOrdering";
+import { setContactBias, setDecisivePointsEnabled, setEdgeFramingEnabled } from "./src/games/alley-boss-cats/engine/moveOrdering";
 import { setSettledOutOfInfluenceEnabled } from "./src/games/alley-boss-cats/engine/territoryPlanner";
 import { influenceCount } from "./src/games/alley-boss-cats/engine/territoryPlanner";
 import { wideAreaBotMove } from "./src/games/alley-boss-cats/engine/wideAreaBot";
@@ -101,7 +101,9 @@ type Engine =
   | "VH_CALIB"
   | "VH_NOCALIB"
   | "VH_SETTLED"
-  | "VH_NOSETTLED";
+  | "VH_NOSETTLED"
+  | "VH_CONTACT"
+  | "VH_NOCONTACT";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -150,6 +152,11 @@ const TESTING_CALIB = process.env.ONLY === "CALIB";
 // An accounting fix rather than an idea: settled ground was being counted once
 // as territory and again as influence. The bar here is no regression.
 const TESTING_SETTLED = process.env.ONLY === "SETTLED";
+// The ordering's pull towards enemy stones. Captures and ataris keep their
+// bonuses; only the flat per-stone attraction is scaled. Captures are the risk
+// and the arena is the one thing that reproduces them well.
+const CONTACT = Number(process.env.CONTACT ?? 0);
+const TESTING_CONTACT = process.env.ONLY === "CONTACT";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -239,6 +246,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_SEALUNION) setPocketSealTerritoryUnionEnabled(engine === "VH_SEALUNION");
   if (TESTING_CALIB) tuning.calibratedOpenGround = engine === "VH_CALIB";
   if (TESTING_SETTLED) setSettledOutOfInfluenceEnabled(engine === "VH_SETTLED");
+  if (TESTING_CONTACT) setContactBias(engine === "VH_CONTACT" ? CONTACT : 1);
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -306,6 +314,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOCALIB" ||
     engine === "VH_SETTLED" ||
     engine === "VH_NOSETTLED" ||
+    engine === "VH_CONTACT" ||
+    engine === "VH_NOCONTACT" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -675,6 +685,10 @@ if (only === "DECISIVE") {
 }
 if (only === "EYE") {
   addMatch(`VH+eye(${EYE_W})+walling vs VERY_HARD`, "VH_EYE", "VH_NOEYE");
+}
+// Candidate first: VH_CONTACT damps the pull towards enemy stones, VH_NOCONTACT is shipped.
+if (only === "CONTACT") {
+  addMatch(`VH contactBias(${CONTACT}) vs VERY_HARD`, "VH_CONTACT", "VH_NOCONTACT");
 }
 // Candidate first: VH_SETTLED stops counting settled ground twice, VH_NOSETTLED is shipped.
 if (only === "SETTLED") {
