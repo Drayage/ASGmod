@@ -19,10 +19,17 @@ import type { GameState } from "./src/games/alley-boss-cats/types";
 const COLS = "ABCDEFGHI";
 const at = (s: string) => ({ row: Number(s.slice(1)) - 1, col: COLS.indexOf(s[0]) });
 
-// The corner region a shape may use: first three lines, six columns in.
+/**
+ * The corner region a shape may use.
+ *
+ * The first version stopped at three lines and missed the answer: the player's
+ * four-stone frame is (1,2) (2,1) (0,3) (3,0), and (3,0) is on the fourth line.
+ * A search that cannot reach a stone cannot find the shape that needs it.
+ */
+const LINES = Number(process.env.LINES ?? 5);
 const REGION: string[] = [];
-for (let row = 0; row < 3; row += 1) {
-  for (let col = 0; col < 6; col += 1) REGION.push(`${COLS[col]}${row + 1}`);
+for (let row = 0; row < LINES; row += 1) {
+  for (let col = 0; col < LINES; col += 1) REGION.push(`${COLS[col]}${row + 1}`);
 }
 const START = "C2";
 

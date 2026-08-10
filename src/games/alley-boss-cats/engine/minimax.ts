@@ -847,30 +847,42 @@ function cornerBookMove(
     safe.has(`${row},${col}`) &&
     isLegalMove(rootState, row, col, aiPlayer);
 
-  // A corner already holding one of our (1,2) stones: continue the shape the
-  // player described, and the rules confirm. From C2 in the top left, B1 is the
-  // step towards the corner and D1 the step away; C2 B1 D1 encloses C1 and
-  // survives a depth-9 capture read with three enemy stones pressing it. The
-  // step away is the answer to being attacked, so it is taken first when an
-  // enemy stone is already touching.
+  // A corner already holding one of our stones: keep building the frame.
+  //
+  // The four points (1,2) (0,3) (2,1) (3,0) are exactly the corner's anti-
+  // diagonal, the cells whose two edge distances sum to three. Asked of the
+  // rules, that frame encloses six cells and is the single best four-stone shape
+  // in the corner — every other four-stone set tops out at five, and the finished
+  // frame cannot be entered at all, since confirmed territory is unplayable by
+  // either side.
+  //
+  // Interrupted it still holds. With three of the four down, an opponent stone
+  // inside the corner dies to a single reply and the defender keeps a cell;
+  // a stone outside lets the fourth land and settles all six.
+  //
+  // Under contact it drops to the small shape instead: (1,2) with the edge point
+  // beside the corner and the one away from it — three stones, one eye, and
+  // three enemy stones pressing cannot take it.
+  const frameOf = (q: string) => {
+    const rowEdge = q[0] === "T" ? 0 : size - 1;
+    const colEdge = q[1] === "L" ? 0 : size - 1;
+    const step = (n: number, edge: number) => (edge === 0 ? n : edge - n);
+    return [0, 1, 2, 3].map((a) => ({
+      row: step(a, rowEdge),
+      col: step(3 - a, colEdge),
+    }));
+  };
+
   for (let row = 0; row < size; row += 1) {
     for (let col = 0; col < size; col += 1) {
       if (rootState.board[row][col] !== playerCell(aiPlayer)) continue;
       const q = quadrant(row, col);
-      if (!q || (held[q]?.mine ?? 0) !== 1) continue;
+      if (!q) continue;
       if ((held[q]?.theirs ?? 0) > CORNER_BOOK_MAX_ENEMY) continue;
 
       const dr = Math.min(row, size - 1 - row);
       const dc = Math.min(col, size - 1 - col);
-      if (Math.min(dr, dc) !== 1 || Math.max(dr, dc) !== 2) continue;
-
-      // Towards the near edge, and along it in both directions.
-      const toEdge = dr < dc ? [row < 4 ? -1 : 1, 0] : [0, col < 4 ? -1 : 1];
-      const along = dr < dc ? [0, col < 4 ? -1 : 1] : [row < 4 ? -1 : 1, 0];
-      const edgeRow = row + toEdge[0];
-      const edgeCol = col + toEdge[1];
-      const inward = { row: edgeRow + along[0], col: edgeCol + along[1] };
-      const outward = { row: edgeRow - along[0], col: edgeCol - along[1] };
+      if (dr + dc !== 3) continue; // not a stone on this corner's frame line
 
       let pressed = false;
       for (const [ar, ac] of DIRECTIONS) {
@@ -882,11 +894,29 @@ function cornerBookMove(
         }
       }
 
-      for (const next of pressed ? [outward, inward] : [inward, outward]) {
-        if (!inBounds(next.row, next.col)) continue;
-        if (!playable(next.row, next.col)) continue;
-        return { type: "PLACE", row: next.row, col: next.col };
+      if (pressed) {
+        // Secure the small eye: the two edge points either side of our stone.
+        const rowEdge = q[0] === "T" ? 0 : size - 1;
+        const colEdge = q[1] === "L" ? 0 : size - 1;
+        const onEdge = dr < dc
+          ? [{ row: rowEdge, col: col - 1 }, { row: rowEdge, col: col + 1 }]
+          : [{ row: row - 1, col: colEdge }, { row: row + 1, col: colEdge }];
+        for (const next of onEdge) {
+          if (!inBounds(next.row, next.col)) continue;
+          if (!playable(next.row, next.col)) continue;
+          return { type: "PLACE", row: next.row, col: next.col };
+        }
       }
+
+      // Otherwise extend along the frame, nearest gap to what we already hold.
+      const gaps = frameOf(q)
+        .filter((p) => playable(p.row, p.col))
+        .sort(
+          (a, b) =>
+            Math.abs(a.row - row) + Math.abs(a.col - col) -
+            (Math.abs(b.row - row) + Math.abs(b.col - col)),
+        );
+      if (gaps.length > 0) return { type: "PLACE", row: gaps[0].row, col: gaps[0].col };
     }
   }
 
