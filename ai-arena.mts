@@ -96,7 +96,9 @@ type Engine =
   | "VH_EDGE"
   | "VH_NOEDGE"
   | "VH_SEALUNION"
-  | "VH_NOSEALUNION";
+  | "VH_NOSEALUNION"
+  | "VH_CALIB"
+  | "VH_NOCALIB";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -138,6 +140,10 @@ const TESTING_EDGE = process.env.ONLY === "EDGE";
 // moves to it rather than removing the guard, which the guard-off run did not
 // support.
 const TESTING_SEALUNION = process.env.ONLY === "SEALUNION";
+// The one change that can make the engine worse rather than merely useless: it
+// raises what open ground is worth against every tactical term, and one capture
+// loses outright. The capture count is the thing to watch here, not the margin.
+const TESTING_CALIB = process.env.ONLY === "CALIB";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -225,6 +231,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   }
   if (TESTING_EDGE) setEdgeFramingEnabled(engine === "VH_EDGE");
   if (TESTING_SEALUNION) setPocketSealTerritoryUnionEnabled(engine === "VH_SEALUNION");
+  if (TESTING_CALIB) tuning.calibratedOpenGround = engine === "VH_CALIB";
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -288,6 +295,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOEDGE" ||
     engine === "VH_SEALUNION" ||
     engine === "VH_NOSEALUNION" ||
+    engine === "VH_CALIB" ||
+    engine === "VH_NOCALIB" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -657,6 +666,10 @@ if (only === "DECISIVE") {
 }
 if (only === "EYE") {
   addMatch(`VH+eye(${EYE_W})+walling vs VERY_HARD`, "VH_EYE", "VH_NOEYE");
+}
+// Candidate first: VH_CALIB prices open ground in expected cells, VH_NOCALIB is shipped.
+if (only === "CALIB") {
+  addMatch("VH calibrated open ground vs VERY_HARD", "VH_CALIB", "VH_NOCALIB");
 }
 // Candidate first: VH_SEALUNION adds seals to 1.85's list, VH_NOSEALUNION is shipped.
 if (only === "SEALUNION") {

@@ -157,6 +157,92 @@ export function influenceCountWeightedFromMap(
 }
 
 /**
+ * Open ground priced as cells it is actually expected to become.
+ *
+ * The shipped term prices every influenced cell at a flat 0.12 of a settled
+ * cell. Measured against what those cells became — 17 games decided by the
+ * count, 922 positions, ~37,000 cell observations — no cell anywhere on the
+ * board converts that badly:
+ *
+ *   stones    1-2   3-4   5-7  8-11  12-17   18+
+ *    0-19    0.46  0.47  0.62  0.57   0.40  0.24
+ *   20-29    0.57  0.64  0.85  0.65   0.45  0.26
+ *   30-39    0.70  0.84  0.84  0.65   0.34  0.39
+ *     40+    0.93  0.95  0.98  0.94   0.77     -
+ *
+ * The pooled rate is 0.57. Two things are wrong with 0.12 at once, and fixing
+ * either alone fails: the scale is roughly five times too low, and the shape is
+ * missing, so a flat raise amplifies the estimate most where it is least
+ * deserved — the sprawling eighteen-plus regions that convert at a quarter, and
+ * that the engine is the one holding. Raising the scalar was tried before and
+ * traded the error for a worse one; reshaping while preserving the scale was
+ * tried after and moved a candidate move by 3.5 points where the gap to the
+ * next one is 36.
+ *
+ * So this returns expected cells directly rather than a count to be scaled, and
+ * the caller adds it to settled territory without a further multiplier.
+ */
+const CONVERSION_BANDS = [1, 3, 5, 8, 12, 18] as const;
+const CONVERSION_PHASES = [0, 20, 30, 40] as const;
+const CONVERSION: ReadonlyArray<ReadonlyArray<number>> = [
+  [0.46, 0.47, 0.62, 0.57, 0.4, 0.24],
+  [0.57, 0.64, 0.85, 0.65, 0.45, 0.26],
+  [0.7, 0.84, 0.84, 0.65, 0.34, 0.39],
+  // The 18+ band never occurs this late in the sample; it takes the 12-17 rate
+  // rather than a guess of its own.
+  [0.93, 0.95, 0.98, 0.94, 0.77, 0.77],
+];
+
+function conversionRate(regionSize: number, stones: number): number {
+  let band = 0;
+  for (let i = CONVERSION_BANDS.length - 1; i >= 0; i -= 1) {
+    if (regionSize >= CONVERSION_BANDS[i]) { band = i; break; }
+  }
+  let phase = 0;
+  for (let i = CONVERSION_PHASES.length - 1; i >= 0; i -= 1) {
+    if (stones >= CONVERSION_PHASES[i]) { phase = i; break; }
+  }
+  return CONVERSION[phase][band];
+}
+
+export function expectedOpenGroundFromMap(
+  owners: Array<Player | null>,
+  board: Board,
+): Record<Player, number> {
+  let stones = 0;
+  for (const row of board) for (const cell of row) if (cell !== "EMPTY") stones += 1;
+
+  const size = board.length;
+  const out: Record<Player, number> = { A: 0, B: 0 };
+  const seen = new Uint8Array(owners.length);
+
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const side = owners[row * size + col];
+      if (!side || seen[row * size + col]) continue;
+      const stack: Array<[number, number]> = [[row, col]];
+      seen[row * size + col] = 1;
+      let region = 0;
+      while (stack.length) {
+        const [r, c] = stack.pop()!;
+        region += 1;
+        for (const [dr, dc] of DIRECTIONS) {
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nr < 0 || nc < 0 || nr >= size || nc >= size) continue;
+          const index = nr * size + nc;
+          if (seen[index] || owners[index] !== side) continue;
+          seen[index] = 1;
+          stack.push([nr, nc]);
+        }
+      }
+      out[side] += region * conversionRate(region, stones);
+    }
+  }
+  return out;
+}
+
+/**
  * The same judgement `influenceCount` sums up, kept per cell instead of
  * totalled: for every point on the board, the side heading towards owning it,
  * or null where nobody is (an occupied cell, or open ground both sides reach

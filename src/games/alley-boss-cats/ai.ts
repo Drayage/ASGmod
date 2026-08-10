@@ -7,6 +7,7 @@ import {
   influenceCountFromMap,
   influenceCountWeightedFromMap,
   influenceOwnerMap,
+  expectedOpenGroundFromMap,
 } from "./engine/territoryPlanner";
 import { ownershipMargin } from "./engine/ownershipTerm";
 import { frameworkPotential } from "./engine/frameworks";
@@ -66,6 +67,12 @@ function projectedMarginFrom(
    * map once and use it for both.
    */
   open: Record<Player, number> = influence,
+  /**
+   * True when `open` is already in cells of expected territory rather than a
+   * raw reach count, in which case it is added as-is instead of being scaled by
+   * `INFLUENCE_TO_TERRITORY`. See `expectedOpenGroundFromMap`.
+   */
+  openInCells = false,
 ): number {
   // With the learned term on, the open points are priced by the cached
   // ownership map instead of by influence reach. Settled ground is counted
@@ -89,7 +96,7 @@ function projectedMarginFrom(
   }
 
   const projected = (side: Player) =>
-    state.territories[side].length + open[side] * INFLUENCE_TO_TERRITORY;
+    state.territories[side].length + (openInCells ? open[side] : open[side] * INFLUENCE_TO_TERRITORY);
 
   const lead = projected("A") - projected("B");
   // 치즈냥 (A) moves first and must finish at least FIRST_PLAYER_MARGIN ahead;
@@ -367,6 +374,24 @@ export const tuning = {
    */
   influenceRegionCurve: false,
   /**
+   * Price open ground as the cells it is expected to become, instead of at a
+   * flat 0.12 per cell of reach.
+   *
+   * The flat rate is wrong twice over. Measured against what those cells became
+   * — 922 positions across 17 games decided by the count — the pooled rate is
+   * 0.57, and it ranges from 0.24 for a sprawling region early to 0.98 for a
+   * tight one late. So the scale is about five times too low *and* the shape is
+   * missing, and the two have to be fixed together: raising the scalar alone was
+   * tried and made things worse, and reshaping while holding the scale was tried
+   * and moved a candidate by 3.5 points against a 36-point gap to the next one.
+   *
+   * This is the one change in this branch that can plausibly make the engine
+   * worse rather than merely useless — it raises what territory is worth against
+   * every tactical term, and being captured once loses outright here. Off until
+   * the arena has had a look at the capture count.
+   */
+  calibratedOpenGround: false,
+  /**
    * Multiplier on the two terms that pay for keeping stones together —
    * `connectedBonus * 3` and `-isolated * 5`. 1 is the shipped behaviour.
    *
@@ -602,16 +627,23 @@ export function evaluateState(state: GameState, aiPlayer: Player): number {
   const influence = tuning.influenceRegionCurve
     ? influenceCountWeightedFromMap(owners)
     : influenceCountFromMap(owners);
+  // Three ways to price the open ground, and only one of them runs. The
+  // calibrated estimate returns cells outright, so it bypasses the flat rate
+  // rather than being scaled by it.
+  const calibrated = tuning.calibratedOpenGround
+    ? expectedOpenGroundFromMap(owners, state.board)
+    : null;
   const open =
-    tuning.closabilityDecay < 1
+    calibrated ??
+    (tuning.closabilityDecay < 1
       ? closableInfluence(state.board, owners, tuning.closabilityDecay)
-      : influence;
+      : influence);
 
   return (
     // One number for the whole territory question: settled ground, ground each
     // side is heading towards, and the first-player margin that decides who
     // the count actually favours.
-    projectedMarginFrom(state, aiPlayer, influence, open) * 100 +
+    projectedMarginFrom(state, aiPlayer, influence, open, calibrated !== null) * 100 +
     frameworkTerm(state, aiPlayer, opp) +
     severeInfluenceTerm(aiPlayer, opp, influence) +
     mine.totalLiberties * 5 -
@@ -679,10 +711,17 @@ export function evaluateComponents(
   const influence = tuning.influenceRegionCurve
     ? influenceCountWeightedFromMap(owners)
     : influenceCountFromMap(owners);
+  // Three ways to price the open ground, and only one of them runs. The
+  // calibrated estimate returns cells outright, so it bypasses the flat rate
+  // rather than being scaled by it.
+  const calibrated = tuning.calibratedOpenGround
+    ? expectedOpenGroundFromMap(owners, state.board)
+    : null;
   const open =
-    tuning.closabilityDecay < 1
+    calibrated ??
+    (tuning.closabilityDecay < 1
       ? closableInfluence(state.board, owners, tuning.closabilityDecay)
-      : influence;
+      : influence);
 
   return {
     territory: projectedMarginFrom(state, aiPlayer, influence, open) * 100,

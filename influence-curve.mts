@@ -28,7 +28,13 @@ import { BOARD_SIZE, DIRECTIONS, inBounds, opponent } from "./src/games/alley-bo
 import type { Coord, GameState, Player } from "./src/games/alley-boss-cats/types";
 
 const ONLY = process.env.ONLY_REASON ?? "TERRITORY";
+/** A single turn when set; every position in the game when 0. */
 const AT = Number(process.env.AT ?? 31);
+/** Phase bands, by stones already on the board — the calibration has to know
+ * whether it is pricing ground with forty moves left or four. */
+const PHASE = [0, 20, 30, 40] as const;
+const phaseLabel = (i: number) =>
+  i === PHASE.length - 1 ? `${PHASE[i]}+ stones` : `${PHASE[i]}-${PHASE[i + 1] - 1} stones`;
 const BANDS = [1, 3, 5, 8, 12, 18] as const;
 const bandOf = (n: number) => {
   for (let i = BANDS.length - 1; i >= 0; i -= 1) if (n >= BANDS[i]) return i;
@@ -43,7 +49,12 @@ const label = (i: number) =>
 
 const claimed = new Array(BANDS.length).fill(0);
 const converted = new Array(BANDS.length).fill(0);
+const byPhase = PHASE.map(() => ({
+  claimed: new Array(BANDS.length).fill(0),
+  converted: new Array(BANDS.length).fill(0),
+}));
 let games = 0;
+let sampled = 0;
 
 const seen = new Set<string>();
 for (const path of process.argv.slice(2)) {
@@ -62,14 +73,22 @@ for (const path of process.argv.slice(2)) {
           : applyAction(cur, { type: "PLACE", row: m.row!, col: m.col! }),
       );
     }
-    if (states.length <= AT) continue;
+    if (AT > 0 && states.length <= AT) continue;
     games += 1;
-    const at = states[AT];
     const finalT = calculateTerritories(states[states.length - 1].board);
     const owns: Record<Player, Set<string>> = {
       A: new Set(finalT.A.map((c: Coord) => `${c.row},${c.col}`)),
       B: new Set(finalT.B.map((c: Coord) => `${c.row},${c.col}`)),
     };
+
+    const indices = AT > 0 ? [AT] : states.map((_, i) => i).filter((i) => i > 0 && i < states.length - 1);
+    for (const index of indices) {
+    const at = states[index];
+    sampled += 1;
+    let stones = 0;
+    for (const row of at.board) for (const cell of row) if (cell !== "EMPTY") stones += 1;
+    let phase = 0;
+    for (let i = PHASE.length - 1; i >= 0; i -= 1) if (stones >= PHASE[i]) { phase = i; break; }
 
     // The engine's own influence map, grouped into connected same-claimant
     // regions so each cell can be scored by the size of the region it is in.
@@ -97,17 +116,22 @@ for (const path of process.argv.slice(2)) {
         const b = bandOf(cells.length);
         for (const cell of cells) {
           claimed[b] += 1;
-          if (owns[side].has(`${cell.row},${cell.col}`)) converted[b] += 1;
+          byPhase[phase].claimed[b] += 1;
+          if (owns[side].has(`${cell.row},${cell.col}`)) {
+            converted[b] += 1;
+            byPhase[phase].converted[b] += 1;
+          }
         }
       }
+    }
     }
   }
 }
 
 const pct = (n: number, d: number) => (d ? (n / d) : NaN);
 console.log(
-  `what an influenced cell at turn ${AT} became, by the size of its influence region\n` +
-    `${games} games decided by the count, both sides pooled\n`,
+  `what an influenced cell became, by the size of its influence region\n` +
+    `${games} games decided by the count, ${sampled} positions, both sides pooled\n`,
 );
 console.log(`${"region size".padEnd(14)}${BANDS.map((_, i) => label(i).padStart(10)).join("")}`);
 console.log(`${"cells".padEnd(14)}${claimed.map((c) => String(c).padStart(10)).join("")}`);
@@ -120,3 +144,14 @@ console.log(
   `\nthe rate the evaluation uses for every one of them: 0.12\n` +
     `calibrated rate  ${BANDS.map((_, i) => pct(converted[i], claimed[i]).toFixed(2).padStart(10)).join("")}`,
 );
+console.log(`\nsame, split by how far along the game is:`);
+console.log(`${"phase".padEnd(16)}${BANDS.map((_, i) => label(i).padStart(10)).join("")}${"n".padStart(10)}`);
+byPhase.forEach((p, i) => {
+  const total = p.claimed.reduce((a: number, b: number) => a + b, 0);
+  if (total === 0) return;
+  console.log(
+    `${phaseLabel(i).padEnd(16)}` +
+      BANDS.map((_, b) => (p.claimed[b] ? pct(p.converted[b], p.claimed[b]).toFixed(2) : "-").padStart(10)).join("") +
+      `${String(total).padStart(10)}`,
+  );
+});
