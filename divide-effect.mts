@@ -16,6 +16,15 @@
  * "is the split better against this engine". That is weaker than the real game
  * and stronger than the arena, which invents the positions too.
  *
+ * IT DID NOT WORK. Every one of the 43 playouts ended in a capture at 300ms a
+ * move, where real games at the shipped 3000ms reach a count 53% of the time.
+ * A playout that never reaches a territory count cannot answer a question about
+ * territory — the same failure as the arena, arrived at from the other side.
+ * Reporting is fixed below so the win/loss split is at least visible, but the
+ * territory line will stay empty until a playout can be made to finish by
+ * counting, and raising the budget enough to do that costs more than the answer
+ * is worth. The dividing move has to be judged in real games instead.
+ *
  *   STRIDE=3 PLAYOUT_MS=300 npx vite-node divide-effect.mts <export.json ...>
  */
 import { readFileSync } from "node:fs";
@@ -152,10 +161,27 @@ const sd = (xs: number[]) => {
   return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, xs.length - 1));
 };
 // Paired: the same position under both arms, so the difference is the statistic.
-const diffs = split.map((s, i) => s - played[i]).filter((d) => Math.abs(d) < 1000);
+// Decided games have to come out of the territory comparison entirely — a pair
+// where both arms ended in a capture for the same side differences to zero and
+// would otherwise be counted as "level on territory", which it is not.
+const decided = (x: number) => Math.abs(x) === 1000;
+const counted = split
+  .map((s, i) => ({ s, p: played[i] }))
+  .filter(({ s, p }) => !decided(s) && !decided(p));
+const diffs = counted.map(({ s, p }) => s - p);
+const wins = split.filter((x, i) => decided(x) && decided(played[i]));
+const splitWon = split.filter((x, i) => decided(x) && decided(played[i]) && x > played[i]).length;
+const playedWon = split.filter((x, i) => decided(x) && decided(played[i]) && x < played[i]).length;
 console.log(`\npositions where a split existed and the engine played otherwise: ${considered}`);
 console.log(`played out (every ${STRIDE}${STRIDE === 1 ? "" : "rd/th"}): ${played.length} pairs at ${PLAYOUT_MS}ms a move`);
 console.log(`  games decided by capture — engine's move ${capturedPlayed}, split ${capturedSplit}`);
+console.log(
+  `  both arms decided by capture: ${wins.length} pairs — split won ${splitWon}, ` +
+    `its own move won ${playedWon}, same winner ${wins.length - splitWon - playedWon}`,
+);
+if (diffs.length <= 1) {
+  console.log(`\nno pair reached a territory count: this instrument cannot answer the question`);
+}
 if (diffs.length > 1) {
   const ci = 1.96 * (sd(diffs) / Math.sqrt(diffs.length));
   const m = mean(diffs);
