@@ -96,8 +96,8 @@ function play(
 console.log(`the frame one stone short, every gap and every entry — ${PLIES} plies of answer\n`);
 console.log(
   `${"stones".padStart(7)}${"finished".padStart(10)}${"entries".padStart(9)}` +
-    `${"invader lives".padStart(15)}${"kept, worst".padStart(13)}${"kept, mean".padStart(12)}` +
-    `${"worst line".padStart(22)}`,
+    `${"lives, any".padStart(15)}${"lives, inside".padStart(14)}${"worst".padStart(7)}` +
+    `${"kept".padStart(8)}${"of full".padStart(8)}${"worst line".padStart(22)}`,
 );
 
 for (let n = 2; n <= 6; n += 1) {
@@ -111,6 +111,11 @@ for (let n = 2; n <= 6; n += 1) {
   let worst = Infinity;
   let worstLine = "";
   const kept: number[] = [];
+  // Three quite different moves get lumped together by a plain entry count: a
+  // stone strictly inside the shape, the gap on the frame line itself, and an
+  // approach from outside it. Only the first is the invasion under discussion,
+  // and it is the only one whose share can be compared across depths.
+  const zone = { in: [0, 0], gap: [0, 0], out: [0, 0] };
 
   for (let skip = 0; skip < n; skip += 1) {
     const partial = line.filter((_, i) => i !== skip);
@@ -118,7 +123,12 @@ for (let n = 2; n <= 6; n += 1) {
     for (const [row, col] of localMoves(state, "B", reach)) {
       entries += 1;
       const invaded = build(partial, [[row, col]], "A");
-      if (findForcedCapture({ ...invaded, currentPlayer: "A" }, "A", 9, 2000) === null) lives += 1;
+      const survived =
+        findForcedCapture({ ...invaded, currentPlayer: "A" }, "A", 9, 2000) === null;
+      if (survived) lives += 1;
+      const where = row + col < n - 1 ? "in" : row + col === n - 1 ? "gap" : "out";
+      zone[where][0] += 1;
+      if (survived) zone[where][1] += 1;
       const score = play(invaded, "A", PLIES, reach, -Infinity, Infinity);
       kept.push(score);
       if (score < worst) {
@@ -129,9 +139,13 @@ for (let n = 2; n <= 6; n += 1) {
   }
 
   const mean = kept.reduce((a, b) => a + b, 0) / kept.length;
+  const share = ([tried, alive]: number[]) =>
+    tried ? `${alive}/${tried} ${Math.round((100 * alive) / tried)}%` : "-";
   console.log(
     `${String(n).padStart(7)}${String(finished).padStart(10)}${String(entries).padStart(9)}` +
       `${`${lives} (${Math.round((100 * lives) / entries)}%)`.padStart(15)}` +
-      `${String(worst).padStart(13)}${mean.toFixed(1).padStart(12)}${worstLine.padStart(22)}`,
+      `${share(zone.in).padStart(14)}${String(worst).padStart(7)}` +
+      `${mean.toFixed(1).padStart(8)}${`${Math.round((100 * mean) / finished)}%`.padStart(8)}` +
+      `${worstLine.padStart(22)}`,
   );
 }
