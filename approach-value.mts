@@ -201,3 +201,58 @@ for (const side of ["human", "ai"]) {
     );
   }
 }
+
+// The player's correction: the gain from a move is what it took off the other
+// side plus what it made for you, not one or the other. Summed that way the
+// baseline drops out — the quadrant's net margin, approacher minus opener, needs
+// no estimate of what the corner would have been worth untouched, and dividing
+// by the stones spent puts approaches of different sizes on the same scale.
+console.log(`\nthe two ledgers added: net margin in that quadrant\n`);
+console.log(
+  `${"side".padEnd(8)}${"stones".padStart(8)}${"n".padStart(5)}${"kept".padStart(8)}` +
+    `${"opener kept".padStart(13)}${"net".padStart(16)}${"per stone".padStart(11)}`,
+);
+for (const side of ["human", "ai"]) {
+  const xs = all.filter((a) => a.side === side);
+  for (const [label, pick] of [
+    ["1-2", (a: Approach) => a.spent <= 2],
+    ["3-4", (a: Approach) => a.spent >= 3 && a.spent <= 4],
+    ["5+", (a: Approach) => a.spent >= 5],
+    ["all", () => true],
+  ] as Array<[string, (a: Approach) => boolean]>) {
+    const g = xs.filter(pick);
+    if (g.length === 0) continue;
+    const net = g.map((a) => a.kept - a.denied);
+    console.log(
+      `${side.padEnd(8)}${label.padStart(8)}${String(g.length).padStart(5)}` +
+        `${mean(g.map((a) => a.kept)).toFixed(2).padStart(8)}` +
+        `${mean(g.map((a) => a.denied)).toFixed(2).padStart(13)}` +
+        `${ci(net).padStart(16)}` +
+        `${(mean(net) / mean(g.map((a) => a.spent))).toFixed(2).padStart(11)}`,
+    );
+  }
+}
+
+console.log(`\nand the same net, by how the approach connected (4+ stones)\n`);
+console.log(
+  `${"side".padEnd(8)}${"connections".padStart(18)}${"n".padStart(5)}${"stones".padStart(8)}` +
+    `${"net".padStart(16)}${"per stone".padStart(11)}`,
+);
+for (const side of ["human", "ai"]) {
+  const xs = all.filter((a) => a.side === side && a.spent >= 4);
+  const shareOf = (a: Approach) =>
+    a.diagonal + a.straight === 0 ? 0 : a.diagonal / (a.diagonal + a.straight);
+  for (const [label, pick] of [
+    ["mostly diagonal", (a: Approach) => shareOf(a) >= 0.6],
+    ["mixed or straight", (a: Approach) => shareOf(a) < 0.6],
+  ] as Array<[string, (a: Approach) => boolean]>) {
+    const g = xs.filter(pick);
+    if (g.length === 0) continue;
+    const net = g.map((a) => a.kept - a.denied);
+    console.log(
+      `${side.padEnd(8)}${label.padStart(18)}${String(g.length).padStart(5)}` +
+        `${mean(g.map((a) => a.spent)).toFixed(1).padStart(8)}${ci(net).padStart(16)}` +
+        `${(mean(net) / mean(g.map((a) => a.spent))).toFixed(2).padStart(11)}`,
+    );
+  }
+}
