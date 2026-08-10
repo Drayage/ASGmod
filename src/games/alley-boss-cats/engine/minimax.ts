@@ -803,6 +803,14 @@ const CORNER_BOOK_FRAME_STONES = 4;
 /** Corners the book will open before it stops claiming and starts finishing. */
 const CORNER_BOOK_MAX_CORNERS = 2;
 /**
+ * Read given to checking the book's own move before it is played.
+ *
+ * One move, one read, so this is a fixed slice rather than a share of what is
+ * left: the book fires in the opening where the budget is barely touched, and
+ * spending a third of a second to not hand over a group is the trade.
+ */
+const CORNER_BOOK_VERIFY_MS = 300;
+/**
  * Enemy stones a corner may already hold and still be worth walking into.
  *
  * Two, because that is where the record still reads as free: 40 of 42 human
@@ -1689,10 +1697,24 @@ export function findBestMoveVeryHard(
   //    Placed here rather than beside the book so it can never pre-empt a
   //    tactic: everything above has already declined to fire, so nothing is in
   //    atari, nothing is being sealed into a pocket, and no seal is expiring.
+  //
+  //    The book move is verified before it is returned. Every other stage that
+  //    answers with a shortlist goes through `searchVerified`, which refuses a
+  //    choice the opponent can force a capture against; this one returned its
+  //    move directly, so it was the one place in the ladder where a move nobody
+  //    had read for safety could reach the board. That matters more here than
+  //    anywhere else, because the book walks into corners holding up to two
+  //    enemy stones by design — it is the stage whose whole job is to enter.
+  //    `pool` only screens thin shapes, one-move traps and dominated pockets;
+  //    the forced-capture screen is stage 2, below this.
   const cornerPoint = cornerBookEnabled ? cornerBookMove(rootState, aiPlayer, pool) : null;
   if (cornerPoint) {
-    note("1.88 corner point", 1, pool.length);
-    return cornerPoint;
+    const after = applyAction(rootState, cornerPoint);
+    const cornerBudget = Math.min(CORNER_BOOK_VERIFY_MS, Math.max(150, deadline - Date.now()));
+    if (after.winner || !opponentCanForceCapture(after, aiPlayer, CAPTURE_READ_DEPTH, cornerBudget)) {
+      note("1.88 corner point", 1, pool.length);
+      return cornerPoint;
+    }
   }
 
   // 1.87. Nothing is in danger. Does the opponent have a corner cut that has
