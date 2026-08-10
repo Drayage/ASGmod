@@ -127,13 +127,18 @@ const DEFAULT_SETTINGS: Settings = {
   tutorialCompleted: false,
   lastMode: "AI",
   lastDifficulty: "NORMAL",
-  // The diagonal bonus is the one change in this branch that cleared the bar it
-  // was given beforehand: 60.8% of 186 arena games, +0.95 cells of territory
-  // margin, and fewer groups lost, not more. The variant list stays as it is
-  // rather than folding it in everywhere — it is the instrument, and past
-  // records split by `aiVariant`, so changing what a name means would make them
-  // incomparable.
-  lastAIVariant: "EYE_FRAME",
+  // The diagonal bonus is off by default again. It cleared its bar in an arena
+  // seeded from plies 12-20 with no corner book — 60.8% of 186 games, +0.95
+  // cells — but that is not the configuration that ships. Re-run from an empty
+  // board with the book live, 240 games, it buys nothing: 50.4% +/- 5.9 and a
+  // margin of -0.37 +/- 0.46, both spanning even, while the diagonal side loses
+  // 35.0% of games by capture against 25.4%. A term that buys no strength and
+  // costs group safety comes out of the default.
+  //
+  // The variant list stays as it is rather than folding the change in — it is
+  // the instrument, and past records split by `aiVariant`, so changing what a
+  // name means would make them incomparable.
+  lastAIVariant: "EYE_FRAME_TIGHT",
   lastHumanSide: "A",
 };
 
