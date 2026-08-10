@@ -127,7 +127,13 @@ const DEFAULT_SETTINGS: Settings = {
   tutorialCompleted: false,
   lastMode: "AI",
   lastDifficulty: "NORMAL",
-  lastAIVariant: "EYE",
+  // The diagonal bonus is the one change in this branch that cleared the bar it
+  // was given beforehand: 60.8% of 186 arena games, +0.95 cells of territory
+  // margin, and fewer groups lost, not more. The variant list stays as it is
+  // rather than folding it in everywhere — it is the instrument, and past
+  // records split by `aiVariant`, so changing what a name means would make them
+  // incomparable.
+  lastAIVariant: "EYE_CORNER_DIAG",
   lastHumanSide: "A",
 };
 
