@@ -25,7 +25,7 @@ import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
  * picking a variant fully describes the engine rather than depending on what was
  * chosen before it.
  */
-export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME";
+export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT";
 
 export const AI_VARIANTS: ReadonlyArray<{
   value: AIVariant;
@@ -68,6 +68,11 @@ export const AI_VARIANTS: ReadonlyArray<{
     help: "위의 귀 선수점을 찍고 끝내지 않고, 귀 두 개를 네 돌짜리 정석으로 완성할 때까지 이어 둡니다. 지금까지 엔진은 방해받지 않은 귀에 평균 2.1돌만 두고 14수째에 손을 뗐고 2.6칸을 남겼습니다. 세 돌 이상 둔 귀는 6칸이 됐습니다.",
   },
   {
+    value: "EYE_FRAME_TIGHT",
+    label: "귀 정석 완성 (대각 없음)",
+    help: "위와 같은데 대각 보너스만 뺍니다. 대각을 켠 뒤로 엔진 돌의 절반이 직선 이웃 없이 대각으로만 붙어 있고(이전 17%), 잡혀서 진 판이 9%에서 30%로 늘었습니다. 아레나에서는 반대로 나왔으므로, 이 둘을 갈라 재기 위한 짝입니다.",
+  },
+  {
     value: "EYE_SPACING",
     label: "눈 만들기 + 거리두기",
     help: "상대 돌에 달라붙는 성향을 뺍니다. 사람은 중반 착점의 53%가 상대 돌 옆인데 엔진은 75%였습니다. 잡기·단수 판단은 그대로입니다. 이득은 아직 확인되지 않았습니다.",
@@ -92,14 +97,18 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_SPACING" ||
     variant === "EYE_CORNER" ||
     variant === "EYE_CORNER_DIAG" ||
-    variant === "EYE_FRAME";
+    variant === "EYE_FRAME" ||
+    variant === "EYE_FRAME_TIGHT";
   const thin = variant === "THIN_GUARD" || variant === "EYE_THIN";
   const edge = variant === "EYE_EDGE";
   const spacing = variant === "EYE_SPACING";
   const corner =
-    variant === "EYE_CORNER" || variant === "EYE_CORNER_DIAG" || variant === "EYE_FRAME";
+    variant === "EYE_CORNER" ||
+    variant === "EYE_CORNER_DIAG" ||
+    variant === "EYE_FRAME" ||
+    variant === "EYE_FRAME_TIGHT";
   const diagonal = variant === "EYE_CORNER_DIAG" || variant === "EYE_FRAME";
-  const finish = variant === "EYE_FRAME";
+  const finish = variant === "EYE_FRAME" || variant === "EYE_FRAME_TIGHT";
 
   tuning.eyeSpaceWeight = eye ? EYE_SPACE_WEIGHT : 0;
   setEyeMakingDefenceEnabled(eye);
