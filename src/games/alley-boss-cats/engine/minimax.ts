@@ -770,7 +770,7 @@ export function setCornerBookEnabled(value: boolean): void {
 }
 
 /** How many of the mover's own stones the corner book still applies for. */
-const CORNER_BOOK_STONES = 4;
+const CORNER_BOOK_STONES = 5;
 /**
  * Enemy stones a corner may already hold and still be worth walking into.
  *
@@ -842,14 +842,60 @@ function cornerBookMove(
     }
   }
 
+  const playable = (row: number, col: number) =>
+    rootState.board[row][col] === "EMPTY" &&
+    safe.has(`${row},${col}`) &&
+    isLegalMove(rootState, row, col, aiPlayer);
+
+  // A corner already holding one of our (1,2) stones: continue the shape the
+  // player described, and the rules confirm. From C2 in the top left, B1 is the
+  // step towards the corner and D1 the step away; C2 B1 D1 encloses C1 and
+  // survives a depth-9 capture read with three enemy stones pressing it. The
+  // step away is the answer to being attacked, so it is taken first when an
+  // enemy stone is already touching.
+  for (let row = 0; row < size; row += 1) {
+    for (let col = 0; col < size; col += 1) {
+      if (rootState.board[row][col] !== playerCell(aiPlayer)) continue;
+      const q = quadrant(row, col);
+      if (!q || (held[q]?.mine ?? 0) !== 1) continue;
+      if ((held[q]?.theirs ?? 0) > CORNER_BOOK_MAX_ENEMY) continue;
+
+      const dr = Math.min(row, size - 1 - row);
+      const dc = Math.min(col, size - 1 - col);
+      if (Math.min(dr, dc) !== 1 || Math.max(dr, dc) !== 2) continue;
+
+      // Towards the near edge, and along it in both directions.
+      const toEdge = dr < dc ? [row < 4 ? -1 : 1, 0] : [0, col < 4 ? -1 : 1];
+      const along = dr < dc ? [0, col < 4 ? -1 : 1] : [row < 4 ? -1 : 1, 0];
+      const edgeRow = row + toEdge[0];
+      const edgeCol = col + toEdge[1];
+      const inward = { row: edgeRow + along[0], col: edgeCol + along[1] };
+      const outward = { row: edgeRow - along[0], col: edgeCol - along[1] };
+
+      let pressed = false;
+      for (const [ar, ac] of DIRECTIONS) {
+        const r = row + ar;
+        const c = col + ac;
+        if (inBounds(r, c) && rootState.board[r][c] === playerCell(opponent(aiPlayer))) {
+          pressed = true;
+          break;
+        }
+      }
+
+      for (const next of pressed ? [outward, inward] : [inward, outward]) {
+        if (!inBounds(next.row, next.col)) continue;
+        if (!playable(next.row, next.col)) continue;
+        return { type: "PLACE", row: next.row, col: next.col };
+      }
+    }
+  }
+
   for (const { row, col } of OPENING_BOOK) {
     const q = quadrant(row, col);
     if (!q) continue;
     const there = held[q];
     if (there && (there.mine > 0 || there.theirs > CORNER_BOOK_MAX_ENEMY)) continue;
-    if (rootState.board[row][col] !== "EMPTY") continue;
-    if (!safe.has(`${row},${col}`)) continue;
-    if (!isLegalMove(rootState, row, col, aiPlayer)) continue;
+    if (!playable(row, col)) continue;
     return { type: "PLACE", row, col };
   }
   return null;
