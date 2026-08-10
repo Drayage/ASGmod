@@ -17,6 +17,9 @@ import {
   setDominatedPocketGuardEnabled,
   setExistingGroupDangerRankingEnabled,
   setPocketSealDangerGuardEnabled,
+  setCornerBookEnabled,
+  setCornerBookFinishEnabled,
+  setEyeMakingDefenceEnabled,
   setFrameworkGuardEnabled,
   setPocketSealDenialFilterEnabled,
   setOpponentFrameworkGuardEnabled,
@@ -110,7 +113,9 @@ type Engine =
   | "VH_CONTACT"
   | "VH_NOCONTACT"
   | "VH_DIAG"
-  | "VH_NODIAG";
+  | "VH_NODIAG"
+  | "VH_BOOKDIAG"
+  | "VH_BOOKTIGHT";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -169,6 +174,21 @@ const TESTING_CONTACT = process.env.ONLY === "CONTACT";
 // list. Captures are what the arena reproduces, so that is what it answers.
 const DIAG = Number(process.env.DIAG ?? 15);
 const TESTING_DIAG = process.env.ONLY === "DIAG";
+/**
+ * The one comparison the arena could never make before.
+ *
+ * The corner book only moves inside the first ten stones, and every arena run so
+ * far seeded from plies 12 to 20 — past it. So `SEEDS=1` has to be off for this
+ * arm, and then both sides start from an empty board with the book live, which
+ * is the condition the recorded games are played under.
+ *
+ * Both engines get the book with the finishing budget and the eye guard, exactly
+ * as the EYE_FRAME variants do. The only difference between them is the diagonal
+ * bonus, which is the question: seven real games put the no-diagonal side at
+ * 10.3 cells against 5.7, where the seeded arena had put the diagonal side ahead
+ * by 0.95.
+ */
+const TESTING_BOOKDIAG = process.env.ONLY === "BOOKDIAG";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -260,6 +280,13 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_SETTLED) setSettledOutOfInfluenceEnabled(engine === "VH_SETTLED");
   if (TESTING_CONTACT) setContactBias(engine === "VH_CONTACT" ? CONTACT : 1);
   if (TESTING_DIAG) setOwnDiagonalBonus(engine === "VH_DIAG" ? DIAG : 0);
+  if (TESTING_BOOKDIAG) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(engine === "VH_BOOKDIAG" ? DIAG : 0);
+  }
   setSelfInflictedThinGuardEnabled(engine !== "VH_NOGUARD");
   setDominatedPocketGuardEnabled(engine !== "VH_NOPOCKET");
   setExistingGroupDangerRankingEnabled(engine !== "VH_NORANK");
@@ -331,6 +358,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOCONTACT" ||
     engine === "VH_DIAG" ||
     engine === "VH_NODIAG" ||
+    engine === "VH_BOOKDIAG" ||
+    engine === "VH_BOOKTIGHT" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -701,6 +730,12 @@ if (only === "DECISIVE") {
 if (only === "EYE") {
   addMatch(`VH+eye(${EYE_W})+walling vs VERY_HARD`, "VH_EYE", "VH_NOEYE");
 }
+// Candidate first: VH_BOOKTIGHT is the no-diagonal side, which the real games
+// favour; VH_BOOKDIAG carries the bonus. Run this one with SEEDS unset.
+if (TESTING_BOOKDIAG) {
+  addMatch(`VH frame, no diagonal vs diagonal(${DIAG})`, "VH_BOOKTIGHT", "VH_BOOKDIAG");
+}
+
 // Candidate first: VH_DIAG pays for diagonal own-neighbours, VH_NODIAG is shipped.
 if (only === "DIAG") {
   addMatch(`VH diagonal(${DIAG}) vs VERY_HARD`, "VH_DIAG", "VH_NODIAG");
