@@ -724,12 +724,29 @@ function searchVerified(
  * Measured at a 700ms budget. If the search gets much faster or slower than
  * that, the ordering is worth re-running before it is trusted again.
  */
+/**
+ * Narrowed to the (1,2) class on the player's report, and on what the numbers
+ * above already say.
+ *
+ * The three classes are statistically indistinguishable — the widest gap among
+ * them is 4.5 points at p = 0.43 — so choosing one of them costs nothing that
+ * was ever measured. (1,2) is the one professionals open on, the one every
+ * corner of the recorded 프로연우 vs 이세돌 game used, and the one the player
+ * opens on themselves: across their recorded games as first player, 10 of 13
+ * first moves are members of this class.
+ *
+ * What it does cost is surprise. The book drops from twenty distinct first
+ * moves to eight, all of the same shape, against an opponent who now knows it.
+ * Against one human who already plays this opening every game, that is close to
+ * nothing; it is the reason to put the other two classes back if the engine
+ * ever faces someone else.
+ *
+ * The (2,2) and (1,3) members stay written down, commented out, so the measured
+ * rates above keep the moves they refer to.
+ */
 const OPENING_BOOK: ReadonlyArray<Coord> = [
-  // (2,2) class — 50.8%
-  { row: 2, col: 2 },
-  { row: 2, col: 6 },
-  { row: 6, col: 2 },
-  { row: 6, col: 6 },
+  // (2,2) class — 50.8%, held out
+  // { row: 2, col: 2 }, { row: 2, col: 6 }, { row: 6, col: 2 }, { row: 6, col: 6 },
   // (1,2) class — 47.4%
   { row: 1, col: 2 },
   { row: 1, col: 6 },
@@ -739,15 +756,9 @@ const OPENING_BOOK: ReadonlyArray<Coord> = [
   { row: 6, col: 7 },
   { row: 7, col: 2 },
   { row: 7, col: 6 },
-  // (1,3) class — 46.3%
-  { row: 1, col: 3 },
-  { row: 1, col: 5 },
-  { row: 3, col: 1 },
-  { row: 3, col: 7 },
-  { row: 5, col: 1 },
-  { row: 5, col: 7 },
-  { row: 7, col: 3 },
-  { row: 7, col: 5 },
+  // (1,3) class — 46.3%, held out
+  // { row: 1, col: 3 }, { row: 1, col: 5 }, { row: 3, col: 1 }, { row: 3, col: 7 },
+  // { row: 5, col: 1 }, { row: 5, col: 7 }, { row: 7, col: 3 }, { row: 7, col: 5 },
 ];
 
 /**
