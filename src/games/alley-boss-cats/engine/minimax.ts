@@ -1,7 +1,8 @@
 import { applyAction, evaluateState, getSafeActions, tuning } from "../ai";
 import type { AIAction } from "../ai";
 import { getAllGroups, getConnectedGroup, getGroupLiberties } from "../groups";
-import { applyMove, isLegalMove } from "../rules";
+import { applyMove, getLegalMoves, isLegalMove } from "../rules";
+import { calculateTerritories } from "../territory";
 import { DIRECTIONS, inBounds, opponent, playerCell } from "../types";
 import type { Board, Coord, GameState, Player } from "../types";
 import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
@@ -147,10 +148,37 @@ export interface DecisionTrace {
   /** Candidates the search was given, against the pool it could have had. */
   candidates: number;
   poolSize: number;
+  /**
+   * The shortlist the stage was choosing from, when it had one.
+   *
+   * Recorded so an analysis can ask the question that matters about a forced
+   * move: among the moves that satisfy the stage's own reason, did it take the
+   * one that settles the most? Whether some better move existed elsewhere on the
+   * board is a different and much weaker question — the stage was never offered
+   * it. Empty for stages that return a single move outright.
+   */
+  offered: Array<{ row: number; col: number }>;
 }
-export let lastDecision: DecisionTrace = { stage: "none", candidates: 0, poolSize: 0 };
-function note(stage: string, candidates: number, poolSize: number): void {
-  lastDecision = { stage, candidates, poolSize };
+export let lastDecision: DecisionTrace = {
+  stage: "none",
+  candidates: 0,
+  poolSize: 0,
+  offered: [],
+};
+function note(
+  stage: string,
+  candidates: number,
+  poolSize: number,
+  offered: readonly AIAction[] = [],
+): void {
+  lastDecision = {
+    stage,
+    candidates,
+    poolSize,
+    offered: offered
+      .filter((a): a is Extract<AIAction, { type: "PLACE" }> => a.type === "PLACE")
+      .map((a) => ({ row: a.row, col: a.col })),
+  };
 }
 
 /** Whether the transposition table's stored *scores* are used to answer a
@@ -802,6 +830,75 @@ export function setCornerBookSpreadEnabled(value: boolean): void {
   cornerBookSpreadEnabled = value;
 }
 
+/**
+ * Go into a corner they have opened before finishing a pair of my own.
+ *
+ * The player's second question, asked right after the spreading one: if two
+ * stones already close a corner, is answering their new corner worth more than
+ * putting the second stone in mine? The book has no opinion today — a corner
+ * they hold one stone in is claimable on exactly the same footing as an empty
+ * one, and both come after extending whatever I have already started, so the
+ * order is whichever the opening book lists first.
+ *
+ * Off until the arena says otherwise.
+ */
+/**
+ * Let a stage that returns one move give way to a concrete enclosure.
+ *
+ * 1.88 and 1.9 hand back a single point, so they cannot pick the largest of
+ * anything — measured, their shortlist is one move long. Across the recorded
+ * games that is where a whole class of the engine's lost cells sits: the book
+ * claims a corner point settling nothing while three or more cells were sealable
+ * and safe.
+ *
+ * Deliberately narrow. Overriding whenever some move settles one cell more would
+ * fire on 59 of the corner book's 170 turns and gut the very change that won
+ * 61.3% of 240 arena games, so this only fires when the stage's own move settles
+ * nothing at all and the alternative settles at least `SEAL_OVERRIDE_CELLS`.
+ * That leaves the position the player found untouched — theirs was a six-cell
+ * move beaten by a seven-cell one, and giving up the corner for one cell is not
+ * a trade this can justify.
+ */
+export let sealOverridesBookEnabled = false;
+export function setSealOverridesBookEnabled(value: boolean): void {
+  sealOverridesBookEnabled = value;
+}
+/** How much a seal must settle before it displaces a single-move stage. */
+const SEAL_OVERRIDE_CELLS = 3;
+
+/**
+ * A safe enclosure worth taking instead of `chosen`, when `chosen` settles none.
+ */
+function sealWorthMoreThan(
+  rootState: GameState,
+  aiPlayer: Player,
+  chosen: AIAction,
+  budgetMs: number,
+): AIAction | null {
+  if (!sealOverridesBookEnabled) return null;
+  const before = rootState.territories[aiPlayer].length;
+  const settles = (action: AIAction) => {
+    if (action.type !== "PLACE") return 0;
+    const next = applyAction(rootState, action);
+    return next.territories[aiPlayer].length - before;
+  };
+  if (settles(chosen) > 0) return null;
+  for (const seal of findSealingMoves(rootState, aiPlayer)) {
+    if (seal.gained.length < SEAL_OVERRIDE_CELLS) break; // sorted, so none left
+    const action: AIAction = { type: "PLACE", row: seal.move.row, col: seal.move.col };
+    const next = applyAction(rootState, action);
+    if (next.winner === aiPlayer) return action;
+    if (next.winner) continue;
+    if (!opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, budgetMs)) return action;
+  }
+  return null;
+}
+
+export let cornerBookContestEnabled = false;
+export function setCornerBookContestEnabled(value: boolean): void {
+  cornerBookContestEnabled = value;
+}
+
 export let cornerFrameCentreEnabled = true;
 export function setCornerFrameCentreEnabled(value: boolean): void {
   cornerFrameCentreEnabled = value;
@@ -950,6 +1047,20 @@ export function cornerBookMove(
       col: step(3 - a, colEdge),
     }));
   };
+
+  // Their corner first, when asked to. Same points and the same enemy-count
+  // limit as the claim below; only the priority differs.
+  if (cornerBookContestEnabled) {
+    for (const { row, col } of OPENING_BOOK) {
+      const q = quadrant(row, col);
+      if (!q) continue;
+      const there = held[q];
+      if (!there || there.mine > 0 || there.theirs === 0) continue;
+      if (there.theirs > CORNER_BOOK_MAX_ENEMY) continue;
+      if (!playable(row, col)) continue;
+      return { type: "PLACE", row, col };
+    }
+  }
 
   for (let row = 0; row < size; row += 1) {
     for (let col = 0; col < size; col += 1) {
@@ -1680,7 +1791,104 @@ function urgentSealingMoves(rootState: GameState, aiPlayer: Player): AIAction[] 
  * candidate that lets the opponent prove one against it. Only what survives
  * is handed to the positional search.
  */
+/**
+ * Whether a chosen move is upgraded to a strictly larger version of the same
+ * enclosure. See `largerVersionOf`.
+ */
+export let largerEnclosureEnabled = true;
+export function setLargerEnclosureEnabled(value: boolean): void {
+  largerEnclosureEnabled = value;
+}
+
+/**
+ * The same region this move would settle, and more.
+ *
+ * The player's criterion, and it needs no threshold, unlike every attempt before
+ * it. Comparing cell counts across the board mixes trades — a stone placed where
+ * it pays later can beat a cell now — so it always needed an arbitrary cutoff to
+ * say which gap was real. A strict superset needs none: if another move settles
+ * every cell this one would and further cells beyond them, there is nothing the
+ * smaller one buys. Shape, tempo and the corner it might have claimed are all
+ * still there, since the larger move closes the same shape further out.
+ *
+ * Only applies when the chosen move settles something. With nothing settled the
+ * empty set is a subset of every gain, and the check would degenerate into
+ * "always take the biggest seal" — which is the trade this is designed to avoid
+ * making.
+ *
+ * Measured over the recorded games: 17 turns and 25 cells, spread across four
+ * different stages, which is why it is applied once to whatever the ladder
+ * returns rather than inside any of them.
+ */
+function largerVersionOf(
+  rootState: GameState,
+  aiPlayer: Player,
+  chosen: AIAction,
+  budgetMs: number,
+): AIAction | null {
+  if (!largerEnclosureEnabled || chosen.type !== "PLACE") return null;
+  const held = new Set(
+    rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`),
+  );
+  const gainedBy = (row: number, col: number): Set<string> | null => {
+    if (!isLegalMove(rootState, row, col, aiPlayer)) return null;
+    const board = rootState.board.map((r) => [...r]);
+    board[row][col] = playerCell(aiPlayer);
+    const after = calculateTerritories(board)[aiPlayer];
+    const gained = new Set<string>();
+    for (const c of after) {
+      const key = `${c.row},${c.col}`;
+      if (!held.has(key)) gained.add(key);
+    }
+    return gained;
+  };
+
+  const mine = gainedBy(chosen.row, chosen.col);
+  if (!mine || mine.size === 0) return null;
+
+  let best: { row: number; col: number; size: number } | null = null;
+  for (const move of getLegalMoves(rootState, aiPlayer)) {
+    if (move.row === chosen.row && move.col === chosen.col) continue;
+    const theirs = gainedBy(move.row, move.col);
+    if (!theirs || theirs.size <= mine.size) continue;
+    let covers = true;
+    for (const key of mine) {
+      if (!theirs.has(key)) { covers = false; break; }
+    }
+    if (!covers) continue;
+    if (!best || theirs.size > best.size) {
+      best = { row: move.row, col: move.col, size: theirs.size };
+    }
+  }
+  if (!best) return null;
+
+  // Bigger is only better if it is not bought with the group. Same read the
+  // rest of the ladder screens with.
+  const upgrade: AIAction = { type: "PLACE", row: best.row, col: best.col };
+  const next = applyAction(rootState, upgrade);
+  if (next.winner === aiPlayer) return upgrade;
+  if (next.winner) return null;
+  return opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, budgetMs) ? null : upgrade;
+}
+
 export function findBestMoveVeryHard(
+  rootState: GameState,
+  aiPlayer: Player,
+  timeLimitMs: number,
+): AIAction {
+  const chosen = findBestMoveVeryHardInner(rootState, aiPlayer, timeLimitMs);
+  const bigger = largerVersionOf(rootState, aiPlayer, chosen, LARGER_ENCLOSURE_READ_MS);
+  if (bigger) {
+    lastDecision = { ...lastDecision, stage: `${lastDecision.stage} + larger` };
+    return bigger;
+  }
+  return chosen;
+}
+
+/** Read given to checking the upgrade does not hand over a group. */
+const LARGER_ENCLOSURE_READ_MS = 300;
+
+function findBestMoveVeryHardInner(
   rootState: GameState,
   aiPlayer: Player,
   timeLimitMs: number,
@@ -1742,7 +1950,7 @@ export function findBestMoveVeryHard(
   const dangerMoves = existingGroupDanger(rootState, aiPlayer, EXISTING_DANGER_BUDGET_MS);
   if (dangerMoves.length > 0) {
     const dangerBudget = Math.max(300, deadline - Date.now());
-    note("1.5 group in danger", dangerMoves.length, pool.length);
+    note("1.5 group in danger", dangerMoves.length, pool.length, dangerMoves);
     return searchVerified(rootState, aiPlayer, dangerMoves, dangerBudget, pool);
   }
 
@@ -1754,7 +1962,7 @@ export function findBestMoveVeryHard(
   const thinMoves = thinGroupGuardEnabled ? thinGroupDanger(rootState, aiPlayer) : [];
   if (thinMoves.length > 0) {
     const thinBudget = Math.max(300, deadline - Date.now());
-    note("1.75 thin group", thinMoves.length, pool.length);
+    note("1.75 thin group", thinMoves.length, pool.length, thinMoves);
     return searchVerified(rootState, aiPlayer, thinMoves, thinBudget, pool);
   }
 
@@ -1768,7 +1976,7 @@ export function findBestMoveVeryHard(
     const withGround = pocketSealTerritoryUnionEnabled
       ? unionWithSeals(rootState, aiPlayer, pocketSealMoves)
       : pocketSealMoves;
-    note("1.85 pocket seal danger", withGround.length, pool.length);
+    note("1.85 pocket seal danger", withGround.length, pool.length, withGround);
     return searchVerified(rootState, aiPlayer, withGround, sealBudget, pool);
   }
 
@@ -1784,7 +1992,7 @@ export function findBestMoveVeryHard(
   const urgentSeals = tuning.urgentSealUrgency > 0 ? urgentSealingMoves(rootState, aiPlayer) : [];
   if (urgentSeals.length > 0) {
     const sealBudget = Math.max(300, deadline - Date.now());
-    note("1.86 urgent seal", urgentSeals.length, pool.length);
+    note("1.86 urgent seal", urgentSeals.length, pool.length, urgentSeals);
     return searchVerified(rootState, aiPlayer, urgentSeals, sealBudget, pool);
   }
 
@@ -1816,7 +2024,12 @@ export function findBestMoveVeryHard(
     const after = applyAction(rootState, cornerPoint);
     const cornerBudget = Math.min(CORNER_BOOK_VERIFY_MS, Math.max(150, deadline - Date.now()));
     if (after.winner || !opponentCanForceCapture(after, aiPlayer, CAPTURE_READ_DEPTH, cornerBudget)) {
-      note("1.88 corner point", 1, pool.length);
+      const instead = sealWorthMoreThan(rootState, aiPlayer, cornerPoint, cornerBudget);
+      if (instead) {
+        note("1.88 seal over corner point", 1, pool.length, [instead]);
+        return instead;
+      }
+      note("1.88 corner point", 1, pool.length, [cornerPoint]);
       return cornerPoint;
     }
   }
@@ -1832,7 +2045,7 @@ export function findBestMoveVeryHard(
     : [];
   if (opponentFrameworkMoves.length > 0) {
     const opponentFrameworkBudget = Math.max(300, deadline - Date.now());
-    note("1.87 deny their framework", opponentFrameworkMoves.length, pool.length);
+    note("1.87 deny their framework", opponentFrameworkMoves.length, pool.length, opponentFrameworkMoves);
     return searchVerified(rootState, aiPlayer, opponentFrameworkMoves, opponentFrameworkBudget, pool);
   }
 
@@ -1844,7 +2057,16 @@ export function findBestMoveVeryHard(
   const frameworkMoves = frameworkGuardEnabled ? frameworkCompletionMoves(rootState, aiPlayer) : [];
   if (frameworkMoves.length > 0) {
     const frameworkBudget = Math.max(300, deadline - Date.now());
-    note("1.9 finish my framework", frameworkMoves.length, pool.length);
+    // Same narrow give-way as the corner point above: only when this stage's own
+    // move settles nothing and a safe enclosure is there.
+    if (frameworkMoves.length === 1) {
+      const instead = sealWorthMoreThan(rootState, aiPlayer, frameworkMoves[0], 300);
+      if (instead) {
+        note("1.9 seal over framework", 1, pool.length, [instead]);
+        return instead;
+      }
+    }
+    note("1.9 finish my framework", frameworkMoves.length, pool.length, frameworkMoves);
     return searchVerified(rootState, aiPlayer, frameworkMoves, frameworkBudget, pool);
   }
 
@@ -1892,7 +2114,7 @@ export function findBestMoveVeryHard(
   //    would have drifted towards.
   const territorial = territorialCandidates(rootState, aiPlayer, plan, finalPool, remaining);
   if (territorial.length > 0) {
-    note("3 territorial answer", territorial.length, finalPool.length);
+    note("3 territorial answer", territorial.length, finalPool.length, territorial);
     return searchVerified(rootState, aiPlayer, territorial, remaining, finalPool);
   }
 
@@ -1902,7 +2124,7 @@ export function findBestMoveVeryHard(
   //    by which moves are on offer — measured on a real position, the safe pool
   //    held 67 of 68 legal moves and every move the territory planner wanted,
   //    so adding "contesting" candidates to it changed nothing at all.
-  note("4 full search", finalPool.length, finalPool.length);
+  note("4 full search", finalPool.length, finalPool.length, finalPool);
   return searchVerified(rootState, aiPlayer, finalPool, remaining);
 }
 
