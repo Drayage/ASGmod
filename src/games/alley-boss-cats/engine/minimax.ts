@@ -993,6 +993,39 @@ export function setCornerBookFollowEnabled(value: boolean): void {
   cornerBookFollowEnabled = value;
 }
 /**
+ * Where following their investment stops, which is not one for one all the way.
+ *
+ * The player's question about their own rule: against three of theirs, does it
+ * take three of mine — or does three against four already do the job? Their
+ * instinct was that it does, and `corner-invest.mts` says so from three
+ * directions. Cells finally held in a corner, by their stones there and mine:
+ *
+ *   their play, 25 recorded games        the arena, 240 engine games
+ *     theirs  mine  cells   gain           theirs  mine  cells   gain
+ *        1      3    4.47  +1.01              1      3    3.71  +0.42
+ *        1      4    4.00  -0.47              1      4    3.57  -0.14
+ *        2      3    3.17                     2      3    1.64  +1.20
+ *        2      4    2.89  -0.28              2      4    2.14  +0.50
+ *        3      3    1.71                     3      3    1.06
+ *        3      4    1.61  -0.11              3      4    1.15  +0.09
+ *        4      3    1.48  +0.55              4      3    0.61
+ *        4      4    0.82  -0.66              4      4    0.50  -0.11
+ *
+ * The fourth stone pays nowhere except against two in the arena, and against
+ * three or four it is flat or negative on both sides of the table. The player
+ * already plays the cap — three is their best answer to everything from one
+ * enemy stone to four.
+ *
+ * Correlational, and stated as such: these are end-of-game counts, so a corner
+ * where I hold three against four is a corner I was losing, and the causation
+ * runs both ways. It is enough to set a cap with, not enough to ship on.
+ */
+const CORNER_BOOK_FOLLOW_CAP = 3;
+export let cornerBookFollowCap = CORNER_BOOK_FOLLOW_CAP;
+export function setCornerBookFollowCap(value: number): void {
+  cornerBookFollowCap = value;
+}
+/**
  * Read given to checking the book's own move before it is played.
  *
  * One move, one read, so this is a fixed slice rather than a share of what is
@@ -1162,11 +1195,11 @@ export function cornerBookMove(
       let wantFrame = cornerBookSpreadEnabled
         ? cornerBookSpreadStones
         : CORNER_BOOK_FRAME_STONES;
-      // Following their investment makes the pair a floor rather than a ceiling:
-      // matching three of their stones takes three of mine. The frame line only
-      // has four points, so that is where it stops either way.
+      // Following their investment makes the pair a floor rather than a ceiling
+      // — but not one for one all the way up. The player's own play stops at
+      // three and the record says they are right to: see CORNER_BOOK_FOLLOW_CAP.
       if (cornerBookFollowEnabled) {
-        wantFrame = Math.min(CORNER_BOOK_FRAME_STONES, Math.max(wantFrame, theirsHere));
+        wantFrame = Math.min(cornerBookFollowCap, Math.max(wantFrame, theirsHere));
       }
       if ((held[q]?.frame ?? 0) >= wantFrame) continue;
 

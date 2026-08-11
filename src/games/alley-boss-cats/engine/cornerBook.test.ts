@@ -5,6 +5,7 @@ import {
   lastDecision,
   setCornerBookEnabled,
   setCornerBookFinishEnabled,
+  setCornerBookFollowCap,
   setCornerBookFollowEnabled,
   setCornerBookLeaveContestedEnabled,
   setCornerBookSpreadEnabled,
@@ -44,6 +45,7 @@ afterEach(() => {
   setCornerBookSpreadEnabled(false);
   setCornerBookLeaveContestedEnabled(false);
   setCornerBookFollowEnabled(false);
+  setCornerBookFollowCap(3);
   setSealOverridesBookEnabled(false);
   setLargerEnclosureEnabled(true);
 });
@@ -335,5 +337,46 @@ describe("following what they spend on a corner", () => {
     book();
     const state = withStones([[1, 2, "A"]]);
     expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("2,1");
+  });
+});
+
+describe("where following stops", () => {
+  const book = () => {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setCornerBookFollowEnabled(true);
+  };
+
+  it("matches a second stone when they have two and I have one", () => {
+    // The player's case, in the range the book actually operates in: they made
+    // it two to one, so the corner is one I am behind in and worth returning to.
+    book();
+    const state = withStones([
+      [1, 2, "A"],
+      [2, 1, "B"],
+      [0, 3, "B"],
+      [1, 6, "A"],
+    ]);
+    const move = cornerBookMove(state, "A", pool(state, "A"));
+    expect(move && move.type === "PLACE" && move.row < 4 && move.col < 4).toBe(true);
+  });
+
+  it("does not follow them into a corner they have spent three on", () => {
+    // Two separate locks agree here, and it is worth knowing which bites: the
+    // corner is already past CORNER_BOOK_MAX_ENEMY, so the book declines before
+    // the cap is ever consulted. The cap is the second lock, not the first —
+    // raising the enemy limit is what would put it in play, and that is a
+    // different experiment from this one.
+    book();
+    const state = withStones([
+      [1, 2, "A"],
+      [2, 1, "A"],
+      [1, 1, "B"],
+      [2, 2, "B"],
+      [0, 2, "B"],
+    ]);
+    const move = cornerBookMove(state, "A", pool(state, "A"));
+    expect(move && move.type === "PLACE" && move.row < 4 && move.col < 4).toBe(false);
   });
 });
