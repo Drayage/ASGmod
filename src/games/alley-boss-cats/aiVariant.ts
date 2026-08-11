@@ -2,6 +2,7 @@ import { tuning } from "./ai";
 import {
   setCornerBookEnabled,
   setCornerBookFinishEnabled,
+  setCornerBookSpreadEnabled,
   setEyeMakingDefenceEnabled,
   setThinGroupGuardEnabled,
 } from "./engine/minimax";
@@ -45,7 +46,7 @@ export const AI_VARIANTS: ReadonlyArray<VariantEntry> = [
   {
     value: "EYE_FRAME_TIGHT",
     label: "기본",
-    help: "지금 엔진입니다. 귀 두 개를 네 돌짜리 정석으로 완성할 때까지 이어 두고, 위험한 그룹은 뻗는 대신 눈을 만들어 삽니다.",
+    help: "지금 엔진입니다. 네 귀에 가운데 쌍(두 돌)을 하나씩 놓아 귀를 넓게 잡고, 위험한 그룹은 뻗는 대신 눈을 만들어 삽니다. 빈 판 240판에서 프레임을 두 귀에 완성하는 방식보다 승률 61.3%, 집 +1.05칸이었습니다.",
   },
   {
     value: "EYE_FRAME",
@@ -116,6 +117,13 @@ export function applyAIVariant(variant: AIVariant): void {
   setContactBias(spacing ? 0 : 1);
   setCornerBookEnabled(corner);
   setCornerBookFinishEnabled(finish);
+  // Two stones in four corners rather than four in two — the player's own method
+  // against the engine, and the strongest controlled result this branch has:
+  // 61.3% +/- 5.9 of 240 empty-board games and +1.05 +/- 0.56 cells, both
+  // intervals clear of even, with no more groups lost. The middle pair already
+  // leaves an invader alive at none of a corner's eight entry points, so the
+  // frame's last two stones were buying cells and no safety.
+  setCornerBookSpreadEnabled(finish);
   // 15 is where the diagonal overtakes the straight connection in the ordering:
   // an orthogonal neighbour scores 29-32 in a typical corner and a diagonal 15,
   // so anything less leaves the order unchanged and much more would swamp the

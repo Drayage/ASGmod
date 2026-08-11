@@ -19,6 +19,7 @@ import {
   setPocketSealDangerGuardEnabled,
   setCornerBookEnabled,
   setCornerBookFinishEnabled,
+  setCornerBookSpreadEnabled,
   setCornerFrameCentreEnabled,
   setFrameworkGuardEnabled,
   setPocketSealDenialFilterEnabled,
@@ -119,7 +120,9 @@ type Engine =
   | "VH_BOOKTIGHT"
   | "JOSEKI"
   | "VH_CENTRE"
-  | "VH_NOCENTRE";
+  | "VH_NOCENTRE"
+  | "VH_SPREAD"
+  | "VH_FINISH";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -206,6 +209,8 @@ const TESTING_JOSEKI = process.env.ONLY === "JOSEKI";
  * moves inside the first ten stones.
  */
 const TESTING_CENTRE = process.env.ONLY === "CENTRE";
+/** Two stones in four corners against four stones in two. The player's method. */
+const TESTING_SPREAD = process.env.ONLY === "SPREAD";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -297,6 +302,14 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_SETTLED) setSettledOutOfInfluenceEnabled(engine === "VH_SETTLED");
   if (TESTING_CONTACT) setContactBias(engine === "VH_CONTACT" ? CONTACT : 1);
   if (TESTING_DIAG) setOwnDiagonalBonus(engine === "VH_DIAG" ? DIAG : 0);
+  if (TESTING_SPREAD) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setCornerBookSpreadEnabled(engine === "VH_SPREAD");
+  }
   if (TESTING_CENTRE) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
@@ -390,6 +403,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_BOOKTIGHT" ||
     engine === "VH_CENTRE" ||
     engine === "VH_NOCENTRE" ||
+    engine === "VH_SPREAD" ||
+    engine === "VH_FINISH" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -760,6 +775,10 @@ if (only === "DECISIVE") {
 if (only === "EYE") {
   addMatch(`VH+eye(${EYE_W})+walling vs VERY_HARD`, "VH_EYE", "VH_NOEYE");
 }
+if (TESTING_SPREAD) {
+  addMatch("VH pair in four corners vs frame in two", "VH_SPREAD", "VH_FINISH");
+}
+
 if (TESTING_CENTRE) {
   addMatch("VH frame to the middle vs array order", "VH_CENTRE", "VH_NOCENTRE");
 }
