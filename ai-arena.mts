@@ -22,6 +22,7 @@ import {
   setCornerBookContestEnabled,
   setCornerBookSpreadEnabled,
   setCornerFrameCentreEnabled,
+  setLargerEnclosureEnabled,
   setSealOverridesBookEnabled,
   setFrameworkGuardEnabled,
   setPocketSealDenialFilterEnabled,
@@ -134,7 +135,9 @@ type Engine =
   | "VH_MYSEAL"
   | "VH_NOMYSEAL"
   | "VH_SEALOVER"
-  | "VH_NOSEALOVER";
+  | "VH_NOSEALOVER"
+  | "VH_LARGER"
+  | "VH_NOLARGER";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -230,6 +233,8 @@ const MYSEAL = Number(process.env.MYSEAL ?? 4);
 const TESTING_MYSEAL = process.env.ONLY === "MYSEAL";
 /** Letting a concrete enclosure displace a single-move stage that settles none. */
 const TESTING_SEALOVER = process.env.ONLY === "SEALOVER";
+/** Upgrading a move to the larger version of the same enclosure. */
+const TESTING_LARGER = process.env.ONLY === "LARGER";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -321,6 +326,15 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_SETTLED) setSettledOutOfInfluenceEnabled(engine === "VH_SETTLED");
   if (TESTING_CONTACT) setContactBias(engine === "VH_CONTACT" ? CONTACT : 1);
   if (TESTING_DIAG) setOwnDiagonalBonus(engine === "VH_DIAG" ? DIAG : 0);
+  setLargerEnclosureEnabled(!TESTING_LARGER || engine === "VH_LARGER");
+  if (TESTING_LARGER) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+  }
   if (TESTING_SEALOVER) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
@@ -458,6 +472,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOMYSEAL" ||
     engine === "VH_SEALOVER" ||
     engine === "VH_NOSEALOVER" ||
+    engine === "VH_LARGER" ||
+    engine === "VH_NOLARGER" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -828,6 +844,10 @@ if (only === "DECISIVE") {
 if (only === "EYE") {
   addMatch(`VH+eye(${EYE_W})+walling vs VERY_HARD`, "VH_EYE", "VH_NOEYE");
 }
+if (TESTING_LARGER) {
+  addMatch("VH larger version of the same enclosure vs not", "VH_LARGER", "VH_NOLARGER");
+}
+
 if (TESTING_SEALOVER) {
   addMatch("VH seal over the book vs the book", "VH_SEALOVER", "VH_NOSEALOVER");
 }
