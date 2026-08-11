@@ -33,6 +33,21 @@ import type { Coord, GameState, Player } from "../types";
  * engine to my reading of them. It is only usable as an instrument for as long
  * as it predicts their recorded moves better than the engine does, which is what
  * that script checks and what its threshold is for.
+ *
+ * IT DID NOT CLEAR THAT BAR. Over the 1167 positions the player actually faced,
+ * this bot names their move 13.1% of the time against the engine's 21.0%, a
+ * paired difference of -7.9pp +/- 2.5 — worse, not better, and the interval is
+ * nowhere near zero. It is worst exactly where it should have been best: 10.9%
+ * against 26.2% through their moves 11-20, the middle game where the corner work
+ * happens. By their moves 21-30 the two are level at 23.8% and 24.7%, which says
+ * the endgame is forced enough that anyone finds the same moves.
+ *
+ * So this must not be used as a stand-in for the player, and `ONLY=JOSEKI` must
+ * not be read as a result about them. It is kept because a failed instrument
+ * with its number attached is worth more than a deleted one: the next attempt
+ * has a baseline to beat, and the strategy encoded here is a faithful reading of
+ * what they said, which is itself the finding — what they say they do does not
+ * predict what they play.
  */
 
 /** How deep the bot reads before trusting a move not to lose a group. */
