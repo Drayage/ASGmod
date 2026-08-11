@@ -802,6 +802,23 @@ export function setCornerBookSpreadEnabled(value: boolean): void {
   cornerBookSpreadEnabled = value;
 }
 
+/**
+ * Go into a corner they have opened before finishing a pair of my own.
+ *
+ * The player's second question, asked right after the spreading one: if two
+ * stones already close a corner, is answering their new corner worth more than
+ * putting the second stone in mine? The book has no opinion today — a corner
+ * they hold one stone in is claimable on exactly the same footing as an empty
+ * one, and both come after extending whatever I have already started, so the
+ * order is whichever the opening book lists first.
+ *
+ * Off until the arena says otherwise.
+ */
+export let cornerBookContestEnabled = false;
+export function setCornerBookContestEnabled(value: boolean): void {
+  cornerBookContestEnabled = value;
+}
+
 export let cornerFrameCentreEnabled = true;
 export function setCornerFrameCentreEnabled(value: boolean): void {
   cornerFrameCentreEnabled = value;
@@ -950,6 +967,20 @@ export function cornerBookMove(
       col: step(3 - a, colEdge),
     }));
   };
+
+  // Their corner first, when asked to. Same points and the same enemy-count
+  // limit as the claim below; only the priority differs.
+  if (cornerBookContestEnabled) {
+    for (const { row, col } of OPENING_BOOK) {
+      const q = quadrant(row, col);
+      if (!q) continue;
+      const there = held[q];
+      if (!there || there.mine > 0 || there.theirs === 0) continue;
+      if (there.theirs > CORNER_BOOK_MAX_ENEMY) continue;
+      if (!playable(row, col)) continue;
+      return { type: "PLACE", row, col };
+    }
+  }
 
   for (let row = 0; row < size; row += 1) {
     for (let col = 0; col < size; col += 1) {

@@ -19,6 +19,7 @@ import {
   setPocketSealDangerGuardEnabled,
   setCornerBookEnabled,
   setCornerBookFinishEnabled,
+  setCornerBookContestEnabled,
   setCornerBookSpreadEnabled,
   setCornerFrameCentreEnabled,
   setFrameworkGuardEnabled,
@@ -122,7 +123,9 @@ type Engine =
   | "VH_CENTRE"
   | "VH_NOCENTRE"
   | "VH_SPREAD"
-  | "VH_FINISH";
+  | "VH_FINISH"
+  | "VH_CONTEST"
+  | "VH_OWNFIRST";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -211,6 +214,8 @@ const TESTING_JOSEKI = process.env.ONLY === "JOSEKI";
 const TESTING_CENTRE = process.env.ONLY === "CENTRE";
 /** Two stones in four corners against four stones in two. The player's method. */
 const TESTING_SPREAD = process.env.ONLY === "SPREAD";
+/** Answering their new corner against finishing a pair of my own. */
+const TESTING_CONTEST = process.env.ONLY === "CONTEST";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -302,6 +307,15 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_SETTLED) setSettledOutOfInfluenceEnabled(engine === "VH_SETTLED");
   if (TESTING_CONTACT) setContactBias(engine === "VH_CONTACT" ? CONTACT : 1);
   if (TESTING_DIAG) setOwnDiagonalBonus(engine === "VH_DIAG" ? DIAG : 0);
+  if (TESTING_CONTEST) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setCornerBookContestEnabled(engine === "VH_CONTEST");
+  }
   if (TESTING_SPREAD) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
@@ -405,6 +419,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOCENTRE" ||
     engine === "VH_SPREAD" ||
     engine === "VH_FINISH" ||
+    engine === "VH_CONTEST" ||
+    engine === "VH_OWNFIRST" ||
     engine === "VH_NOFRAME2"
   ) {
     return findBestMoveVeryHard(state, player, VERY_HARD_MS);
@@ -775,6 +791,10 @@ if (only === "DECISIVE") {
 if (only === "EYE") {
   addMatch(`VH+eye(${EYE_W})+walling vs VERY_HARD`, "VH_EYE", "VH_NOEYE");
 }
+if (TESTING_CONTEST) {
+  addMatch("VH answer their corner vs finish my pair", "VH_CONTEST", "VH_OWNFIRST");
+}
+
 if (TESTING_SPREAD) {
   addMatch("VH pair in four corners vs frame in two", "VH_SPREAD", "VH_FINISH");
 }
