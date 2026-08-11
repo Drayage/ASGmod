@@ -147,10 +147,37 @@ export interface DecisionTrace {
   /** Candidates the search was given, against the pool it could have had. */
   candidates: number;
   poolSize: number;
+  /**
+   * The shortlist the stage was choosing from, when it had one.
+   *
+   * Recorded so an analysis can ask the question that matters about a forced
+   * move: among the moves that satisfy the stage's own reason, did it take the
+   * one that settles the most? Whether some better move existed elsewhere on the
+   * board is a different and much weaker question — the stage was never offered
+   * it. Empty for stages that return a single move outright.
+   */
+  offered: Array<{ row: number; col: number }>;
 }
-export let lastDecision: DecisionTrace = { stage: "none", candidates: 0, poolSize: 0 };
-function note(stage: string, candidates: number, poolSize: number): void {
-  lastDecision = { stage, candidates, poolSize };
+export let lastDecision: DecisionTrace = {
+  stage: "none",
+  candidates: 0,
+  poolSize: 0,
+  offered: [],
+};
+function note(
+  stage: string,
+  candidates: number,
+  poolSize: number,
+  offered: readonly AIAction[] = [],
+): void {
+  lastDecision = {
+    stage,
+    candidates,
+    poolSize,
+    offered: offered
+      .filter((a): a is Extract<AIAction, { type: "PLACE" }> => a.type === "PLACE")
+      .map((a) => ({ row: a.row, col: a.col })),
+  };
 }
 
 /** Whether the transposition table's stored *scores* are used to answer a
@@ -1773,7 +1800,7 @@ export function findBestMoveVeryHard(
   const dangerMoves = existingGroupDanger(rootState, aiPlayer, EXISTING_DANGER_BUDGET_MS);
   if (dangerMoves.length > 0) {
     const dangerBudget = Math.max(300, deadline - Date.now());
-    note("1.5 group in danger", dangerMoves.length, pool.length);
+    note("1.5 group in danger", dangerMoves.length, pool.length, dangerMoves);
     return searchVerified(rootState, aiPlayer, dangerMoves, dangerBudget, pool);
   }
 
@@ -1785,7 +1812,7 @@ export function findBestMoveVeryHard(
   const thinMoves = thinGroupGuardEnabled ? thinGroupDanger(rootState, aiPlayer) : [];
   if (thinMoves.length > 0) {
     const thinBudget = Math.max(300, deadline - Date.now());
-    note("1.75 thin group", thinMoves.length, pool.length);
+    note("1.75 thin group", thinMoves.length, pool.length, thinMoves);
     return searchVerified(rootState, aiPlayer, thinMoves, thinBudget, pool);
   }
 
@@ -1799,7 +1826,7 @@ export function findBestMoveVeryHard(
     const withGround = pocketSealTerritoryUnionEnabled
       ? unionWithSeals(rootState, aiPlayer, pocketSealMoves)
       : pocketSealMoves;
-    note("1.85 pocket seal danger", withGround.length, pool.length);
+    note("1.85 pocket seal danger", withGround.length, pool.length, withGround);
     return searchVerified(rootState, aiPlayer, withGround, sealBudget, pool);
   }
 
@@ -1815,7 +1842,7 @@ export function findBestMoveVeryHard(
   const urgentSeals = tuning.urgentSealUrgency > 0 ? urgentSealingMoves(rootState, aiPlayer) : [];
   if (urgentSeals.length > 0) {
     const sealBudget = Math.max(300, deadline - Date.now());
-    note("1.86 urgent seal", urgentSeals.length, pool.length);
+    note("1.86 urgent seal", urgentSeals.length, pool.length, urgentSeals);
     return searchVerified(rootState, aiPlayer, urgentSeals, sealBudget, pool);
   }
 
@@ -1847,7 +1874,7 @@ export function findBestMoveVeryHard(
     const after = applyAction(rootState, cornerPoint);
     const cornerBudget = Math.min(CORNER_BOOK_VERIFY_MS, Math.max(150, deadline - Date.now()));
     if (after.winner || !opponentCanForceCapture(after, aiPlayer, CAPTURE_READ_DEPTH, cornerBudget)) {
-      note("1.88 corner point", 1, pool.length);
+      note("1.88 corner point", 1, pool.length, [cornerPoint]);
       return cornerPoint;
     }
   }
@@ -1863,7 +1890,7 @@ export function findBestMoveVeryHard(
     : [];
   if (opponentFrameworkMoves.length > 0) {
     const opponentFrameworkBudget = Math.max(300, deadline - Date.now());
-    note("1.87 deny their framework", opponentFrameworkMoves.length, pool.length);
+    note("1.87 deny their framework", opponentFrameworkMoves.length, pool.length, opponentFrameworkMoves);
     return searchVerified(rootState, aiPlayer, opponentFrameworkMoves, opponentFrameworkBudget, pool);
   }
 
@@ -1875,7 +1902,7 @@ export function findBestMoveVeryHard(
   const frameworkMoves = frameworkGuardEnabled ? frameworkCompletionMoves(rootState, aiPlayer) : [];
   if (frameworkMoves.length > 0) {
     const frameworkBudget = Math.max(300, deadline - Date.now());
-    note("1.9 finish my framework", frameworkMoves.length, pool.length);
+    note("1.9 finish my framework", frameworkMoves.length, pool.length, frameworkMoves);
     return searchVerified(rootState, aiPlayer, frameworkMoves, frameworkBudget, pool);
   }
 
@@ -1923,7 +1950,7 @@ export function findBestMoveVeryHard(
   //    would have drifted towards.
   const territorial = territorialCandidates(rootState, aiPlayer, plan, finalPool, remaining);
   if (territorial.length > 0) {
-    note("3 territorial answer", territorial.length, finalPool.length);
+    note("3 territorial answer", territorial.length, finalPool.length, territorial);
     return searchVerified(rootState, aiPlayer, territorial, remaining, finalPool);
   }
 
@@ -1933,7 +1960,7 @@ export function findBestMoveVeryHard(
   //    by which moves are on offer — measured on a real position, the safe pool
   //    held 67 of 68 legal moves and every move the territory planner wanted,
   //    so adding "contesting" candidates to it changed nothing at all.
-  note("4 full search", finalPool.length, finalPool.length);
+  note("4 full search", finalPool.length, finalPool.length, finalPool);
   return searchVerified(rootState, aiPlayer, finalPool, remaining);
 }
 
