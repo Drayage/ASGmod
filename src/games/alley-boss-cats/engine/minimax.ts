@@ -974,6 +974,25 @@ export function setCornerBookLeaveContestedEnabled(value: boolean): void {
   cornerBookLeaveContestedEnabled = value;
 }
 /**
+ * Whether the book follows the opponent's investment in a corner rather than
+ * its own fixed count.
+ *
+ * The player's rule, and the correction to the one above: they do not abandon a
+ * corner the opponent answered, they *match* it. At one stone each the corner is
+ * level and the next stone is worth more in one nobody is in; when the opponent
+ * makes it two to one, they come back and even it up. Leaving is temporary, and
+ * the trigger to return is the opponent spending another move.
+ *
+ * Two things follow that the plain leave rule got wrong. A level corner is left
+ * only while somewhere untouched is still on offer, and being behind on stones
+ * outranks adding to an uncontested corner — so the book visits the corners it
+ * is behind in first and everything else after.
+ */
+export let cornerBookFollowEnabled = false;
+export function setCornerBookFollowEnabled(value: boolean): void {
+  cornerBookFollowEnabled = value;
+}
+/**
  * Read given to checking the book's own move before it is played.
  *
  * One move, one read, so this is a fixed slice rather than a share of what is
@@ -1112,23 +1131,43 @@ export function cornerBookMove(
     return (!there || (there.mine === 0 && there.theirs === 0)) && playable(row, col);
   });
 
+  // Two passes when following their investment, one otherwise. The first pass
+  // only visits corners where they are ahead on stones, so coming back to match
+  // outranks adding to a corner nobody is contesting — within a pass the order
+  // is the board scan, which cannot express that priority.
+  for (const matching of cornerBookFollowEnabled ? [true, false] : [false]) {
   for (let row = 0; row < size; row += 1) {
     for (let col = 0; col < size; col += 1) {
       if (rootState.board[row][col] !== playerCell(aiPlayer)) continue;
       const q = quadrant(row, col);
       if (!q) continue;
-      if ((held[q]?.theirs ?? 0) > CORNER_BOOK_MAX_ENEMY) continue;
+      const mineHere = held[q]?.mine ?? 0;
+      const theirsHere = held[q]?.theirs ?? 0;
+      if (theirsHere > CORNER_BOOK_MAX_ENEMY) continue;
       // Their answer landed here and there is still a corner nobody is in: the
       // next stone is worth more there than as the third of a contested trio.
-      if (cornerBookLeaveContestedEnabled && emptyCornerLeft && (held[q]?.theirs ?? 0) > 0) {
+      if (cornerBookLeaveContestedEnabled && emptyCornerLeft && theirsHere > 0) {
         continue;
+      }
+      if (cornerBookFollowEnabled) {
+        // Behind on stones here, so this is a corner to come back to; level or
+        // ahead, it can wait while a corner nobody is in is still on offer.
+        const behind = theirsHere > mineHere;
+        if (behind !== matching) continue;
+        if (!behind && theirsHere > 0 && emptyCornerLeft) continue;
       }
       // The frame is four stones and encloses six cells; a fifth adds nothing
       // the rules will pay for, and the measurement behind the depth limit says
       // a wider one only makes the inside easier to live in.
-      const wantFrame = cornerBookSpreadEnabled
+      let wantFrame = cornerBookSpreadEnabled
         ? cornerBookSpreadStones
         : CORNER_BOOK_FRAME_STONES;
+      // Following their investment makes the pair a floor rather than a ceiling:
+      // matching three of their stones takes three of mine. The frame line only
+      // has four points, so that is where it stops either way.
+      if (cornerBookFollowEnabled) {
+        wantFrame = Math.min(CORNER_BOOK_FRAME_STONES, Math.max(wantFrame, theirsHere));
+      }
       if ((held[q]?.frame ?? 0) >= wantFrame) continue;
 
       const dr = Math.min(row, size - 1 - row);
@@ -1245,6 +1284,7 @@ export function cornerBookMove(
         .map((x) => x.p);
       if (gaps.length > 0) return { type: "PLACE", row: gaps[0].row, col: gaps[0].col };
     }
+  }
   }
 
   // Claiming a third corner is not what the raised budget is for. Once two are

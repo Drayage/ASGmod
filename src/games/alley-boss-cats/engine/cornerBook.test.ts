@@ -5,6 +5,7 @@ import {
   lastDecision,
   setCornerBookEnabled,
   setCornerBookFinishEnabled,
+  setCornerBookFollowEnabled,
   setCornerBookLeaveContestedEnabled,
   setCornerBookSpreadEnabled,
   setLargerEnclosureEnabled,
@@ -42,6 +43,7 @@ afterEach(() => {
   setCornerBookEnabled(false);
   setCornerBookSpreadEnabled(false);
   setCornerBookLeaveContestedEnabled(false);
+  setCornerBookFollowEnabled(false);
   setSealOverridesBookEnabled(false);
   setLargerEnclosureEnabled(true);
 });
@@ -268,5 +270,70 @@ describe("a corner they have answered", () => {
       [6, 6, "B"],
     ]);
     expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("0,3");
+  });
+});
+
+/**
+ * Following their investment rather than leaving outright, which is the player's
+ * actual rule: at one stone each the corner is level and the next stone is worth
+ * more somewhere untouched; when they make it two to one, come back and even it.
+ */
+describe("following what they spend on a corner", () => {
+  const book = () => {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setCornerBookFollowEnabled(true);
+  };
+
+  it("leaves a level corner for one nobody is in", () => {
+    book();
+    const state = withStones([[1, 2, "A"], [2, 1, "B"]]);
+    const move = cornerBookMove(state, "A", pool(state, "A"));
+    expect(move && move.type === "PLACE" && move.row < 4 && move.col < 4).toBe(false);
+  });
+
+  it("comes back once they are a stone ahead there", () => {
+    book();
+    // Two of theirs to one of mine in the top left, and my own lone stone in the
+    // top right wanting its pair. Being behind wins.
+    const state = withStones([
+      [1, 2, "A"],
+      [2, 1, "B"],
+      [0, 3, "B"],
+      [1, 6, "A"],
+    ]);
+    const move = cornerBookMove(state, "A", pool(state, "A"));
+    expect(move && move.type === "PLACE" && move.row < 4 && move.col < 4).toBe(true);
+  });
+
+  it("leaves again once the corner is level", () => {
+    book();
+    const state = withStones([
+      [1, 2, "A"],
+      [2, 2, "A"],
+      [2, 1, "B"],
+      [0, 3, "B"],
+    ]);
+    const move = cornerBookMove(state, "A", pool(state, "A"));
+    expect(move && move.type === "PLACE" && move.row < 4 && move.col < 4).toBe(false);
+  });
+
+  it("builds a level corner when there is nowhere untouched to go", () => {
+    book();
+    const state = withStones([
+      [1, 2, "A"],
+      [2, 1, "B"],
+      [1, 6, "B"],
+      [6, 1, "B"],
+      [6, 6, "B"],
+    ]);
+    expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("0,3");
+  });
+
+  it("leaves an uncontested corner alone", () => {
+    book();
+    const state = withStones([[1, 2, "A"]]);
+    expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("2,1");
   });
 });

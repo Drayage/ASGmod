@@ -24,6 +24,7 @@ import {
   setCornerBookSpreadStones,
   setSettleOverSearchEnabled,
   setCornerBookLeaveContestedEnabled,
+  setCornerBookFollowEnabled,
   setCornerFrameCentreEnabled,
   setLargerEnclosureEnabled,
   setSealOverridesBookEnabled,
@@ -139,6 +140,8 @@ type Engine =
   | "VH_NOSETTLE"
   | "VH_LEAVE"
   | "VH_STAY"
+  | "VH_FOLLOW"
+  | "VH_FIXED"
   | "VH_CONTEST"
   | "VH_OWNFIRST"
   | "VH_MYSEAL"
@@ -241,6 +244,8 @@ const TESTING_LONE = process.env.ONLY === "LONE";
 const TESTING_SETTLE = process.env.ONLY === "SETTLE";
 /** Abandoning a corner they have answered for one nobody is in. The player's. */
 const TESTING_LEAVE = process.env.ONLY === "LEAVE";
+/** Matching their stone count in a corner instead. The player's actual rule. */
+const TESTING_FOLLOW = process.env.ONLY === "FOLLOW";
 /** Answering their new corner against finishing a pair of my own. */
 const TESTING_CONTEST = process.env.ONLY === "CONTEST";
 /** Treating my own big enclosure as urgent, which the planner never did. */
@@ -386,6 +391,15 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     setOwnDiagonalBonus(0);
     setCornerBookSpreadEnabled(engine === "VH_SPREAD");
   }
+  if (TESTING_FOLLOW) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setCornerBookFollowEnabled(engine === "VH_FOLLOW");
+  }
   if (TESTING_LEAVE) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
@@ -514,6 +528,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOSETTLE" ||
     engine === "VH_LEAVE" ||
     engine === "VH_STAY" ||
+    engine === "VH_FOLLOW" ||
+    engine === "VH_FIXED" ||
     engine === "VH_CONTEST" ||
     engine === "VH_OWNFIRST" ||
     engine === "VH_MYSEAL" ||
@@ -922,6 +938,10 @@ if (TESTING_SETTLE) {
 
 if (TESTING_LEAVE) {
   addMatch("VH leave a contested corner vs build it", "VH_LEAVE", "VH_STAY");
+}
+
+if (TESTING_FOLLOW) {
+  addMatch("VH follow their corner investment vs a fixed count", "VH_FOLLOW", "VH_FIXED");
 }
 
 if (TESTING_CENTRE) {
