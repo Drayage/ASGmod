@@ -310,11 +310,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     setOwnDiagonalBonus(0);
     setCornerBookSpreadEnabled(engine === "VH_SPREAD");
   }
-  if (TESTING_SPREAD) {
-  addMatch("VH pair in four corners vs frame in two", "VH_SPREAD", "VH_FINISH");
-}
-
-if (TESTING_CENTRE) {
+  if (TESTING_CENTRE) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
     setEyeMakingDefenceEnabled(true);
