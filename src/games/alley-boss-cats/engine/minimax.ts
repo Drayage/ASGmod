@@ -948,6 +948,32 @@ export function setCornerBookSpreadStones(value: number): void {
   cornerBookSpreadStones = value;
 }
 /**
+ * Whether a corner the opponent has already answered is abandoned for an empty
+ * one, rather than built up.
+ *
+ * The player's observation, and the sharper version of the question above: the
+ * engine plays (1,2), they answer at (2,1), and the engine spends a third stone
+ * on the same corner at (0,3) — at which point they simply take a corner nobody
+ * is in. The book does that because its claim loop runs before its open-a-new-
+ * corner loop, so an owned corner is always finished first.
+ *
+ * The record already prices both sides of it. Cells finally held in a corner,
+ * by how many enemy stones were there when the second stone landed:
+ *
+ *              0 enemies    1     2+
+ *   human           6.18  3.04   2.47
+ *   ai              2.00  1.49   0.90
+ *
+ * An empty corner is worth more than a contested one to both sides, which is
+ * what the rule needs to be true. It is not sufficient — leaving says nothing
+ * about what the abandoned stone is then worth, and a lone cat the opponent is
+ * already beside is the one this could go wrong for. Off until measured.
+ */
+export let cornerBookLeaveContestedEnabled = false;
+export function setCornerBookLeaveContestedEnabled(value: boolean): void {
+  cornerBookLeaveContestedEnabled = value;
+}
+/**
  * Read given to checking the book's own move before it is played.
  *
  * One move, one read, so this is a fixed slice rather than a share of what is
@@ -1077,12 +1103,26 @@ export function cornerBookMove(
     }
   }
 
+  // Somewhere nobody has touched yet, which is what leaving a contested corner
+  // needs in order to be leaving rather than abandoning.
+  const emptyCornerLeft = OPENING_BOOK.some(({ row, col }) => {
+    const q = quadrant(row, col);
+    if (!q) return false;
+    const there = held[q];
+    return (!there || (there.mine === 0 && there.theirs === 0)) && playable(row, col);
+  });
+
   for (let row = 0; row < size; row += 1) {
     for (let col = 0; col < size; col += 1) {
       if (rootState.board[row][col] !== playerCell(aiPlayer)) continue;
       const q = quadrant(row, col);
       if (!q) continue;
       if ((held[q]?.theirs ?? 0) > CORNER_BOOK_MAX_ENEMY) continue;
+      // Their answer landed here and there is still a corner nobody is in: the
+      // next stone is worth more there than as the third of a contested trio.
+      if (cornerBookLeaveContestedEnabled && emptyCornerLeft && (held[q]?.theirs ?? 0) > 0) {
+        continue;
+      }
       // The frame is four stones and encloses six cells; a fifth adds nothing
       // the rules will pay for, and the measurement behind the depth limit says
       // a wider one only makes the inside easier to live in.

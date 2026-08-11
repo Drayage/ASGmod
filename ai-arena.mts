@@ -23,6 +23,7 @@ import {
   setCornerBookSpreadEnabled,
   setCornerBookSpreadStones,
   setSettleOverSearchEnabled,
+  setCornerBookLeaveContestedEnabled,
   setCornerFrameCentreEnabled,
   setLargerEnclosureEnabled,
   setSealOverridesBookEnabled,
@@ -136,6 +137,8 @@ type Engine =
   | "VH_PAIR"
   | "VH_SETTLE"
   | "VH_NOSETTLE"
+  | "VH_LEAVE"
+  | "VH_STAY"
   | "VH_CONTEST"
   | "VH_OWNFIRST"
   | "VH_MYSEAL"
@@ -236,6 +239,8 @@ const TESTING_SPREAD = process.env.ONLY === "SPREAD";
 const TESTING_LONE = process.env.ONLY === "LONE";
 /** Overruling the full search with a 2+ cell settle its own leaf scored higher. */
 const TESTING_SETTLE = process.env.ONLY === "SETTLE";
+/** Abandoning a corner they have answered for one nobody is in. The player's. */
+const TESTING_LEAVE = process.env.ONLY === "LEAVE";
 /** Answering their new corner against finishing a pair of my own. */
 const TESTING_CONTEST = process.env.ONLY === "CONTEST";
 /** Treating my own big enclosure as urgent, which the planner never did. */
@@ -381,6 +386,15 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     setOwnDiagonalBonus(0);
     setCornerBookSpreadEnabled(engine === "VH_SPREAD");
   }
+  if (TESTING_LEAVE) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setCornerBookLeaveContestedEnabled(engine === "VH_LEAVE");
+  }
   if (TESTING_SETTLE) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
@@ -498,6 +512,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_PAIR" ||
     engine === "VH_SETTLE" ||
     engine === "VH_NOSETTLE" ||
+    engine === "VH_LEAVE" ||
+    engine === "VH_STAY" ||
     engine === "VH_CONTEST" ||
     engine === "VH_OWNFIRST" ||
     engine === "VH_MYSEAL" ||
@@ -902,6 +918,10 @@ if (TESTING_LONE) {
 
 if (TESTING_SETTLE) {
   addMatch("VH settle the search passed vs the search", "VH_SETTLE", "VH_NOSETTLE");
+}
+
+if (TESTING_LEAVE) {
+  addMatch("VH leave a contested corner vs build it", "VH_LEAVE", "VH_STAY");
 }
 
 if (TESTING_CENTRE) {

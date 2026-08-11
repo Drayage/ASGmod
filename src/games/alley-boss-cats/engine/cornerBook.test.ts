@@ -5,6 +5,7 @@ import {
   lastDecision,
   setCornerBookEnabled,
   setCornerBookFinishEnabled,
+  setCornerBookLeaveContestedEnabled,
   setCornerBookSpreadEnabled,
   setLargerEnclosureEnabled,
   setSealOverridesBookEnabled,
@@ -40,6 +41,7 @@ afterEach(() => {
   setCornerBookFinishEnabled(false);
   setCornerBookEnabled(false);
   setCornerBookSpreadEnabled(false);
+  setCornerBookLeaveContestedEnabled(false);
   setSealOverridesBookEnabled(false);
   setLargerEnclosureEnabled(true);
 });
@@ -216,5 +218,55 @@ describe("cornerBookMove with the finishing budget", () => {
     // Both corners are finished frames, so the book is done rather than
     // claiming a bottom corner with the budget it has left.
     expect(cornerBookMove(state, "A", pool(state, "A"))).toBeNull();
+  });
+});
+
+/**
+ * Leaving a corner the opponent has answered, which is the player's own read of
+ * the position: the engine plays (1,2), they answer at (2,1), and the engine
+ * spends a third stone there while a corner nobody is in sits open.
+ */
+describe("a corner they have answered", () => {
+  const contested = () => withStones([[1, 2, "A"], [2, 1, "B"]]);
+
+  it("is built up by default, which is what the player saw", () => {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    const state = contested();
+    expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("0,3");
+  });
+
+  it("is left for an empty corner when the rule is on", () => {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setCornerBookLeaveContestedEnabled(true);
+    const state = contested();
+    const move = cornerBookMove(state, "A", pool(state, "A"));
+    expect(move && move.type === "PLACE").toBe(true);
+    if (move && move.type === "PLACE") {
+      // Any corner but the one they answered.
+      expect(Math.min(move.row, 8 - move.row) + Math.min(move.col, 8 - move.col)).toBeLessThan(4);
+      expect(move.row < 4 && move.col < 4).toBe(false);
+    }
+  });
+
+  it("is built anyway once there is nowhere left to leave to", () => {
+    // Leaving has to be leaving *for* something. With every other corner
+    // already touched the rule must fall through to the claim it would have
+    // made, not decline to move.
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setCornerBookLeaveContestedEnabled(true);
+    const state = withStones([
+      [1, 2, "A"],
+      [2, 1, "B"],
+      [1, 6, "B"],
+      [6, 1, "B"],
+      [6, 6, "B"],
+    ]);
+    expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("0,3");
   });
 });
