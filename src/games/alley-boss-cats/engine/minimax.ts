@@ -1986,6 +1986,15 @@ export function settleTheSearchPassed(
 
   const settles = offered
     .filter((mv) => mv.row !== chosen.row || mv.col !== chosen.col)
+    // The shortlist is this position's, but only because the trace is written
+    // on every path out of the ladder. It was not always: three early returns
+    // used to leave `lastDecision` describing the *previous* turn, and this is
+    // the first code to read the recorded shortlist rather than the stage name,
+    // so it was the first to try playing another position's move and get an
+    // illegal-move throw for it. Both ends are fixed — those returns are noted
+    // now, and nothing here is played without being checked against the board
+    // in front of it.
+    .filter((mv) => isLegalMove(rootState, mv.row, mv.col, aiPlayer))
     .map((mv) => ({ ...mv, cells: settledBy(mv.row, mv.col) }))
     .filter((mv) => mv.cells >= SETTLE_OVER_SEARCH_CELLS)
     .sort((a, b) => b.cells - a.cells)
@@ -2050,7 +2059,10 @@ function findBestMoveVeryHardInner(
   timeLimitMs: number,
 ): AIAction {
   const opening = openingMove(rootState, aiPlayer);
-  if (opening) return opening;
+  if (opening) {
+    note("0 opening book", 1, 1, [opening]);
+    return opening;
+  }
 
   // One forward pass for the position being played, reused by every leaf
   // beneath it. Running the net per leaf would cost more than the search it is
@@ -2060,8 +2072,15 @@ function findBestMoveVeryHardInner(
   const deadline = Date.now() + timeLimitMs;
 
   const { winningMove, pool: rawPool } = getSafeActions(rootState, aiPlayer);
-  if (winningMove) return winningMove;
-  if (rawPool.length <= 1) return rawPool[0] ?? { type: "PASS" };
+  if (winningMove) {
+    note("0 wins outright", 1, 1, [winningMove]);
+    return winningMove;
+  }
+  if (rawPool.length <= 1) {
+    const only = rawPool[0] ?? { type: "PASS" as const };
+    note("0 only move", 1, 1, [only]);
+    return only;
+  }
   const thinGuardedPool = selfInflictedThinGuardEnabled
     ? avoidSelfInflictedThin(rootState, aiPlayer, rawPool)
     : rawPool;

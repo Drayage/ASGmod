@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  findBestMoveVeryHard,
+  lastDecision,
   setSettleOverSearchEnabled,
   settleOverSearchEnabled,
   settleTheSearchPassed,
@@ -126,5 +128,23 @@ describe("the settle the search passed", () => {
     } else {
       expect(taken).toBeNull();
     }
+  });
+});
+
+describe("the decision trace", () => {
+  it("describes this turn on every path out of the ladder", () => {
+    // Three early returns used to leave the trace describing the previous turn.
+    // Nothing noticed while only the stage name was read; the settle rule reads
+    // the recorded shortlist, so it inherited another position's moves and threw
+    // on the first illegal one. Two arena shards died on it.
+    findBestMoveVeryHard(recorded(), "B", 400);
+    expect(lastDecision.stage.startsWith("0 ")).toBe(false);
+
+    const empty = createInitialState();
+    findBestMoveVeryHard(empty, "A", 400);
+    expect(lastDecision.stage).toBe("0 opening book");
+    // And the shortlist that came with it is the move actually returned, not a
+    // pool left over from the position before.
+    expect(lastDecision.offered).toHaveLength(1);
   });
 });
