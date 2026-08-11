@@ -53,6 +53,20 @@ describe("cornerBookMove with the finishing budget", () => {
     expect(["0,3", "3,0"]).toContain(at(cornerBookMove(state, "A", pool(state, "A"))));
   });
 
+  it("takes the middle of the frame first, not the edge one", () => {
+    setCornerBookFinishEnabled(true);
+    // One stone on the (1,2) point. (0,3) and (2,1) are both two steps away, and
+    // the rules make them the worst and best second stone a corner has: (1,2)
+    // with (2,1) kills an invader at all eight entry points, (1,2) with (0,3)
+    // lets five of eight live. The tie has to break toward the middle.
+    const state = withStones([
+      [1, 2, "A"],
+      [6, 6, "A"],
+      [4, 3, "A"],
+    ]);
+    expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("2,1");
+  });
+
   it("leaves a finished frame alone", () => {
     setCornerBookFinishEnabled(true);
     const state = withStones([

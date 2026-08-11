@@ -777,6 +777,19 @@ export function setCornerBookFinishEnabled(value: boolean): void {
   cornerBookFinishEnabled = value;
 }
 
+/**
+ * Whether equally near frame gaps break toward the middle of the anti-diagonal.
+ *
+ * On by default because the rules are unambiguous about the shape — see the
+ * sort below. The flag exists so the arena can play the old arbitrary order
+ * against the new one and say what the change is worth in games, which a local
+ * shape measurement cannot.
+ */
+export let cornerFrameCentreEnabled = true;
+export function setCornerFrameCentreEnabled(value: boolean): void {
+  cornerFrameCentreEnabled = value;
+}
+
 /** How many of the mover's own stones the corner book still applies for. */
 const CORNER_BOOK_STONES = 5;
 /**
@@ -968,14 +981,32 @@ export function cornerBookMove(
         }
       }
 
-      // Otherwise extend along the frame, nearest gap to what we already hold.
+      // Otherwise extend along the frame, nearest gap to what we already hold —
+      // and where two gaps are equally near, take the more central one.
+      //
+      // That tie is not a detail. From the (1,2) point both (0,3) and (2,1) are
+      // two steps away, so the sort was decided by the order `frameOf` happens
+      // to build its array, which put (0,3) first. Asked of the rules, those two
+      // pairs are the best and nearly the worst opening a corner has: over all
+      // 120 two-stone starts in the corner, (1,2) with (2,1) kills the invader at
+      // every one of eight entry points, and (1,2) with (0,3) lets five of eight
+      // live, ranking 61st. The book was building the second one every time.
+      //
+      // Centrality is `min(dr, dc)`: the middle pair of the anti-diagonal is
+      // symmetric about the corner's own diagonal, so the cut between the two
+      // stones faces into the corner rather than out along an edge.
       const gaps = frameOf(q)
         .filter((p) => playable(p.row, p.col))
-        .sort(
-          (a, b) =>
-            Math.abs(a.row - row) + Math.abs(a.col - col) -
-            (Math.abs(b.row - row) + Math.abs(b.col - col)),
-        );
+        .map((p) => ({
+          p,
+          near: Math.abs(p.row - row) + Math.abs(p.col - col),
+          middle: Math.min(
+            Math.min(p.row, size - 1 - p.row),
+            Math.min(p.col, size - 1 - p.col),
+          ),
+        }))
+        .sort((a, b) => a.near - b.near || (cornerFrameCentreEnabled ? b.middle - a.middle : 0))
+        .map((x) => x.p);
       if (gaps.length > 0) return { type: "PLACE", row: gaps[0].row, col: gaps[0].col };
     }
   }
