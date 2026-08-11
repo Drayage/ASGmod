@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cornerBookMove, setCornerBookFinishEnabled } from "./minimax";
+import {
+  cornerBookMove,
+  findBestMoveVeryHard,
+  lastDecision,
+  setCornerBookEnabled,
+  setCornerBookFinishEnabled,
+  setCornerBookSpreadEnabled,
+  setSealOverridesBookEnabled,
+} from "./minimax";
 import { getLegalMoves } from "../rules";
 import { createInitialState } from "../rules";
 import { playerCell } from "../types";
@@ -26,7 +34,46 @@ const pool = (state: GameState, side: Player): AIAction[] =>
 const at = (move: AIAction | null) =>
   move && move.type === "PLACE" ? `${move.row},${move.col}` : null;
 
-afterEach(() => setCornerBookFinishEnabled(false));
+afterEach(() => {
+  setCornerBookFinishEnabled(false);
+  setCornerBookEnabled(false);
+  setCornerBookSpreadEnabled(false);
+  setSealOverridesBookEnabled(false);
+});
+
+describe("a concrete enclosure over a corner point that settles nothing", () => {
+  it("takes the seal when the book move closes none and three cells are there", () => {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setSealOverridesBookEnabled(true);
+    // A three-cell enclosure is one move from done in the bottom-left, and the
+    // book would otherwise open a fresh corner and settle nothing.
+    const state = withStones([
+      [8, 2, "A"],
+      [7, 1, "A"],
+      [6, 0, "A"],
+      [6, 6, "A"],
+      // Well away and with room to breathe, so nothing is capturable and the
+      // stages above the book all decline.
+      [3, 4, "B"],
+      [2, 5, "B"],
+    ]);
+    const move = findBestMoveVeryHard(state, "A", 800);
+    expect(lastDecision.stage).toBe("1.88 seal over corner point");
+    void move;
+  });
+
+  it("leaves the book alone when its own move already settles ground", () => {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setSealOverridesBookEnabled(true);
+    const state = withStones([[1, 2, "A"], [3, 4, "B"], [2, 5, "B"]]);
+    findBestMoveVeryHard(state, "A", 800);
+    expect(lastDecision.stage).not.toBe("1.88 seal over corner point");
+  });
+});
 
 describe("cornerBookMove with the finishing budget", () => {
   // Six own stones: the old gate stopped at five, so this position is exactly

@@ -841,6 +841,58 @@ export function setCornerBookSpreadEnabled(value: boolean): void {
  *
  * Off until the arena says otherwise.
  */
+/**
+ * Let a stage that returns one move give way to a concrete enclosure.
+ *
+ * 1.88 and 1.9 hand back a single point, so they cannot pick the largest of
+ * anything — measured, their shortlist is one move long. Across the recorded
+ * games that is where a whole class of the engine's lost cells sits: the book
+ * claims a corner point settling nothing while three or more cells were sealable
+ * and safe.
+ *
+ * Deliberately narrow. Overriding whenever some move settles one cell more would
+ * fire on 59 of the corner book's 170 turns and gut the very change that won
+ * 61.3% of 240 arena games, so this only fires when the stage's own move settles
+ * nothing at all and the alternative settles at least `SEAL_OVERRIDE_CELLS`.
+ * That leaves the position the player found untouched — theirs was a six-cell
+ * move beaten by a seven-cell one, and giving up the corner for one cell is not
+ * a trade this can justify.
+ */
+export let sealOverridesBookEnabled = false;
+export function setSealOverridesBookEnabled(value: boolean): void {
+  sealOverridesBookEnabled = value;
+}
+/** How much a seal must settle before it displaces a single-move stage. */
+const SEAL_OVERRIDE_CELLS = 3;
+
+/**
+ * A safe enclosure worth taking instead of `chosen`, when `chosen` settles none.
+ */
+function sealWorthMoreThan(
+  rootState: GameState,
+  aiPlayer: Player,
+  chosen: AIAction,
+  budgetMs: number,
+): AIAction | null {
+  if (!sealOverridesBookEnabled) return null;
+  const before = rootState.territories[aiPlayer].length;
+  const settles = (action: AIAction) => {
+    if (action.type !== "PLACE") return 0;
+    const next = applyAction(rootState, action);
+    return next.territories[aiPlayer].length - before;
+  };
+  if (settles(chosen) > 0) return null;
+  for (const seal of findSealingMoves(rootState, aiPlayer)) {
+    if (seal.gained.length < SEAL_OVERRIDE_CELLS) break; // sorted, so none left
+    const action: AIAction = { type: "PLACE", row: seal.move.row, col: seal.move.col };
+    const next = applyAction(rootState, action);
+    if (next.winner === aiPlayer) return action;
+    if (next.winner) continue;
+    if (!opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, budgetMs)) return action;
+  }
+  return null;
+}
+
 export let cornerBookContestEnabled = false;
 export function setCornerBookContestEnabled(value: boolean): void {
   cornerBookContestEnabled = value;
@@ -1874,6 +1926,11 @@ export function findBestMoveVeryHard(
     const after = applyAction(rootState, cornerPoint);
     const cornerBudget = Math.min(CORNER_BOOK_VERIFY_MS, Math.max(150, deadline - Date.now()));
     if (after.winner || !opponentCanForceCapture(after, aiPlayer, CAPTURE_READ_DEPTH, cornerBudget)) {
+      const instead = sealWorthMoreThan(rootState, aiPlayer, cornerPoint, cornerBudget);
+      if (instead) {
+        note("1.88 seal over corner point", 1, pool.length, [instead]);
+        return instead;
+      }
       note("1.88 corner point", 1, pool.length, [cornerPoint]);
       return cornerPoint;
     }
@@ -1902,6 +1959,15 @@ export function findBestMoveVeryHard(
   const frameworkMoves = frameworkGuardEnabled ? frameworkCompletionMoves(rootState, aiPlayer) : [];
   if (frameworkMoves.length > 0) {
     const frameworkBudget = Math.max(300, deadline - Date.now());
+    // Same narrow give-way as the corner point above: only when this stage's own
+    // move settles nothing and a safe enclosure is there.
+    if (frameworkMoves.length === 1) {
+      const instead = sealWorthMoreThan(rootState, aiPlayer, frameworkMoves[0], 300);
+      if (instead) {
+        note("1.9 seal over framework", 1, pool.length, [instead]);
+        return instead;
+      }
+    }
     note("1.9 finish my framework", frameworkMoves.length, pool.length, frameworkMoves);
     return searchVerified(rootState, aiPlayer, frameworkMoves, frameworkBudget, pool);
   }
