@@ -974,6 +974,26 @@ export function cornerBookMove(
         const onEdge = dr < dc
           ? [{ row: rowEdge, col: col - 1 }, { row: rowEdge, col: col + 1 }]
           : [{ row: row - 1, col: colEdge }, { row: row + 1, col: colEdge }];
+        // Toward the stone that is pressing, not away from it. Which of the two
+        // came first was decided by the order they are built above, the same
+        // accident that was choosing the frame's second stone. Measured on both
+        // of the corner's edges: taking the near one leaks at none of its entry
+        // points where the far one leaks at four of eight, and where it makes no
+        // difference both are zero — better twice, level twice, worse never.
+        if (cornerFrameCentreEnabled) {
+          const near = (p: { row: number; col: number }) => {
+            let best = Infinity;
+            for (let r = 0; r < size; r += 1) {
+              for (let c = 0; c < size; c += 1) {
+                if (rootState.board[r][c] !== playerCell(opponent(aiPlayer))) continue;
+                if (quadrant(r, c) !== q) continue;
+                best = Math.min(best, Math.abs(r - p.row) + Math.abs(c - p.col));
+              }
+            }
+            return best;
+          };
+          onEdge.sort((a, b) => near(a) - near(b));
+        }
         for (const next of onEdge) {
           if (!inBounds(next.row, next.col)) continue;
           if (!playable(next.row, next.col)) continue;
@@ -995,17 +1015,44 @@ export function cornerBookMove(
       // Centrality is `min(dr, dc)`: the middle pair of the anti-diagonal is
       // symmetric about the corner's own diagonal, so the cut between the two
       // stones faces into the corner rather than out along an edge.
+      //
+      // One case overrides the centrality rule, and it is the player's, found
+      // after the first version shipped. When the opponent already sits on the
+      // edge line right beside the edge-side frame point, taking that point is
+      // no longer a way of making an eye — it is a block, and the rules pay for
+      // it. Measured on both of the corner's edges so the mirror checks the
+      // claim: with the enemy on a flanking cell the edge point leaks at none of
+      // its entry points and the middle one at two or three of seven, 4 of 4
+      // both ways; with the enemy anywhere else the middle wins 10 of 12 and the
+      // edge never does.
+      const flanked = (p: { row: number; col: number }) => {
+        const dr = Math.min(p.row, size - 1 - p.row);
+        const dc = Math.min(p.col, size - 1 - p.col);
+        if (Math.min(dr, dc) !== 0) return false; // not an edge-side frame point
+        const along: Array<[number, number]> = dr === 0 ? [[0, -1], [0, 1]] : [[-1, 0], [1, 0]];
+        return along.some(([ar, ac]) => {
+          const r = p.row + ar;
+          const c = p.col + ac;
+          return inBounds(r, c) && rootState.board[r][c] === playerCell(opponent(aiPlayer));
+        });
+      };
       const gaps = frameOf(q)
         .filter((p) => playable(p.row, p.col))
         .map((p) => ({
           p,
           near: Math.abs(p.row - row) + Math.abs(p.col - col),
+          block: cornerFrameCentreEnabled && flanked(p) ? 1 : 0,
           middle: Math.min(
             Math.min(p.row, size - 1 - p.row),
             Math.min(p.col, size - 1 - p.col),
           ),
         }))
-        .sort((a, b) => a.near - b.near || (cornerFrameCentreEnabled ? b.middle - a.middle : 0))
+        .sort(
+          (a, b) =>
+            a.near - b.near ||
+            b.block - a.block ||
+            (cornerFrameCentreEnabled ? b.middle - a.middle : 0),
+        )
         .map((x) => x.p);
       if (gaps.length > 0) return { type: "PLACE", row: gaps[0].row, col: gaps[0].col };
     }
