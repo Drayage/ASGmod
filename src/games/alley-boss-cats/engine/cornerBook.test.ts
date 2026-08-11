@@ -82,6 +82,39 @@ describe("cornerBookMove with the finishing budget", () => {
     expect(["0,3", "3,0", "1,2", "2,1"]).not.toContain(move);
   });
 
+  it("blocks along the edge when they are beside the edge point", () => {
+    setCornerBookFinishEnabled(true);
+    // Our stone on (1,2), theirs on (0,2) — the cell flanking the edge-side
+    // frame point (0,3) along the first line. Measured on both of the corner's
+    // edges: with the enemy there the edge point leaks at none of its entry
+    // points and the middle one at three of seven, so the block outranks the
+    // centrality rule here and only here.
+    // Their stone at (0,4) is not touching ours, so the book is still choosing
+    // a frame gap rather than dropping to the small eye.
+    const state = withStones([
+      [1, 2, "A"],
+      [6, 6, "A"],
+      [4, 3, "A"],
+      [0, 4, "B"],
+    ]);
+    expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("0,3");
+  });
+
+  it("takes the small eye toward the stone that is pressing", () => {
+    setCornerBookFinishEnabled(true);
+    // Their stone at (0,2) touches ours at (1,2), so this is the pressed branch
+    // and the choice is between the two edge points either side. Measured: the
+    // near one is never worse and is better at half the placements, and which
+    // came first used to be the order the pair happens to be built in.
+    const state = withStones([
+      [1, 2, "A"],
+      [6, 6, "A"],
+      [4, 3, "A"],
+      [0, 2, "B"],
+    ]);
+    expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("0,1");
+  });
+
   it("will not open a third corner", () => {
     setCornerBookFinishEnabled(true);
     const state = withStones([
