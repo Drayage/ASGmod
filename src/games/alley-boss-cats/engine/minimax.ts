@@ -785,6 +785,23 @@ export function setCornerBookFinishEnabled(value: boolean): void {
  * against the new one and say what the change is worth in games, which a local
  * shape measurement cannot.
  */
+/**
+ * Stake four corners with two stones each instead of finishing two with four.
+ *
+ * The player's method against the engine, found by playing it: put the middle
+ * pair down, and if nothing comes near, go and put another pair in a different
+ * corner rather than completing the first. The shape measurement is already on
+ * their side — the middle pair alone leaves an invader alive at none of the
+ * corner's eight entry points, so the frame's last two stones buy cells and no
+ * safety at all, while the same two stones elsewhere claim a whole corner.
+ *
+ * Off until the arena says otherwise: it is a real policy change, not a tie.
+ */
+export let cornerBookSpreadEnabled = false;
+export function setCornerBookSpreadEnabled(value: boolean): void {
+  cornerBookSpreadEnabled = value;
+}
+
 export let cornerFrameCentreEnabled = true;
 export function setCornerFrameCentreEnabled(value: boolean): void {
   cornerFrameCentreEnabled = value;
@@ -815,6 +832,9 @@ const CORNER_BOOK_STONES_FINISHING = 12;
 const CORNER_BOOK_FRAME_STONES = 4;
 /** Corners the book will open before it stops claiming and starts finishing. */
 const CORNER_BOOK_MAX_CORNERS = 2;
+/** The same two numbers under the spreading policy: the pair, in every corner. */
+const CORNER_BOOK_SPREAD_STONES = 2;
+const CORNER_BOOK_SPREAD_CORNERS = 4;
 /**
  * Read given to checking the book's own move before it is played.
  *
@@ -940,7 +960,10 @@ export function cornerBookMove(
       // The frame is four stones and encloses six cells; a fifth adds nothing
       // the rules will pay for, and the measurement behind the depth limit says
       // a wider one only makes the inside easier to live in.
-      if ((held[q]?.frame ?? 0) >= CORNER_BOOK_FRAME_STONES) continue;
+      const wantFrame = cornerBookSpreadEnabled
+        ? CORNER_BOOK_SPREAD_STONES
+        : CORNER_BOOK_FRAME_STONES;
+      if ((held[q]?.frame ?? 0) >= wantFrame) continue;
 
       const dr = Math.min(row, size - 1 - row);
       const dc = Math.min(col, size - 1 - col);
@@ -1063,7 +1086,10 @@ export function cornerBookMove(
   // of the change — the old budget could open corners it could never close, and
   // an unclosed corner is worth 1.36 cells against a closed one's 6.
   const opened = Object.values(held).filter((h) => h.mine > 0).length;
-  if (cornerBookFinishEnabled && opened >= CORNER_BOOK_MAX_CORNERS) return null;
+  const maxCorners = cornerBookSpreadEnabled
+    ? CORNER_BOOK_SPREAD_CORNERS
+    : CORNER_BOOK_MAX_CORNERS;
+  if (cornerBookFinishEnabled && opened >= maxCorners) return null;
 
   for (const { row, col } of OPENING_BOOK) {
     const q = quadrant(row, col);
