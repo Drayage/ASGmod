@@ -933,6 +933,21 @@ const CORNER_BOOK_MAX_CORNERS = 2;
 const CORNER_BOOK_SPREAD_STONES = 2;
 const CORNER_BOOK_SPREAD_CORNERS = 4;
 /**
+ * Stones the spreading policy leaves in a corner before moving on.
+ *
+ * A `let` only so the arena can ask the player's question: if two stones in four
+ * corners beats four stones in two, does one stone in four beat two? The pair is
+ * the smallest shape that settles anything at all — one cell, in the corner
+ * point between them — and it is what the frame is later built out of, but
+ * neither of those facts says the second stone is worth its turn against simply
+ * claiming a fourth corner sooner. Default is the shipped value; nothing but a
+ * measurement changes it.
+ */
+export let cornerBookSpreadStones = CORNER_BOOK_SPREAD_STONES;
+export function setCornerBookSpreadStones(value: number): void {
+  cornerBookSpreadStones = value;
+}
+/**
  * Read given to checking the book's own move before it is played.
  *
  * One move, one read, so this is a fixed slice rather than a share of what is
@@ -1072,7 +1087,7 @@ export function cornerBookMove(
       // the rules will pay for, and the measurement behind the depth limit says
       // a wider one only makes the inside easier to live in.
       const wantFrame = cornerBookSpreadEnabled
-        ? CORNER_BOOK_SPREAD_STONES
+        ? cornerBookSpreadStones
         : CORNER_BOOK_FRAME_STONES;
       if ((held[q]?.frame ?? 0) >= wantFrame) continue;
 
@@ -1871,12 +1886,113 @@ function largerVersionOf(
   return opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, budgetMs) ? null : upgrade;
 }
 
+/**
+ * Whether the full search may be overruled by a settle it walked past.
+ *
+ * See `settleTheSearchPassed`.
+ */
+export let settleOverSearchEnabled = false;
+export function setSettleOverSearchEnabled(value: boolean): void {
+  settleOverSearchEnabled = value;
+}
+
+/**
+ * Ground the search saw, priced above what it took, and left anyway.
+ *
+ * Stage 4 is the largest measured loss left in the ladder: over 1392 recorded
+ * engine turns it answered 853 of them, and on 29% its own shortlist held a
+ * safer-or-equal move settling more — 394 cells, well clear of every other
+ * stage. Unlike stages 1.88 and 1.9 it cannot be explained by never having been
+ * offered the alternative: the settle was in the pool the search ranked.
+ *
+ * The reason turned out to be the opposite of what the pattern suggests. Scoring
+ * both moves at the leaf on the 32 recorded turns where a safe settle was passed:
+ *
+ *   cells on offer   turns   leaf prefers the settle   mean leaf gap
+ *        1             15              5                    -65
+ *        2             10              8                    +84
+ *        3              4              3                   +184
+ *        4              2              2                   +237
+ *        5              1              1                   +423
+ *
+ * At two cells and up the evaluation already says the settle is better, 14 times
+ * out of 17, and the deeper search reverses its own leaf. At one cell it does
+ * not — that one is a real trade, priced against a stone that pays later, and
+ * left alone here. So the rule is not a threshold picked to make a number work:
+ * it is the engine's own evaluation, applied where the search overrode it.
+ *
+ * Deliberately conservative about which way to be wrong. It fires only when the
+ * search's own pick settles nothing at all, when the settle survives the same
+ * capture read as everything else the ladder returns, and when the leaf prefers
+ * it — any one of those failing leaves the search's answer alone.
+ */
+export function settleTheSearchPassed(
+  rootState: GameState,
+  aiPlayer: Player,
+  chosen: AIAction,
+  offered: Array<{ row: number; col: number }>,
+  budgetMs: number,
+): AIAction | null {
+  if (!settleOverSearchEnabled || chosen.type !== "PLACE") return null;
+  const held = new Set(rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`));
+  const settledBy = (row: number, col: number): number => {
+    const board = rootState.board.map((r) => [...r]);
+    board[row][col] = playerCell(aiPlayer);
+    return calculateTerritories(board)[aiPlayer].filter(
+      (c) => !held.has(`${c.row},${c.col}`),
+    ).length;
+  };
+  if (settledBy(chosen.row, chosen.col) > 0) return null;
+
+  const settles = offered
+    .filter((mv) => mv.row !== chosen.row || mv.col !== chosen.col)
+    .map((mv) => ({ ...mv, cells: settledBy(mv.row, mv.col) }))
+    .filter((mv) => mv.cells >= SETTLE_OVER_SEARCH_CELLS)
+    .sort((a, b) => b.cells - a.cells)
+    .slice(0, SETTLE_OVER_SEARCH_TRIES);
+  if (settles.length === 0) return null;
+
+  const afterChosen = applyAction(rootState, chosen);
+  const chosenScore = evaluateState(afterChosen, aiPlayer);
+  const perTry = Math.max(80, Math.floor(budgetMs / settles.length));
+  for (const mv of settles) {
+    const move: AIAction = { type: "PLACE", row: mv.row, col: mv.col };
+    const next = applyAction(rootState, move);
+    if (next.winner === aiPlayer) return move;
+    if (next.winner) continue;
+    if (evaluateState(next, aiPlayer) <= chosenScore) continue;
+    if (opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, perTry)) continue;
+    return move;
+  }
+  return null;
+}
+
+/** Cells a settle must be worth before it may overrule the search. */
+const SETTLE_OVER_SEARCH_CELLS = 2;
+/** Settles checked, largest first — each costs a capture read. */
+const SETTLE_OVER_SEARCH_TRIES = 3;
+/** Read given to that check, on the same footing as the enclosure upgrade. */
+const SETTLE_OVER_SEARCH_READ_MS = 300;
+
 export function findBestMoveVeryHard(
   rootState: GameState,
   aiPlayer: Player,
   timeLimitMs: number,
 ): AIAction {
   const chosen = findBestMoveVeryHardInner(rootState, aiPlayer, timeLimitMs);
+  if (lastDecision.stage.startsWith("4 ")) {
+    const settle = settleTheSearchPassed(
+      rootState,
+      aiPlayer,
+      chosen,
+      lastDecision.offered,
+      SETTLE_OVER_SEARCH_READ_MS,
+    );
+    if (settle) {
+      lastDecision = { ...lastDecision, stage: `${lastDecision.stage} + settle` };
+      return settle;
+    }
+  }
   const bigger = largerVersionOf(rootState, aiPlayer, chosen, LARGER_ENCLOSURE_READ_MS);
   if (bigger) {
     lastDecision = { ...lastDecision, stage: `${lastDecision.stage} + larger` };
