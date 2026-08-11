@@ -31,6 +31,14 @@ import type { GameState, Player } from "./src/games/alley-boss-cats/types";
 
 const THINK = Number(process.env.THINK ?? 1200);
 const READ = Number(process.env.READ ?? 600);
+/**
+ * How many more cells the alternative must settle before it is counted.
+ *
+ * One extra cell now is not obviously better than a stone placed where it will
+ * be worth more later, so the unqualified count mixes real losses with ordinary
+ * judgement. Raising this isolates the gaps no shape argument covers.
+ */
+const MIN = Number(process.env.MIN ?? 1);
 
 const COLS = "ABCDEFGHI";
 const nm = (row: number, col: number) => `${COLS[col]}${row + 1}`;
@@ -72,7 +80,7 @@ for (const path of process.argv.slice(2)) {
         // safety read runs on those alone.
         const better = getLegalMoves(state, engine)
           .map((mv) => ({ mv, gain: settles(mv.row, mv.col) }))
-          .filter((x) => x.gain > took)
+          .filter((x) => x.gain - took >= MIN)
           .sort((a, b) => b.gain - a.gain);
 
         let beat: { row: number; col: number; gain: number } | null = null;
@@ -117,7 +125,7 @@ for (const path of process.argv.slice(2)) {
   }
 }
 
-console.log(`engine turns: ${engineTurns}`);
+console.log(`engine turns: ${engineTurns}, counting gaps of ${MIN}+ cells`);
 console.log(
   `turns where a safe move settled strictly more: ${dominatedTurns}` +
     ` (${Math.round((100 * dominatedTurns) / engineTurns)}%), ${lostCells} cells in total\n`,
