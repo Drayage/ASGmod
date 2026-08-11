@@ -35,6 +35,7 @@ import { setSettledOutOfInfluenceEnabled } from "./src/games/alley-boss-cats/eng
 import { influenceCount } from "./src/games/alley-boss-cats/engine/territoryPlanner";
 import { wideAreaBotMove } from "./src/games/alley-boss-cats/engine/wideAreaBot";
 import { sealingBotMove } from "./src/games/alley-boss-cats/engine/sealingBot";
+import { josekiBotMove } from "./src/games/alley-boss-cats/engine/josekiBot";
 import {
   applyMove,
   calculateFinalResult,
@@ -114,7 +115,8 @@ type Engine =
   | "VH_DIAG"
   | "VH_NODIAG"
   | "VH_BOOKDIAG"
-  | "VH_BOOKTIGHT";
+  | "VH_BOOKTIGHT"
+  | "JOSEKI";
 
 
 const FRAME_W = Number(process.env.FRAME_W ?? 60);
@@ -188,6 +190,8 @@ const TESTING_DIAG = process.env.ONLY === "DIAG";
  * by 0.95.
  */
 const TESTING_BOOKDIAG = process.env.ONLY === "BOOKDIAG";
+/** The engine against the scripted human, from an empty board. */
+const TESTING_JOSEKI = process.env.ONLY === "JOSEKI";
 
 const HARD_MS = Number(process.env.HARD_MS ?? 250);
 const VERY_HARD_MS = Number(process.env.VERY_HARD_MS ?? 1200);
@@ -279,7 +283,7 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   if (TESTING_SETTLED) setSettledOutOfInfluenceEnabled(engine === "VH_SETTLED");
   if (TESTING_CONTACT) setContactBias(engine === "VH_CONTACT" ? CONTACT : 1);
   if (TESTING_DIAG) setOwnDiagonalBonus(engine === "VH_DIAG" ? DIAG : 0);
-  if (TESTING_BOOKDIAG) {
+  if (TESTING_BOOKDIAG || TESTING_JOSEKI) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
     setEyeMakingDefenceEnabled(true);
@@ -303,6 +307,9 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
   }
   if (engine === "WIDE") return wideAreaBotMove(state, player);
   if (engine === "SEAL") return sealingBotMove(state, player);
+  // The scripted stand-in for the human player. Only usable while joseki-fit
+  // says it predicts them better than the engine does — see josekiBot's header.
+  if (engine === "JOSEKI") return josekiBotMove(state, player);
   if (engine === "HARD") return findBestMoveMinimax(state, player, HARD_MS);
   if (
     engine === "VERY_HARD" ||
@@ -729,6 +736,10 @@ if (only === "DECISIVE") {
 if (only === "EYE") {
   addMatch(`VH+eye(${EYE_W})+walling vs VERY_HARD`, "VH_EYE", "VH_NOEYE");
 }
+if (TESTING_JOSEKI) {
+  addMatch("VH frame vs the scripted player", "VH_BOOKTIGHT", "JOSEKI");
+}
+
 // Candidate first: VH_BOOKTIGHT is the no-diagonal side, which the real games
 // favour; VH_BOOKDIAG carries the bonus. Run this one with SEEDS unset.
 if (TESTING_BOOKDIAG) {
