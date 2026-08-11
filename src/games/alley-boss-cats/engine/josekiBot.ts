@@ -60,8 +60,17 @@ function frameOf(q: Quadrant): Coord[] {
   return [0, 1, 2, 3].map((a) => ({ row: step(a, rowEdge), col: step(3 - a, colEdge) }));
 }
 
-/** The (1,2) point of a corner — the professional point, and the frame's second. */
-const proPointOf = (q: Quadrant): Coord => frameOf(q)[1];
+/**
+ * The corner's professional points — both of them.
+ *
+ * A cell's class is the sorted pair of its distances to the two nearest edges,
+ * so a corner has two cells of class (1,2), not one: on the bottom-right they
+ * are G8 and H7. The first version of this returned only the frame's second
+ * cell, which is one of the pair, and the player opens on the other one — H7 on
+ * 64% of their first moves as A. Naming one of two equivalent points and calling
+ * it the book was a mistake in the bot, not a difference in strategy.
+ */
+const proPointsOf = (q: Quadrant): Coord[] => [frameOf(q)[1], frameOf(q)[2]];
 
 /**
  * The small shape: the (1,2) stone with the edge point either side of it. Three
@@ -70,7 +79,7 @@ const proPointOf = (q: Quadrant): Coord => frameOf(q)[1];
 function smallEyeOf(q: Quadrant): Coord[] {
   const rowEdge = q[0] === "T" ? 0 : BOARD_SIZE - 1;
   const colEdge = q[1] === "L" ? 0 : BOARD_SIZE - 1;
-  const pro = proPointOf(q);
+  const pro = frameOf(q)[1];
   const along = Math.abs(pro.row - rowEdge) < Math.abs(pro.col - colEdge);
   return along
     ? [{ row: rowEdge, col: pro.col - 1 }, { row: rowEdge, col: pro.col + 1 }]
@@ -182,7 +191,7 @@ export function josekiBotMove(state: GameState, player: Player): AIAction {
   // 3. Open a corner nobody holds, on its professional point.
   const fresh = quadrants
     .filter((q) => held[q].mine === 0 && held[q].theirs === 0)
-    .map(proPointOf);
+    .flatMap(proPointsOf);
   const opened = first(fresh);
   if (opened) return opened;
 
@@ -190,7 +199,7 @@ export function josekiBotMove(state: GameState, player: Player): AIAction {
   //    leaving every corner they touch to them is how the corner count is lost.
   const theirs = quadrants
     .filter((q) => held[q].mine === 0 && held[q].theirs > 0 && held[q].theirs <= MAX_ENEMY)
-    .map(proPointOf);
+    .flatMap(proPointsOf);
   const entered = first(theirs);
   if (entered) return entered;
 
