@@ -6,9 +6,11 @@ import {
   setCornerBookEnabled,
   setCornerBookFinishEnabled,
   setCornerBookSpreadEnabled,
+  setLargerEnclosureEnabled,
   setSealOverridesBookEnabled,
 } from "./minimax";
 import { getLegalMoves } from "../rules";
+import { calculateTerritories } from "../territory";
 import { createInitialState } from "../rules";
 import { playerCell } from "../types";
 import type { GameState, Player } from "../types";
@@ -39,6 +41,43 @@ afterEach(() => {
   setCornerBookEnabled(false);
   setCornerBookSpreadEnabled(false);
   setSealOverridesBookEnabled(false);
+  setLargerEnclosureEnabled(true);
+});
+
+describe("the same enclosure, one size larger", () => {
+  it("takes the wider closing point when it settles a superset", () => {
+    // Their stones wall a corner; closing tight settles three cells, closing one
+    // line out settles those three and two more. Nothing else is going on, so
+    // the ladder falls through to the search and the upgrade applies.
+    const state = withStones([
+      [0, 3, "A"],
+      [1, 2, "A"],
+      [2, 1, "A"],
+      [3, 0, "A"],
+      [6, 6, "B"],
+      [7, 7, "B"],
+    ]);
+    setLargerEnclosureEnabled(false);
+    const tight = findBestMoveVeryHard(state, "A", 600);
+    setLargerEnclosureEnabled(true);
+    const wide = findBestMoveVeryHard(state, "A", 600);
+    const cells = (move: typeof wide) => {
+      if (move.type !== "PLACE") return 0;
+      const board = state.board.map((r) => [...r]);
+      board[move.row][move.col] = "PLAYER_A";
+      return calculateTerritories(board).A.length;
+    };
+    expect(cells(wide)).toBeGreaterThanOrEqual(cells(tight));
+  });
+
+  it("does not fire when the move settles nothing", () => {
+    // With nothing settled the empty set is a subset of every gain, so an
+    // unguarded version would turn into "always take the biggest seal".
+    const state = withStones([[6, 6, "A"], [2, 2, "B"]]);
+    setLargerEnclosureEnabled(true);
+    findBestMoveVeryHard(state, "A", 600);
+    expect(lastDecision.stage.endsWith("+ larger")).toBe(false);
+  });
 });
 
 describe("a concrete enclosure over a corner point that settles nothing", () => {

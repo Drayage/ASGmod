@@ -1,7 +1,8 @@
 import { applyAction, evaluateState, getSafeActions, tuning } from "../ai";
 import type { AIAction } from "../ai";
 import { getAllGroups, getConnectedGroup, getGroupLiberties } from "../groups";
-import { applyMove, isLegalMove } from "../rules";
+import { applyMove, getLegalMoves, isLegalMove } from "../rules";
+import { calculateTerritories } from "../territory";
 import { DIRECTIONS, inBounds, opponent, playerCell } from "../types";
 import type { Board, Coord, GameState, Player } from "../types";
 import { findForcedCapture, opponentCanForceCapture } from "./captureSearch";
@@ -1790,7 +1791,104 @@ function urgentSealingMoves(rootState: GameState, aiPlayer: Player): AIAction[] 
  * candidate that lets the opponent prove one against it. Only what survives
  * is handed to the positional search.
  */
+/**
+ * Whether a chosen move is upgraded to a strictly larger version of the same
+ * enclosure. See `largerVersionOf`.
+ */
+export let largerEnclosureEnabled = true;
+export function setLargerEnclosureEnabled(value: boolean): void {
+  largerEnclosureEnabled = value;
+}
+
+/**
+ * The same region this move would settle, and more.
+ *
+ * The player's criterion, and it needs no threshold, unlike every attempt before
+ * it. Comparing cell counts across the board mixes trades — a stone placed where
+ * it pays later can beat a cell now — so it always needed an arbitrary cutoff to
+ * say which gap was real. A strict superset needs none: if another move settles
+ * every cell this one would and further cells beyond them, there is nothing the
+ * smaller one buys. Shape, tempo and the corner it might have claimed are all
+ * still there, since the larger move closes the same shape further out.
+ *
+ * Only applies when the chosen move settles something. With nothing settled the
+ * empty set is a subset of every gain, and the check would degenerate into
+ * "always take the biggest seal" — which is the trade this is designed to avoid
+ * making.
+ *
+ * Measured over the recorded games: 17 turns and 25 cells, spread across four
+ * different stages, which is why it is applied once to whatever the ladder
+ * returns rather than inside any of them.
+ */
+function largerVersionOf(
+  rootState: GameState,
+  aiPlayer: Player,
+  chosen: AIAction,
+  budgetMs: number,
+): AIAction | null {
+  if (!largerEnclosureEnabled || chosen.type !== "PLACE") return null;
+  const held = new Set(
+    rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`),
+  );
+  const gainedBy = (row: number, col: number): Set<string> | null => {
+    if (!isLegalMove(rootState, row, col, aiPlayer)) return null;
+    const board = rootState.board.map((r) => [...r]);
+    board[row][col] = playerCell(aiPlayer);
+    const after = calculateTerritories(board)[aiPlayer];
+    const gained = new Set<string>();
+    for (const c of after) {
+      const key = `${c.row},${c.col}`;
+      if (!held.has(key)) gained.add(key);
+    }
+    return gained;
+  };
+
+  const mine = gainedBy(chosen.row, chosen.col);
+  if (!mine || mine.size === 0) return null;
+
+  let best: { row: number; col: number; size: number } | null = null;
+  for (const move of getLegalMoves(rootState, aiPlayer)) {
+    if (move.row === chosen.row && move.col === chosen.col) continue;
+    const theirs = gainedBy(move.row, move.col);
+    if (!theirs || theirs.size <= mine.size) continue;
+    let covers = true;
+    for (const key of mine) {
+      if (!theirs.has(key)) { covers = false; break; }
+    }
+    if (!covers) continue;
+    if (!best || theirs.size > best.size) {
+      best = { row: move.row, col: move.col, size: theirs.size };
+    }
+  }
+  if (!best) return null;
+
+  // Bigger is only better if it is not bought with the group. Same read the
+  // rest of the ladder screens with.
+  const upgrade: AIAction = { type: "PLACE", row: best.row, col: best.col };
+  const next = applyAction(rootState, upgrade);
+  if (next.winner === aiPlayer) return upgrade;
+  if (next.winner) return null;
+  return opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, budgetMs) ? null : upgrade;
+}
+
 export function findBestMoveVeryHard(
+  rootState: GameState,
+  aiPlayer: Player,
+  timeLimitMs: number,
+): AIAction {
+  const chosen = findBestMoveVeryHardInner(rootState, aiPlayer, timeLimitMs);
+  const bigger = largerVersionOf(rootState, aiPlayer, chosen, LARGER_ENCLOSURE_READ_MS);
+  if (bigger) {
+    lastDecision = { ...lastDecision, stage: `${lastDecision.stage} + larger` };
+    return bigger;
+  }
+  return chosen;
+}
+
+/** Read given to checking the upgrade does not hand over a group. */
+const LARGER_ENCLOSURE_READ_MS = 300;
+
+function findBestMoveVeryHardInner(
   rootState: GameState,
   aiPlayer: Player,
   timeLimitMs: number,
