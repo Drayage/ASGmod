@@ -777,6 +777,19 @@ export function setCornerBookFinishEnabled(value: boolean): void {
   cornerBookFinishEnabled = value;
 }
 
+/**
+ * Whether equally near frame gaps break toward the middle of the anti-diagonal.
+ *
+ * On by default because the rules are unambiguous about the shape — see the
+ * sort below. The flag exists so the arena can play the old arbitrary order
+ * against the new one and say what the change is worth in games, which a local
+ * shape measurement cannot.
+ */
+export let cornerFrameCentreEnabled = true;
+export function setCornerFrameCentreEnabled(value: boolean): void {
+  cornerFrameCentreEnabled = value;
+}
+
 /** How many of the mover's own stones the corner book still applies for. */
 const CORNER_BOOK_STONES = 5;
 /**
@@ -992,7 +1005,7 @@ export function cornerBookMove(
             Math.min(p.col, size - 1 - p.col),
           ),
         }))
-        .sort((a, b) => a.near - b.near || b.middle - a.middle)
+        .sort((a, b) => a.near - b.near || (cornerFrameCentreEnabled ? b.middle - a.middle : 0))
         .map((x) => x.p);
       if (gaps.length > 0) return { type: "PLACE", row: gaps[0].row, col: gaps[0].col };
     }
