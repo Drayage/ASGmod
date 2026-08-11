@@ -2091,10 +2091,25 @@ export function settleTheSearchPassed(
 
 /** Cells a settle must be worth before it may overrule the search. */
 const SETTLE_OVER_SEARCH_CELLS = 2;
-/** Settles checked, largest first — each costs a capture read. */
-const SETTLE_OVER_SEARCH_TRIES = 3;
-/** Read given to that check, on the same footing as the enclosure upgrade. */
-const SETTLE_OVER_SEARCH_READ_MS = 300;
+/**
+ * Settles checked, largest first — each costs a capture read, and the read is
+ * the whole safety of this rule.
+ *
+ * Three, at first, splitting a 300ms budget into 100ms each. The arena said
+ * that was the wrong way round: over 240 games the rule won the games decided
+ * on territory, 60 to 57, and lost the ones decided by a capture, 51 to 72, for
+ * 46.3% overall against a +0.33 cell margin. Gaining ground and being taken
+ * more often is the signature of a read too thin to see the reply — and this
+ * file already records a position where 67ms said safe and 100ms said forced.
+ *
+ * The stage this overrules verified its own move against the opponent's best
+ * reply with a real share of the turn budget. Replacing that answer on a
+ * hundred milliseconds of reading was never a fair trade, so now one candidate
+ * is checked with the whole budget instead of three with a third of it each.
+ */
+const SETTLE_OVER_SEARCH_TRIES = 1;
+/** Read given to that check. A single move, so it is a fixed slice, not a share. */
+const SETTLE_OVER_SEARCH_READ_MS = 600;
 
 export function findBestMoveVeryHard(
   rootState: GameState,
