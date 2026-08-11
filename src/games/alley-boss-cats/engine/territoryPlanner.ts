@@ -539,6 +539,20 @@ export interface TerritoryPlan {
 /** A large swing settled in a move or two is worth answering. Read through the
  * tuning object so the arena can play two engines that differ only in this. */
 const urgentConfirmSize = () => tuning.urgentConfirmSize;
+/**
+ * Cells I must be able to settle in one move before this stage takes the turn.
+ *
+ * Off until the arena says otherwise; see the `imminent` comment below.
+ */
+export let ownSealImminentEnabled = false;
+export function setOwnSealImminentEnabled(value: boolean): void {
+  ownSealImminentEnabled = value;
+}
+export let ownSealImminentCells = 4;
+export function setOwnSealImminentCells(value: number): void {
+  ownSealImminentCells = value;
+}
+const ownSealImminentSize = () => ownSealImminentCells;
 /** Big areas are worth contesting even when they take a little longer to seal. */
 const LARGE_AREA = 10;
 /** Trailing by this much open ground means the board is being given away. */
@@ -710,9 +724,24 @@ export function planTerritory(state: GameState, player: Player): TerritoryPlan {
   const influence = influenceCount(state.board);
   const behindOnInfluence = influence[foe] - influence[player] >= INFLUENCE_DEFICIT;
 
+  // My own big enclosure counts as imminent too, and used not to.
+  //
+  // Every trigger above is something *they* are about to do. Ground I could
+  // settle right now was left entirely to the general evaluation, and measured
+  // over the recorded games that is where the engine loses cells: on 67 turns
+  // it walked past a safe enclosure of three or more, and this stage fired on
+  // none of them. Sixty percent were answered by the full search, which sees
+  // the seal is still there next turn and keeps finding something else to do —
+  // in one game it passed the same six-cell point five times.
+  //
+  // Gated on the same concrete size as their threat rather than on a soft
+  // signal, because the soft version is what cost 75% to 42% against HARD when
+  // this stage fired on half of all moves.
+  const myGainNow = myBestSeal?.gained.length ?? 0;
   const imminent =
     oneMoveThreat >= urgentConfirmSize() ||
-    twoMoveThreat >= Math.max(urgentConfirmSize(), LARGE_AREA);
+    twoMoveThreat >= Math.max(urgentConfirmSize(), LARGE_AREA) ||
+    (ownSealImminentEnabled && myGainNow >= ownSealImminentSize());
   const urgent = imminent || behindOnInfluence;
 
   const blocking: Coord[] = [];
