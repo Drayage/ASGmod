@@ -295,10 +295,15 @@ describe("following what they spend on a corner", () => {
     expect(move && move.type === "PLACE" && move.row < 4 && move.col < 4).toBe(false);
   });
 
-  it("comes back once they are a stone ahead there", () => {
+  it("finishes an uncontested pair before coming back to match", () => {
     book();
     // Two of theirs to one of mine in the top left, and my own lone stone in the
-    // top right wanting its pair. Being behind wins.
+    // top right wanting its pair. The pair wins: a corner with two of mine and
+    // none of theirs finishes worth 6.23 cells in the engine's recorded games,
+    // more than any contested corner returns.
+    //
+    // This assertion used to run the other way, on my reading of "when they make
+    // it two to one, come back" — the player corrected it twice.
     const state = withStones([
       [1, 2, "A"],
       [2, 1, "B"],
@@ -306,7 +311,21 @@ describe("following what they spend on a corner", () => {
       [1, 6, "A"],
     ]);
     const move = cornerBookMove(state, "A", pool(state, "A"));
-    expect(move && move.type === "PLACE" && move.row < 4 && move.col < 4).toBe(true);
+    expect(move && move.type === "PLACE" && move.row < 4 && move.col >= 4).toBe(true);
+  });
+
+  it("comes back to match once nothing of mine is left to finish", () => {
+    book();
+    // Behind one to two in the bottom right, nothing of mine uncontested, and a
+    // corner holding only their stone still open. Matching outranks entering.
+    const state = withStones([
+      [7, 6, "A"],
+      [6, 7, "B"],
+      [7, 7, "B"],
+      [1, 6, "B"],
+    ]);
+    const move = cornerBookMove(state, "A", pool(state, "A"));
+    expect(move && move.type === "PLACE" && move.row >= 4 && move.col >= 4).toBe(true);
   });
 
   it("leaves again once the corner is level", () => {
@@ -326,12 +345,15 @@ describe("following what they spend on a corner", () => {
     // see "what counts as somewhere to go" below, which is the player's
     // correction. Nowhere left means I am already in all of them.
     book();
+    // Every other corner holds a finished pair of mine, so there is nothing to
+    // complete and nowhere to enter — only then does the level corner get a
+    // third stone.
     const state = withStones([
       [1, 2, "A"],
       [2, 1, "B"],
-      [1, 6, "A"],
-      [6, 1, "A"],
-      [6, 6, "A"],
+      [1, 6, "A"], [2, 7, "A"],
+      [6, 1, "A"], [7, 2, "A"],
+      [6, 7, "A"], [7, 6, "A"],
     ]);
     expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("0,3");
   });
@@ -355,11 +377,13 @@ describe("where following stops", () => {
     // The player's case, in the range the book actually operates in: they made
     // it two to one, so the corner is one I am behind in and worth returning to.
     book();
+    // The top right already holds a finished pair, so nothing of mine is short
+    // and the corner I am behind in is the one that gets the stone.
     const state = withStones([
       [1, 2, "A"],
       [2, 1, "B"],
       [0, 3, "B"],
-      [1, 6, "A"],
+      [1, 6, "A"], [2, 7, "A"],
     ]);
     const move = cornerBookMove(state, "A", pool(state, "A"));
     expect(move && move.type === "PLACE" && move.row < 4 && move.col < 4).toBe(true);

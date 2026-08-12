@@ -1200,11 +1200,22 @@ export function cornerBookMove(
     );
   });
 
-  // Two passes when following their investment, one otherwise. The first pass
-  // only visits corners where they are ahead on stones, so coming back to match
-  // outranks adding to a corner nobody is contesting — within a pass the order
-  // is the board scan, which cannot express that priority.
-  for (const matching of cornerBookFollowEnabled ? [true, false] : [false]) {
+  // Three passes when following their investment, one otherwise, because a board
+  // scan cannot express an order and the order is the whole rule. The player
+  // named it: finish my own corner to the pair, then come back to one they are
+  // ahead in, and only then enter a new one.
+  //
+  // The pair goes first because it is the cheapest ground on the board — a
+  // corner with two of my stones and none of theirs finishes worth 6.23 cells
+  // in the engine's own recorded games, more than anything a contested corner
+  // ever returns. Coming back to match was above it in the first version, which
+  // was my reading of "when they make it two to one, come back" and not what
+  // they said; they corrected it twice.
+  //
+  //   0  mine, uncontested, short of the pair
+  //   1  behind on stones, so a corner to come back to
+  //   2  level or ahead and contested — left alone while there is anywhere to go
+  for (const priority of cornerBookFollowEnabled ? [0, 1, 2] : [2]) {
   for (let row = 0; row < size; row += 1) {
     for (let col = 0; col < size; col += 1) {
       if (rootState.board[row][col] !== playerCell(aiPlayer)) continue;
@@ -1219,11 +1230,11 @@ export function cornerBookMove(
         continue;
       }
       if (cornerBookFollowEnabled) {
-        // Behind on stones here, so this is a corner to come back to; level or
-        // ahead, it can wait while a corner nobody is in is still on offer.
-        const behind = theirsHere > mineHere;
-        if (behind !== matching) continue;
-        if (!behind && theirsHere > 0 && cornerToEnterLeft) continue;
+        const rank = theirsHere === 0 ? 0 : theirsHere > mineHere ? 1 : 2;
+        if (rank !== priority) continue;
+        // Level or ahead and contested: it can wait while there is anywhere I
+        // hold nothing at all.
+        if (rank === 2 && cornerToEnterLeft) continue;
       }
       // The frame is four stones and encloses six cells; a fifth adds nothing
       // the rules will pay for, and the measurement behind the depth limit says
