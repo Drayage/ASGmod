@@ -988,6 +988,24 @@ export function setCornerBookLeaveContestedEnabled(value: boolean): void {
  * outranks adding to an uncontested corner — so the book visits the corners it
  * is behind in first and everything else after.
  */
+/**
+ * Whether a corner they are already in outranks one nobody has touched.
+ *
+ * The player's ordering, stated whole: finish my own corner to the pair, else
+ * put a stone in one of theirs, else open an empty one. The first step is what
+ * the claim loop does. The other two were never ordered at all — both kinds of
+ * corner fell into the same loop, which walked `OPENING_BOOK` in array order, so
+ * which one got taken was decided by where the point sat in that array. That is
+ * the fourth ordering accident found in this book.
+ *
+ * Not the same question as `cornerBookContestEnabled`, which measured null: that
+ * one put answering their corner *above* finishing my own pair. This leaves the
+ * pair first and orders only what comes after it.
+ */
+export let cornerBookTheirsBeforeEmptyEnabled = false;
+export function setCornerBookTheirsBeforeEmptyEnabled(value: boolean): void {
+  cornerBookTheirsBeforeEmptyEnabled = value;
+}
 export let cornerBookFollowEnabled = false;
 export function setCornerBookFollowEnabled(value: boolean): void {
   cornerBookFollowEnabled = value;
@@ -1164,6 +1182,24 @@ export function cornerBookMove(
     return (!there || (there.mine === 0 && there.theirs === 0)) && playable(row, col);
   });
 
+  // The same question asked properly, for the rule that follows their
+  // investment: somewhere I have no stone at all. The player watched the first
+  // version add a third stone to a corner already blocked at one each while a
+  // corner holding one of theirs and none of mine sat open, and they are right
+  // that it should have gone there. "Nowhere to go" was counting only untouched
+  // corners, so a corner they had opened alone did not count as anywhere —
+  // even though entering it is exactly the move being weighed. A corner where I
+  // hold nothing is a corner to go to, whether or not they are in it already.
+  const cornerToEnterLeft = OPENING_BOOK.some(({ row, col }) => {
+    const q = quadrant(row, col);
+    if (!q) return false;
+    const there = held[q];
+    return (
+      (!there || (there.mine === 0 && there.theirs <= CORNER_BOOK_MAX_ENEMY)) &&
+      playable(row, col)
+    );
+  });
+
   // Two passes when following their investment, one otherwise. The first pass
   // only visits corners where they are ahead on stones, so coming back to match
   // outranks adding to a corner nobody is contesting — within a pass the order
@@ -1187,7 +1223,7 @@ export function cornerBookMove(
         // ahead, it can wait while a corner nobody is in is still on offer.
         const behind = theirsHere > mineHere;
         if (behind !== matching) continue;
-        if (!behind && theirsHere > 0 && emptyCornerLeft) continue;
+        if (!behind && theirsHere > 0 && cornerToEnterLeft) continue;
       }
       // The frame is four stones and encloses six cells; a fifth adds nothing
       // the rules will pay for, and the measurement behind the depth limit says
@@ -1330,13 +1366,27 @@ export function cornerBookMove(
     : CORNER_BOOK_MAX_CORNERS;
   if (cornerBookFinishEnabled && opened >= maxCorners) return null;
 
-  for (const { row, col } of OPENING_BOOK) {
-    const q = quadrant(row, col);
-    if (!q) continue;
-    const there = held[q];
-    if (there && (there.mine > 0 || there.theirs > CORNER_BOOK_MAX_ENEMY)) continue;
-    if (!playable(row, col)) continue;
-    return { type: "PLACE", row, col };
+  // Corners I am not in yet. Two kinds sit in this list — ones they have already
+  // put a stone in and ones nobody has touched — and until now nothing told them
+  // apart: the loop walked `OPENING_BOOK` in its own order, so which kind got
+  // taken first was decided by where the point happened to sit in that array.
+  // Another ordering accident, the same shape as the three in the frame.
+  //
+  // The player's ordering names all three steps: finish my own corner to the
+  // pair, else take a stone in one of theirs, else open an empty one. The first
+  // is already what the claim loop above does. This is the other two.
+  for (const theirsFirst of cornerBookTheirsBeforeEmptyEnabled ? [true, false] : [false]) {
+    for (const { row, col } of OPENING_BOOK) {
+      const q = quadrant(row, col);
+      if (!q) continue;
+      const there = held[q];
+      if (there && (there.mine > 0 || there.theirs > CORNER_BOOK_MAX_ENEMY)) continue;
+      if (cornerBookTheirsBeforeEmptyEnabled && ((there?.theirs ?? 0) > 0) !== theirsFirst) {
+        continue;
+      }
+      if (!playable(row, col)) continue;
+      return { type: "PLACE", row, col };
+    }
   }
   return null;
 }
