@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AI_VARIANTS, RETIRED_VARIANTS, applyAIVariant, variantLabel } from "./aiVariant";
 import type { AIVariant } from "./aiVariant";
+import { cornerBookFollowEnabled } from "./engine/minimax";
 
 /**
  * Retiring a variant is a change to the picker, not to the record. These pin the
@@ -15,8 +16,22 @@ const everyName: AIVariant[] = [
 
 describe("the variant list", () => {
   it("offers only live hypotheses, with the current engine first", () => {
-    expect(AI_VARIANTS).toHaveLength(3);
+    expect(AI_VARIANTS).toHaveLength(4);
     expect(AI_VARIANTS[0].value).toBe("EYE_FRAME_TIGHT");
+  });
+
+  it("puts the corner switches where the variant says", () => {
+    // EYE_FOLLOW is the one live variant that differs from the default by a
+    // single switch, so the switch is what the recorded games will be split by.
+    applyAIVariant("EYE_FOLLOW");
+    expect(cornerBookFollowEnabled).toBe(true);
+    applyAIVariant("EYE_FRAME_TIGHT");
+    expect(cornerBookFollowEnabled).toBe(false);
+    // And every other name leaves it off, so no retired record replays with it.
+    for (const name of everyName) {
+      applyAIVariant(name);
+      expect(cornerBookFollowEnabled).toBe(name === "EYE_FOLLOW");
+    }
   });
 
   it("never lists a name in both places", () => {

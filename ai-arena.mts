@@ -21,6 +21,10 @@ import {
   setCornerBookFinishEnabled,
   setCornerBookContestEnabled,
   setCornerBookSpreadEnabled,
+  setCornerBookSpreadStones,
+  setSettleOverSearchEnabled,
+  setCornerBookLeaveContestedEnabled,
+  setCornerBookFollowEnabled,
   setCornerFrameCentreEnabled,
   setLargerEnclosureEnabled,
   setSealOverridesBookEnabled,
@@ -130,6 +134,14 @@ type Engine =
   | "VH_NOCENTRE"
   | "VH_SPREAD"
   | "VH_FINISH"
+  | "VH_LONE"
+  | "VH_PAIR"
+  | "VH_SETTLE"
+  | "VH_NOSETTLE"
+  | "VH_LEAVE"
+  | "VH_STAY"
+  | "VH_FOLLOW"
+  | "VH_FIXED"
   | "VH_CONTEST"
   | "VH_OWNFIRST"
   | "VH_MYSEAL"
@@ -226,6 +238,14 @@ const TESTING_JOSEKI = process.env.ONLY === "JOSEKI";
 const TESTING_CENTRE = process.env.ONLY === "CENTRE";
 /** Two stones in four corners against four stones in two. The player's method. */
 const TESTING_SPREAD = process.env.ONLY === "SPREAD";
+/** One stone in each corner against the pair. The player's next question. */
+const TESTING_LONE = process.env.ONLY === "LONE";
+/** Overruling the full search with a 2+ cell settle its own leaf scored higher. */
+const TESTING_SETTLE = process.env.ONLY === "SETTLE";
+/** Abandoning a corner they have answered for one nobody is in. The player's. */
+const TESTING_LEAVE = process.env.ONLY === "LEAVE";
+/** Matching their stone count in a corner instead. The player's actual rule. */
+const TESTING_FOLLOW = process.env.ONLY === "FOLLOW";
 /** Answering their new corner against finishing a pair of my own. */
 const TESTING_CONTEST = process.env.ONLY === "CONTEST";
 /** Treating my own big enclosure as urgent, which the planner never did. */
@@ -371,6 +391,42 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     setOwnDiagonalBonus(0);
     setCornerBookSpreadEnabled(engine === "VH_SPREAD");
   }
+  if (TESTING_FOLLOW) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setCornerBookFollowEnabled(engine === "VH_FOLLOW");
+  }
+  if (TESTING_LEAVE) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setCornerBookLeaveContestedEnabled(engine === "VH_LEAVE");
+  }
+  if (TESTING_SETTLE) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setSettleOverSearchEnabled(engine === "VH_SETTLE");
+  }
+  if (TESTING_LONE) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setCornerBookSpreadStones(engine === "VH_LONE" ? 1 : 2);
+  }
   if (TESTING_CENTRE) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
@@ -466,6 +522,14 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOCENTRE" ||
     engine === "VH_SPREAD" ||
     engine === "VH_FINISH" ||
+    engine === "VH_LONE" ||
+    engine === "VH_PAIR" ||
+    engine === "VH_SETTLE" ||
+    engine === "VH_NOSETTLE" ||
+    engine === "VH_LEAVE" ||
+    engine === "VH_STAY" ||
+    engine === "VH_FOLLOW" ||
+    engine === "VH_FIXED" ||
     engine === "VH_CONTEST" ||
     engine === "VH_OWNFIRST" ||
     engine === "VH_MYSEAL" ||
@@ -862,6 +926,22 @@ if (TESTING_CONTEST) {
 
 if (TESTING_SPREAD) {
   addMatch("VH pair in four corners vs frame in two", "VH_SPREAD", "VH_FINISH");
+}
+
+if (TESTING_LONE) {
+  addMatch("VH one stone in four corners vs the pair", "VH_LONE", "VH_PAIR");
+}
+
+if (TESTING_SETTLE) {
+  addMatch("VH settle the search passed vs the search", "VH_SETTLE", "VH_NOSETTLE");
+}
+
+if (TESTING_LEAVE) {
+  addMatch("VH leave a contested corner vs build it", "VH_LEAVE", "VH_STAY");
+}
+
+if (TESTING_FOLLOW) {
+  addMatch("VH follow their corner investment vs a fixed count", "VH_FOLLOW", "VH_FIXED");
 }
 
 if (TESTING_CENTRE) {

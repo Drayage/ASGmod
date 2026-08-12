@@ -2,6 +2,7 @@ import { tuning } from "./ai";
 import {
   setCornerBookEnabled,
   setCornerBookFinishEnabled,
+  setCornerBookFollowEnabled,
   setCornerBookSpreadEnabled,
   setEyeMakingDefenceEnabled,
   setThinGroupGuardEnabled,
@@ -33,7 +34,7 @@ import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
  * label is what a record shows. Ten entries in the picker was nine questions
  * being asked at once, which is not what any of them were for.
  */
-export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT";
+export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW";
 
 interface VariantEntry {
   value: AIVariant;
@@ -47,6 +48,11 @@ export const AI_VARIANTS: ReadonlyArray<VariantEntry> = [
     value: "EYE_FRAME_TIGHT",
     label: "기본",
     help: "지금 엔진입니다. 네 귀에 가운데 쌍(두 돌)을 하나씩 놓아 귀를 넓게 잡고, 위험한 그룹은 뻗는 대신 눈을 만들어 삽니다. 빈 판 240판에서 프레임을 두 귀에 완성하는 방식보다 승률 61.3%, 집 +1.05칸이었습니다.",
+  },
+  {
+    value: "EYE_FOLLOW",
+    label: "기본 + 귀 따라두기",
+    help: "기본에, 귀에 쓰는 돌 수를 상대에 맞추는 규칙을 더합니다. 한 돌씩으로 동수면 그 귀를 두고 아무도 없는 귀로 가고, 상대가 두 돌째를 놓으면 돌아와 맞춥니다. 빈 판 240판에서 승률 52.5%로 유일하게 50%를 넘겼지만 집은 0.28칸 적었고, 둘 다 우연과 구분되지 않는 크기입니다. 사람 상대에서 어떤지가 남은 질문입니다.",
   },
   {
     value: "EYE_FRAME",
@@ -96,7 +102,8 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_CORNER" ||
     variant === "EYE_CORNER_DIAG" ||
     variant === "EYE_FRAME" ||
-    variant === "EYE_FRAME_TIGHT";
+    variant === "EYE_FRAME_TIGHT" ||
+    variant === "EYE_FOLLOW";
   const thin = variant === "THIN_GUARD" || variant === "EYE_THIN";
   const edge = variant === "EYE_EDGE";
   const spacing = variant === "EYE_SPACING";
@@ -104,9 +111,11 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_CORNER" ||
     variant === "EYE_CORNER_DIAG" ||
     variant === "EYE_FRAME" ||
-    variant === "EYE_FRAME_TIGHT";
+    variant === "EYE_FRAME_TIGHT" ||
+    variant === "EYE_FOLLOW";
   const diagonal = variant === "EYE_CORNER_DIAG" || variant === "EYE_FRAME";
-  const finish = variant === "EYE_FRAME" || variant === "EYE_FRAME_TIGHT";
+  const finish =
+    variant === "EYE_FRAME" || variant === "EYE_FRAME_TIGHT" || variant === "EYE_FOLLOW";
 
   tuning.eyeSpaceWeight = eye ? EYE_SPACE_WEIGHT : 0;
   setEyeMakingDefenceEnabled(eye);
@@ -124,6 +133,13 @@ export function applyAIVariant(variant: AIVariant): void {
   // leaves an invader alive at none of a corner's eight entry points, so the
   // frame's last two stones were buying cells and no safety.
   setCornerBookSpreadEnabled(finish);
+  // Matching what the opponent spends on a corner rather than a fixed two: level
+  // corners are left for one nobody is in, and a corner they put a second stone
+  // in is one to come back to. The player's own rule, and the only arm of four
+  // to finish above even on games won (52.5% of 240) — while holding 0.28 cells
+  // fewer, and neither number is outside what chance produces at that count. On
+  // the picker so it can be judged where the arena cannot judge it.
+  setCornerBookFollowEnabled(variant === "EYE_FOLLOW");
   // 15 is where the diagonal overtakes the straight connection in the ordering:
   // an orthogonal neighbour scores 29-32 in a typical corner and a diagonal 15,
   // so anything less leaves the order unchanged and much more would swamp the

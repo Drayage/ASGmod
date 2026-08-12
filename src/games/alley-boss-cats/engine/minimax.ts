@@ -933,6 +933,99 @@ const CORNER_BOOK_MAX_CORNERS = 2;
 const CORNER_BOOK_SPREAD_STONES = 2;
 const CORNER_BOOK_SPREAD_CORNERS = 4;
 /**
+ * Stones the spreading policy leaves in a corner before moving on.
+ *
+ * A `let` only so the arena can ask the player's question: if two stones in four
+ * corners beats four stones in two, does one stone in four beat two? The pair is
+ * the smallest shape that settles anything at all — one cell, in the corner
+ * point between them — and it is what the frame is later built out of, but
+ * neither of those facts says the second stone is worth its turn against simply
+ * claiming a fourth corner sooner. Default is the shipped value; nothing but a
+ * measurement changes it.
+ */
+export let cornerBookSpreadStones = CORNER_BOOK_SPREAD_STONES;
+export function setCornerBookSpreadStones(value: number): void {
+  cornerBookSpreadStones = value;
+}
+/**
+ * Whether a corner the opponent has already answered is abandoned for an empty
+ * one, rather than built up.
+ *
+ * The player's observation, and the sharper version of the question above: the
+ * engine plays (1,2), they answer at (2,1), and the engine spends a third stone
+ * on the same corner at (0,3) — at which point they simply take a corner nobody
+ * is in. The book does that because its claim loop runs before its open-a-new-
+ * corner loop, so an owned corner is always finished first.
+ *
+ * The record already prices both sides of it. Cells finally held in a corner,
+ * by how many enemy stones were there when the second stone landed:
+ *
+ *              0 enemies    1     2+
+ *   human           6.18  3.04   2.47
+ *   ai              2.00  1.49   0.90
+ *
+ * An empty corner is worth more than a contested one to both sides, which is
+ * what the rule needs to be true. It is not sufficient — leaving says nothing
+ * about what the abandoned stone is then worth, and a lone cat the opponent is
+ * already beside is the one this could go wrong for. Off until measured.
+ */
+export let cornerBookLeaveContestedEnabled = false;
+export function setCornerBookLeaveContestedEnabled(value: boolean): void {
+  cornerBookLeaveContestedEnabled = value;
+}
+/**
+ * Whether the book follows the opponent's investment in a corner rather than
+ * its own fixed count.
+ *
+ * The player's rule, and the correction to the one above: they do not abandon a
+ * corner the opponent answered, they *match* it. At one stone each the corner is
+ * level and the next stone is worth more in one nobody is in; when the opponent
+ * makes it two to one, they come back and even it up. Leaving is temporary, and
+ * the trigger to return is the opponent spending another move.
+ *
+ * Two things follow that the plain leave rule got wrong. A level corner is left
+ * only while somewhere untouched is still on offer, and being behind on stones
+ * outranks adding to an uncontested corner — so the book visits the corners it
+ * is behind in first and everything else after.
+ */
+export let cornerBookFollowEnabled = false;
+export function setCornerBookFollowEnabled(value: boolean): void {
+  cornerBookFollowEnabled = value;
+}
+/**
+ * Where following their investment stops, which is not one for one all the way.
+ *
+ * The player's question about their own rule: against three of theirs, does it
+ * take three of mine — or does three against four already do the job? Their
+ * instinct was that it does, and `corner-invest.mts` says so from three
+ * directions. Cells finally held in a corner, by their stones there and mine:
+ *
+ *   their play, 25 recorded games        the arena, 240 engine games
+ *     theirs  mine  cells   gain           theirs  mine  cells   gain
+ *        1      3    4.47  +1.01              1      3    3.71  +0.42
+ *        1      4    4.00  -0.47              1      4    3.57  -0.14
+ *        2      3    3.17                     2      3    1.64  +1.20
+ *        2      4    2.89  -0.28              2      4    2.14  +0.50
+ *        3      3    1.71                     3      3    1.06
+ *        3      4    1.61  -0.11              3      4    1.15  +0.09
+ *        4      3    1.48  +0.55              4      3    0.61
+ *        4      4    0.82  -0.66              4      4    0.50  -0.11
+ *
+ * The fourth stone pays nowhere except against two in the arena, and against
+ * three or four it is flat or negative on both sides of the table. The player
+ * already plays the cap — three is their best answer to everything from one
+ * enemy stone to four.
+ *
+ * Correlational, and stated as such: these are end-of-game counts, so a corner
+ * where I hold three against four is a corner I was losing, and the causation
+ * runs both ways. It is enough to set a cap with, not enough to ship on.
+ */
+const CORNER_BOOK_FOLLOW_CAP = 3;
+export let cornerBookFollowCap = CORNER_BOOK_FOLLOW_CAP;
+export function setCornerBookFollowCap(value: number): void {
+  cornerBookFollowCap = value;
+}
+/**
  * Read given to checking the book's own move before it is played.
  *
  * One move, one read, so this is a fixed slice rather than a share of what is
@@ -1062,18 +1155,52 @@ export function cornerBookMove(
     }
   }
 
+  // Somewhere nobody has touched yet, which is what leaving a contested corner
+  // needs in order to be leaving rather than abandoning.
+  const emptyCornerLeft = OPENING_BOOK.some(({ row, col }) => {
+    const q = quadrant(row, col);
+    if (!q) return false;
+    const there = held[q];
+    return (!there || (there.mine === 0 && there.theirs === 0)) && playable(row, col);
+  });
+
+  // Two passes when following their investment, one otherwise. The first pass
+  // only visits corners where they are ahead on stones, so coming back to match
+  // outranks adding to a corner nobody is contesting — within a pass the order
+  // is the board scan, which cannot express that priority.
+  for (const matching of cornerBookFollowEnabled ? [true, false] : [false]) {
   for (let row = 0; row < size; row += 1) {
     for (let col = 0; col < size; col += 1) {
       if (rootState.board[row][col] !== playerCell(aiPlayer)) continue;
       const q = quadrant(row, col);
       if (!q) continue;
-      if ((held[q]?.theirs ?? 0) > CORNER_BOOK_MAX_ENEMY) continue;
+      const mineHere = held[q]?.mine ?? 0;
+      const theirsHere = held[q]?.theirs ?? 0;
+      if (theirsHere > CORNER_BOOK_MAX_ENEMY) continue;
+      // Their answer landed here and there is still a corner nobody is in: the
+      // next stone is worth more there than as the third of a contested trio.
+      if (cornerBookLeaveContestedEnabled && emptyCornerLeft && theirsHere > 0) {
+        continue;
+      }
+      if (cornerBookFollowEnabled) {
+        // Behind on stones here, so this is a corner to come back to; level or
+        // ahead, it can wait while a corner nobody is in is still on offer.
+        const behind = theirsHere > mineHere;
+        if (behind !== matching) continue;
+        if (!behind && theirsHere > 0 && emptyCornerLeft) continue;
+      }
       // The frame is four stones and encloses six cells; a fifth adds nothing
       // the rules will pay for, and the measurement behind the depth limit says
       // a wider one only makes the inside easier to live in.
-      const wantFrame = cornerBookSpreadEnabled
-        ? CORNER_BOOK_SPREAD_STONES
+      let wantFrame = cornerBookSpreadEnabled
+        ? cornerBookSpreadStones
         : CORNER_BOOK_FRAME_STONES;
+      // Following their investment makes the pair a floor rather than a ceiling
+      // — but not one for one all the way up. The player's own play stops at
+      // three and the record says they are right to: see CORNER_BOOK_FOLLOW_CAP.
+      if (cornerBookFollowEnabled) {
+        wantFrame = Math.min(cornerBookFollowCap, Math.max(wantFrame, theirsHere));
+      }
       if ((held[q]?.frame ?? 0) >= wantFrame) continue;
 
       const dr = Math.min(row, size - 1 - row);
@@ -1190,6 +1317,7 @@ export function cornerBookMove(
         .map((x) => x.p);
       if (gaps.length > 0) return { type: "PLACE", row: gaps[0].row, col: gaps[0].col };
     }
+  }
   }
 
   // Claiming a third corner is not what the raised budget is for. Once two are
@@ -1871,12 +1999,137 @@ function largerVersionOf(
   return opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, budgetMs) ? null : upgrade;
 }
 
+/**
+ * Whether the full search may be overruled by a settle it walked past.
+ *
+ * See `settleTheSearchPassed`.
+ */
+export let settleOverSearchEnabled = false;
+export function setSettleOverSearchEnabled(value: boolean): void {
+  settleOverSearchEnabled = value;
+}
+
+/**
+ * Ground the search saw, priced above what it took, and left anyway.
+ *
+ * Stage 4 is the largest measured loss left in the ladder: over 1392 recorded
+ * engine turns it answered 853 of them, and on 29% its own shortlist held a
+ * safer-or-equal move settling more — 394 cells, well clear of every other
+ * stage. Unlike stages 1.88 and 1.9 it cannot be explained by never having been
+ * offered the alternative: the settle was in the pool the search ranked.
+ *
+ * The reason turned out to be the opposite of what the pattern suggests. Scoring
+ * both moves at the leaf on the 32 recorded turns where a safe settle was passed:
+ *
+ *   cells on offer   turns   leaf prefers the settle   mean leaf gap
+ *        1             15              5                    -65
+ *        2             10              8                    +84
+ *        3              4              3                   +184
+ *        4              2              2                   +237
+ *        5              1              1                   +423
+ *
+ * At two cells and up the evaluation already says the settle is better, 14 times
+ * out of 17, and the deeper search reverses its own leaf. At one cell it does
+ * not — that one is a real trade, priced against a stone that pays later, and
+ * left alone here. So the rule is not a threshold picked to make a number work:
+ * it is the engine's own evaluation, applied where the search overrode it.
+ *
+ * Deliberately conservative about which way to be wrong. It fires only when the
+ * search's own pick settles nothing at all, when the settle survives the same
+ * capture read as everything else the ladder returns, and when the leaf prefers
+ * it — any one of those failing leaves the search's answer alone.
+ */
+export function settleTheSearchPassed(
+  rootState: GameState,
+  aiPlayer: Player,
+  chosen: AIAction,
+  offered: Array<{ row: number; col: number }>,
+  budgetMs: number,
+): AIAction | null {
+  if (!settleOverSearchEnabled || chosen.type !== "PLACE") return null;
+  const held = new Set(rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`));
+  const settledBy = (row: number, col: number): number => {
+    const board = rootState.board.map((r) => [...r]);
+    board[row][col] = playerCell(aiPlayer);
+    return calculateTerritories(board)[aiPlayer].filter(
+      (c) => !held.has(`${c.row},${c.col}`),
+    ).length;
+  };
+  if (settledBy(chosen.row, chosen.col) > 0) return null;
+
+  const settles = offered
+    .filter((mv) => mv.row !== chosen.row || mv.col !== chosen.col)
+    // The shortlist is this position's, but only because the trace is written
+    // on every path out of the ladder. It was not always: three early returns
+    // used to leave `lastDecision` describing the *previous* turn, and this is
+    // the first code to read the recorded shortlist rather than the stage name,
+    // so it was the first to try playing another position's move and get an
+    // illegal-move throw for it. Both ends are fixed — those returns are noted
+    // now, and nothing here is played without being checked against the board
+    // in front of it.
+    .filter((mv) => isLegalMove(rootState, mv.row, mv.col, aiPlayer))
+    .map((mv) => ({ ...mv, cells: settledBy(mv.row, mv.col) }))
+    .filter((mv) => mv.cells >= SETTLE_OVER_SEARCH_CELLS)
+    .sort((a, b) => b.cells - a.cells)
+    .slice(0, SETTLE_OVER_SEARCH_TRIES);
+  if (settles.length === 0) return null;
+
+  const afterChosen = applyAction(rootState, chosen);
+  const chosenScore = evaluateState(afterChosen, aiPlayer);
+  const perTry = Math.max(80, Math.floor(budgetMs / settles.length));
+  for (const mv of settles) {
+    const move: AIAction = { type: "PLACE", row: mv.row, col: mv.col };
+    const next = applyAction(rootState, move);
+    if (next.winner === aiPlayer) return move;
+    if (next.winner) continue;
+    if (evaluateState(next, aiPlayer) <= chosenScore) continue;
+    if (opponentCanForceCapture(next, aiPlayer, CAPTURE_READ_DEPTH, perTry)) continue;
+    return move;
+  }
+  return null;
+}
+
+/** Cells a settle must be worth before it may overrule the search. */
+const SETTLE_OVER_SEARCH_CELLS = 2;
+/**
+ * Settles checked, largest first — each costs a capture read, and the read is
+ * the whole safety of this rule.
+ *
+ * Three, at first, splitting a 300ms budget into 100ms each. The arena said
+ * that was the wrong way round: over 240 games the rule won the games decided
+ * on territory, 60 to 57, and lost the ones decided by a capture, 51 to 72, for
+ * 46.3% overall against a +0.33 cell margin. Gaining ground and being taken
+ * more often is the signature of a read too thin to see the reply — and this
+ * file already records a position where 67ms said safe and 100ms said forced.
+ *
+ * The stage this overrules verified its own move against the opponent's best
+ * reply with a real share of the turn budget. Replacing that answer on a
+ * hundred milliseconds of reading was never a fair trade, so now one candidate
+ * is checked with the whole budget instead of three with a third of it each.
+ */
+const SETTLE_OVER_SEARCH_TRIES = 1;
+/** Read given to that check. A single move, so it is a fixed slice, not a share. */
+const SETTLE_OVER_SEARCH_READ_MS = 600;
+
 export function findBestMoveVeryHard(
   rootState: GameState,
   aiPlayer: Player,
   timeLimitMs: number,
 ): AIAction {
   const chosen = findBestMoveVeryHardInner(rootState, aiPlayer, timeLimitMs);
+  if (lastDecision.stage.startsWith("4 ")) {
+    const settle = settleTheSearchPassed(
+      rootState,
+      aiPlayer,
+      chosen,
+      lastDecision.offered,
+      SETTLE_OVER_SEARCH_READ_MS,
+    );
+    if (settle) {
+      lastDecision = { ...lastDecision, stage: `${lastDecision.stage} + settle` };
+      return settle;
+    }
+  }
   const bigger = largerVersionOf(rootState, aiPlayer, chosen, LARGER_ENCLOSURE_READ_MS);
   if (bigger) {
     lastDecision = { ...lastDecision, stage: `${lastDecision.stage} + larger` };
@@ -1894,7 +2147,10 @@ function findBestMoveVeryHardInner(
   timeLimitMs: number,
 ): AIAction {
   const opening = openingMove(rootState, aiPlayer);
-  if (opening) return opening;
+  if (opening) {
+    note("0 opening book", 1, 1, [opening]);
+    return opening;
+  }
 
   // One forward pass for the position being played, reused by every leaf
   // beneath it. Running the net per leaf would cost more than the search it is
@@ -1904,8 +2160,15 @@ function findBestMoveVeryHardInner(
   const deadline = Date.now() + timeLimitMs;
 
   const { winningMove, pool: rawPool } = getSafeActions(rootState, aiPlayer);
-  if (winningMove) return winningMove;
-  if (rawPool.length <= 1) return rawPool[0] ?? { type: "PASS" };
+  if (winningMove) {
+    note("0 wins outright", 1, 1, [winningMove]);
+    return winningMove;
+  }
+  if (rawPool.length <= 1) {
+    const only = rawPool[0] ?? { type: "PASS" as const };
+    note("0 only move", 1, 1, [only]);
+    return only;
+  }
   const thinGuardedPool = selfInflictedThinGuardEnabled
     ? avoidSelfInflictedThin(rootState, aiPlayer, rawPool)
     : rawPool;
