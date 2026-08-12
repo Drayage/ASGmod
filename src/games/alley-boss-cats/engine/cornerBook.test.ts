@@ -321,14 +321,17 @@ describe("following what they spend on a corner", () => {
     expect(move && move.type === "PLACE" && move.row < 4 && move.col < 4).toBe(false);
   });
 
-  it("builds a level corner when there is nowhere untouched to go", () => {
+  it("builds a level corner only when every other one already holds a stone of mine", () => {
+    // Corners holding a stone of theirs and none of mine are somewhere to go —
+    // see "what counts as somewhere to go" below, which is the player's
+    // correction. Nowhere left means I am already in all of them.
     book();
     const state = withStones([
       [1, 2, "A"],
       [2, 1, "B"],
-      [1, 6, "B"],
-      [6, 1, "B"],
-      [6, 6, "B"],
+      [1, 6, "A"],
+      [6, 1, "A"],
+      [6, 6, "A"],
     ]);
     expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("0,3");
   });
@@ -378,5 +381,47 @@ describe("where following stops", () => {
     ]);
     const move = cornerBookMove(state, "A", pool(state, "A"));
     expect(move && move.type === "PLACE" && move.row < 4 && move.col < 4).toBe(false);
+  });
+});
+
+describe("what counts as somewhere to go", () => {
+  it("enters a corner holding only their stone before adding to a blocked one", () => {
+    // The player watched the first version add a third stone to a corner already
+    // blocked at one each while a corner holding one of theirs and none of mine
+    // sat open. "Nowhere to go" was counting untouched corners only, so a corner
+    // they had opened alone did not count as anywhere — even though entering it
+    // is the move being weighed.
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setCornerBookFollowEnabled(true);
+    const state = withStones([
+      [1, 2, "A"], [2, 1, "B"],   // top left, one each and blocked
+      [1, 6, "B"],                // top right, theirs alone
+      [7, 2, "A"], [6, 1, "A"],   // bottom left, my pair
+      [7, 6, "A"], [6, 7, "A"],   // bottom right, my pair
+    ]);
+    const move = cornerBookMove(state, "A", pool(state, "A"));
+    expect(move && move.type === "PLACE").toBe(true);
+    if (move && move.type === "PLACE") {
+      // Not the blocked corner.
+      expect(move.row < 4 && move.col < 4).toBe(false);
+      // The one they opened.
+      expect(move.row < 4 && move.col >= 4).toBe(true);
+    }
+  });
+
+  it("still builds the blocked corner when every other one holds a stone of mine", () => {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setCornerBookFollowEnabled(true);
+    const state = withStones([
+      [1, 2, "A"], [2, 1, "B"],
+      [1, 6, "A"], [2, 7, "A"],
+      [7, 2, "A"], [6, 1, "A"],
+      [7, 6, "A"], [6, 7, "A"],
+    ]);
+    expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("0,3");
   });
 });
