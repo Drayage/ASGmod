@@ -230,6 +230,29 @@ function canBreathe(board: Board, group: Coord[], liberties: Set<string>, player
   return false;
 }
 
+/**
+ * Liberty count at or below which `sealed` is even asked about.
+ *
+ * The earlier sealedWeight experiment (see its comment) varied only the
+ * *price* of a sealed group and kept this gate at 3, and found the price did
+ * not matter: game two's tracked group survived at every weight while a
+ * different group died the same way, because by three liberties the slow
+ * enclosure this is meant to answer is usually already finished — see
+ * `capture-blame.mts` and `sealed-check.mts` on three recorded 2026-08-14
+ * games, where `canBreathe` called a group sealed one to four liberties before
+ * this gate would have looked: ply 31 at five liberties in one, ply 32 and 40
+ * at four in the other two, all three or four plies ahead of when the group
+ * actually became uncapturable-to-defend.
+ *
+ * 3 reproduces the shipped gate exactly. Raising it is the untried half of
+ * that experiment — the detector was already shown sound over 9,112 positions
+ * above; what was never varied is how early it is allowed to speak.
+ */
+let sealedLibertyThreshold = 3;
+export function setSealedLibertyThreshold(value: number): void {
+  sealedLibertyThreshold = value;
+}
+
 /** One pass over a player's groups collecting everything the evaluation
  * needs. Computing these separately re-walked the whole board per term. */
 function shapeStats(state: GameState, player: Player): ShapeStats {
@@ -283,7 +306,7 @@ function shapeStats(state: GameState, player: Player): ShapeStats {
     if (
       countSealed &&
       !immortal &&
-      liberties.size <= 3 &&
+      liberties.size <= sealedLibertyThreshold &&
       !canBreathe(state.board, group, liberties, player)
     ) {
       stats.sealed += 1;

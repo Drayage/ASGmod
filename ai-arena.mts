@@ -5,7 +5,14 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { getAIMove, getSafeActions, tuning, type AIAction, type Difficulty } from "./src/games/alley-boss-cats/ai";
+import {
+  getAIMove,
+  getSafeActions,
+  setSealedLibertyThreshold,
+  tuning,
+  type AIAction,
+  type Difficulty,
+} from "./src/games/alley-boss-cats/ai";
 import {
   findBestMoveMinimax,
   findBestMoveVeryHard,
@@ -140,6 +147,8 @@ type Engine =
   | "VH_NOSETTLE"
   | "VH_LEAVE"
   | "VH_STAY"
+  | "VH_SEALGATE"
+  | "VH_NOSEALGATE"
   | "VH_FOLLOW"
   | "VH_FIXED"
   | "VH_CONTEST"
@@ -240,6 +249,10 @@ const TESTING_CENTRE = process.env.ONLY === "CENTRE";
 const TESTING_SPREAD = process.env.ONLY === "SPREAD";
 /** One stone in each corner against the pair. The player's next question. */
 const TESTING_LONE = process.env.ONLY === "LONE";
+/** Widening the sealed-shape gate past 3 liberties, with a nonzero price. */
+const TESTING_SEALGATE = process.env.ONLY === "SEALGATE";
+const SEALGATE_THRESHOLD = Number(process.env.SEALGATE_THRESHOLD ?? 5);
+const SEALGATE_WEIGHT = Number(process.env.SEALGATE_WEIGHT ?? 150);
 /** Overruling the full search with a 2+ cell settle its own leaf scored higher. */
 const TESTING_SETTLE = process.env.ONLY === "SETTLE";
 /** Abandoning a corner they have answered for one nobody is in. The player's. */
@@ -418,6 +431,16 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     setOwnDiagonalBonus(0);
     setSettleOverSearchEnabled(engine === "VH_SETTLE");
   }
+  if (TESTING_SEALGATE) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setSealedLibertyThreshold(engine === "VH_SEALGATE" ? SEALGATE_THRESHOLD : 3);
+    tuning.sealedWeight = engine === "VH_SEALGATE" ? SEALGATE_WEIGHT : 0;
+  }
   if (TESTING_LONE) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
@@ -528,6 +551,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOSETTLE" ||
     engine === "VH_LEAVE" ||
     engine === "VH_STAY" ||
+    engine === "VH_SEALGATE" ||
+    engine === "VH_NOSEALGATE" ||
     engine === "VH_FOLLOW" ||
     engine === "VH_FIXED" ||
     engine === "VH_CONTEST" ||
@@ -942,6 +967,14 @@ if (TESTING_LEAVE) {
 
 if (TESTING_FOLLOW) {
   addMatch("VH follow their corner investment vs a fixed count", "VH_FOLLOW", "VH_FIXED");
+}
+
+if (TESTING_SEALGATE) {
+  addMatch(
+    `VH sealed gate ${SEALGATE_THRESHOLD} weight ${SEALGATE_WEIGHT} vs shipped gate 3`,
+    "VH_SEALGATE",
+    "VH_NOSEALGATE",
+  );
 }
 
 if (TESTING_CENTRE) {
