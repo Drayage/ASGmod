@@ -33,7 +33,10 @@ const seen = new Set<string>();
 console.log(`each capture the engine lost to, read ${DEPTH} deep\n`);
 console.log(
   `${"variant".padEnd(18)}${"ply".padStart(5)}${"its last move".padStart(15)}` +
-    `${"already lost".padStart(14)}${"had a save".padStart(12)}${"saves".padStart(24)}`,
+    // The last column is the move played at that turn, not a move that saves —
+    // it is the one that lost the game. Labelled "saves" at first, which read as
+    // the opposite of what it holds and cost a wrong reading of three games.
+    `${"already lost".padStart(14)}${"last way out".padStart(14)}${"played there".padStart(14)}`,
 );
 
 for (const path of process.argv.slice(2)) {
