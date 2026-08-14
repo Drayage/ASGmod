@@ -32,6 +32,7 @@ import {
   setSettleOverSearchEnabled,
   setCornerBookLeaveContestedEnabled,
   setCornerBookFollowEnabled,
+  setSelfInflictedSealedGuardEnabled,
   setCornerFrameCentreEnabled,
   setLargerEnclosureEnabled,
   setSealOverridesBookEnabled,
@@ -149,6 +150,8 @@ type Engine =
   | "VH_STAY"
   | "VH_SEALGATE"
   | "VH_NOSEALGATE"
+  | "VH_SEALWALK"
+  | "VH_NOSEALWALK"
   | "VH_FOLLOW"
   | "VH_FIXED"
   | "VH_CONTEST"
@@ -253,6 +256,11 @@ const TESTING_LONE = process.env.ONLY === "LONE";
 const TESTING_SEALGATE = process.env.ONLY === "SEALGATE";
 const SEALGATE_THRESHOLD = Number(process.env.SEALGATE_THRESHOLD ?? 5);
 const SEALGATE_WEIGHT = Number(process.env.SEALGATE_WEIGHT ?? 150);
+/** Removing a move from stage 1.85's own candidates when it walks a group
+ * into a shape canBreathe already knows is sealed, past every count-based
+ * guard. A pool filter, not an eval-weight nudge — the player's own read of
+ * the D6 trap: "fix walking into the death spot first." */
+const TESTING_SEALWALK = process.env.ONLY === "SEALWALK";
 /** Overruling the full search with a 2+ cell settle its own leaf scored higher. */
 const TESTING_SETTLE = process.env.ONLY === "SETTLE";
 /** Abandoning a corner they have answered for one nobody is in. The player's. */
@@ -441,6 +449,15 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     setSealedLibertyThreshold(engine === "VH_SEALGATE" ? SEALGATE_THRESHOLD : 3);
     tuning.sealedWeight = engine === "VH_SEALGATE" ? SEALGATE_WEIGHT : 0;
   }
+  if (TESTING_SEALWALK) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setSelfInflictedSealedGuardEnabled(engine === "VH_SEALWALK");
+  }
   if (TESTING_LONE) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
@@ -553,6 +570,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_STAY" ||
     engine === "VH_SEALGATE" ||
     engine === "VH_NOSEALGATE" ||
+    engine === "VH_SEALWALK" ||
+    engine === "VH_NOSEALWALK" ||
     engine === "VH_FOLLOW" ||
     engine === "VH_FIXED" ||
     engine === "VH_CONTEST" ||
@@ -975,6 +994,10 @@ if (TESTING_SEALGATE) {
     "VH_SEALGATE",
     "VH_NOSEALGATE",
   );
+}
+
+if (TESTING_SEALWALK) {
+  addMatch("VH refuse to walk into a sealed shape vs today's guards", "VH_SEALWALK", "VH_NOSEALWALK");
 }
 
 if (TESTING_CENTRE) {

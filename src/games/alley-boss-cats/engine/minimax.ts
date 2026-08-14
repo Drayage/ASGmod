@@ -1,4 +1,4 @@
-import { applyAction, evaluateState, getSafeActions, tuning } from "../ai";
+import { applyAction, canBreathe, evaluateState, getSafeActions, tuning } from "../ai";
 import type { AIAction } from "../ai";
 import { getAllGroups, getConnectedGroup, getGroupLiberties } from "../groups";
 import { applyMove, getLegalMoves, isLegalMove } from "../rules";
@@ -1488,6 +1488,75 @@ function avoidSelfInflictedThin(rootState: GameState, aiPlayer: Player, pool: AI
   return safe.length > 0 ? safe : pool;
 }
 
+/**
+ * The gap createsVoluntaryThinGroup can't close: a group can gain a stone and
+ * still have plenty of liberties by count while every one of them is a dead
+ * end — canBreathe's question, not a liberty threshold's.
+ *
+ * The recorded game this answers: at ply 29 the engine placed a lone stone
+ * (C6) with four liberties, unremarkable on its own. At ply 31 it extended
+ * that stone (D6), and the pair came out at *five* liberties — safely above
+ * every threshold createsVoluntaryThinGroup or createsOneMoveTrap checks,
+ * so neither so much as looked at it. But canBreathe already called that pair
+ * sealed at the moment it was made: none of its five liberties, filled, would
+ * ever have left it with more than five. Nine plies and six of the opponent's
+ * moves later, with the engine never returning to it, it was captured.
+ *
+ * So this asks the question those two can't: not "how many liberties," but
+ * "is there any way left to gain one." Voluntary in the same sense as the
+ * thin-group check — it only fires when the group the move touches was not
+ * already sealed, so a move salvaging an already-doomed shape is never
+ * penalised for the shape it started in.
+ */
+export function createsVoluntarySealedGroup(rootState: GameState, aiPlayer: Player, action: AIAction): boolean {
+  if (action.type !== "PLACE") return false;
+  const { row, col } = action;
+  const ownCell = playerCell(aiPlayer);
+
+  const touchedGroups: Coord[][] = [];
+  for (const [dr, dc] of DIRECTIONS) {
+    const r = row + dr;
+    const c = col + dc;
+    if (!inBounds(r, c)) continue;
+    if (rootState.board[r][c] !== ownCell) continue;
+    touchedGroups.push(getConnectedGroup(rootState.board, r, c));
+  }
+  // A fresh stone touching nothing of the mover's own was already sealed or
+  // not on its own merits — nothing here to blame on "extending into."
+  if (touchedGroups.length === 0) return false;
+
+  for (const group of touchedGroups) {
+    const libs = getGroupLiberties(rootState.board, group);
+    if (!canBreathe(rootState.board, group, libs, aiPlayer)) return false; // already sealed
+  }
+
+  const next = applyAction(rootState, action);
+  if (next.winner) return false;
+  const merged = getConnectedGroup(next.board, row, col);
+  const afterLibs = getGroupLiberties(next.board, merged);
+  if (afterLibs.size === 0) return false; // captured itself outright, a different guard's problem
+
+  const ownTerritory = new Set(rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`));
+  if ([...afterLibs].some((l) => ownTerritory.has(l))) return false; // immortal, not sealed
+
+  return !canBreathe(next.board, merged, afterLibs, aiPlayer);
+}
+
+/**
+ * Same shape as avoidSelfInflictedThin, for createsVoluntarySealedGroup. A
+ * separate switch from the thin-group filter above it, so the two can be
+ * measured apart — one screens by liberty count, this one by whether any
+ * liberty could ever become two.
+ */
+export let selfInflictedSealedGuardEnabled = false;
+export function setSelfInflictedSealedGuardEnabled(enabled: boolean): void {
+  selfInflictedSealedGuardEnabled = enabled;
+}
+function avoidSelfInflictedSealed(rootState: GameState, aiPlayer: Player, pool: AIAction[]): AIAction[] {
+  const safe = pool.filter((action) => !createsVoluntarySealedGroup(rootState, aiPlayer, action));
+  return safe.length > 0 ? safe : pool;
+}
+
 /** Worst-case liberty count, one opponent reply deep, that counts as "this
  * extension was a trap." Not an atari test — the point is to catch a group
  * heading for real trouble before it gets there, the same way a human
@@ -1823,14 +1892,33 @@ export function pocketSealDanger(rootState: GameState, aiPlayer: Player): AIActi
     // vetoed outright had it ever been asked, because this path builds its
     // own candidate list straight from the group's liberties instead of
     // going through the guarded pool the general search uses.
+    //
+    // The liberty-gaining half had the same hole for a shape createsVoluntaryThinGroup
+    // cannot see: a recorded loss offered exactly this branch's own answer — a
+    // lone stone extended to a pair that came out at *five* liberties, past
+    // every count-based check, and canBreathe already knew it could never gain
+    // a sixth. Nine plies and six of the opponent's moves later, uncontested,
+    // it was captured. Filtered the same way the sealing half already is.
     const candidates = [
-      ...libertyGainingMoves(rootState, aiPlayer, liberties, liberties.size),
+      ...libertyGainingMoves(rootState, aiPlayer, liberties, liberties.size).filter(
+        (action) =>
+          !selfInflictedSealedGuardEnabled ||
+          action.type !== "PLACE" ||
+          !createsVoluntarySealedGroup(rootState, aiPlayer, action),
+      ),
       ...sealingCells
         .filter((key) => {
           const [row, col] = key.split(",").map(Number);
           if (!isLegalMove(rootState, row, col, aiPlayer)) return false;
+          const action: AIAction = { type: "PLACE", row, col };
+          // A cell can be both "one of the group's own liberties" and "a cell
+          // the opponent could seal with" at once — the same coordinate, so
+          // the same veto applies regardless of which list found it.
+          if (selfInflictedSealedGuardEnabled && createsVoluntarySealedGroup(rootState, aiPlayer, action)) {
+            return false;
+          }
           if (!pocketSealDenialFilterEnabled) return true;
-          return !createsVoluntaryThinGroup(rootState, aiPlayer, { type: "PLACE", row, col });
+          return !createsVoluntaryThinGroup(rootState, aiPlayer, action);
         })
         .map((key) => {
           const [row, col] = key.split(",").map(Number);
@@ -2233,9 +2321,12 @@ function findBestMoveVeryHardInner(
   const thinGuardedPool = selfInflictedThinGuardEnabled
     ? avoidSelfInflictedThin(rootState, aiPlayer, rawPool)
     : rawPool;
-  const trapGuardedPool = oneMoveTrapGuardEnabled
-    ? avoidOneMoveTraps(rootState, aiPlayer, thinGuardedPool)
+  const sealedGuardedPool = selfInflictedSealedGuardEnabled
+    ? avoidSelfInflictedSealed(rootState, aiPlayer, thinGuardedPool)
     : thinGuardedPool;
+  const trapGuardedPool = oneMoveTrapGuardEnabled
+    ? avoidOneMoveTraps(rootState, aiPlayer, sealedGuardedPool)
+    : sealedGuardedPool;
   const pool = dominatedPocketGuardEnabled
     ? avoidDominatedPockets(rootState, aiPlayer, trapGuardedPool)
     : trapGuardedPool;

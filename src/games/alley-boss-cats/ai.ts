@@ -207,7 +207,7 @@ function escapesInOneMove(board: Board, liberties: Set<string>): boolean {
  * called a group sealed that could still breathe; it under-reports instead,
  * which is the direction that cannot invent a dead group.
  */
-function canBreathe(board: Board, group: Coord[], liberties: Set<string>, player: Player): boolean {
+export function canBreathe(board: Board, group: Coord[], liberties: Set<string>, player: Player): boolean {
   const own = playerCell(player);
   const inGroup = new Set(group.map((stone) => `${stone.row},${stone.col}`));
   for (const filled of liberties) {
