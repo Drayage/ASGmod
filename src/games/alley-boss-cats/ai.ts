@@ -248,7 +248,7 @@ function canBreathe(board: Board, group: Coord[], liberties: Set<string>, player
  * that experiment — the detector was already shown sound over 9,112 positions
  * above; what was never varied is how early it is allowed to speak.
  */
-let sealedLibertyThreshold = 3;
+export let sealedLibertyThreshold = 3;
 export function setSealedLibertyThreshold(value: number): void {
   sealedLibertyThreshold = value;
 }
