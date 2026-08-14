@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AI_VARIANTS, RETIRED_VARIANTS, applyAIVariant, variantLabel } from "./aiVariant";
 import type { AIVariant } from "./aiVariant";
 import { cornerBookFollowEnabled } from "./engine/minimax";
+import { sealedLibertyThreshold, tuning } from "./ai";
 
 /**
  * Retiring a variant is a change to the picker, not to the record. These pin the
@@ -16,7 +17,7 @@ const everyName: AIVariant[] = [
 
 describe("the variant list", () => {
   it("offers only live hypotheses, with the current engine first", () => {
-    expect(AI_VARIANTS).toHaveLength(4);
+    expect(AI_VARIANTS).toHaveLength(5);
     expect(AI_VARIANTS[0].value).toBe("EYE_FRAME_TIGHT");
   });
 
@@ -31,6 +32,22 @@ describe("the variant list", () => {
     for (const name of everyName) {
       applyAIVariant(name);
       expect(cornerBookFollowEnabled).toBe(name === "EYE_FOLLOW");
+    }
+  });
+
+  it("widens the sealed gate only for EYE_SEALGATE", () => {
+    applyAIVariant("EYE_SEALGATE");
+    expect(sealedLibertyThreshold).toBe(5);
+    expect(tuning.sealedWeight).toBe(150);
+    for (const name of everyName) {
+      applyAIVariant(name);
+      if (name === "EYE_SEALGATE") {
+        expect(sealedLibertyThreshold).toBe(5);
+        expect(tuning.sealedWeight).toBeGreaterThan(0);
+      } else {
+        expect(sealedLibertyThreshold).toBe(3);
+        expect(tuning.sealedWeight).toBe(0);
+      }
     }
   });
 
