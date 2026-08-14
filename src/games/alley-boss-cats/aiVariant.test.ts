@@ -3,6 +3,7 @@ import { AI_VARIANTS, RETIRED_VARIANTS, applyAIVariant, variantLabel } from "./a
 import type { AIVariant } from "./aiVariant";
 import { cornerBookFollowEnabled } from "./engine/minimax";
 import { sealedLibertyThreshold, tuning } from "./ai";
+import { selfInflictedSealedGuardEnabled } from "./engine/minimax";
 
 /**
  * Retiring a variant is a change to the picker, not to the record. These pin the
@@ -17,7 +18,7 @@ const everyName: AIVariant[] = [
 
 describe("the variant list", () => {
   it("offers only live hypotheses, with the current engine first", () => {
-    expect(AI_VARIANTS).toHaveLength(5);
+    expect(AI_VARIANTS).toHaveLength(6);
     expect(AI_VARIANTS[0].value).toBe("EYE_FRAME_TIGHT");
   });
 
@@ -32,6 +33,15 @@ describe("the variant list", () => {
     for (const name of everyName) {
       applyAIVariant(name);
       expect(cornerBookFollowEnabled).toBe(name === "EYE_FOLLOW");
+    }
+  });
+
+  it("removes the walk-into-a-death-spot guard only for EYE_SEALWALK", () => {
+    applyAIVariant("EYE_SEALWALK");
+    expect(selfInflictedSealedGuardEnabled).toBe(true);
+    for (const name of everyName) {
+      applyAIVariant(name);
+      expect(selfInflictedSealedGuardEnabled).toBe(name === "EYE_SEALWALK");
     }
   });
 

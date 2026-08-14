@@ -5,6 +5,7 @@ import {
   setCornerBookFollowEnabled,
   setCornerBookSpreadEnabled,
   setEyeMakingDefenceEnabled,
+  setSelfInflictedSealedGuardEnabled,
   setThinGroupGuardEnabled,
 } from "./engine/minimax";
 import { setContactBias, setEdgeFramingEnabled, setOwnDiagonalBonus } from "./engine/moveOrdering";
@@ -34,7 +35,7 @@ import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
  * label is what a record shows. Ten entries in the picker was nine questions
  * being asked at once, which is not what any of them were for.
  */
-export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW" | "EYE_SEALGATE";
+export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW" | "EYE_SEALGATE" | "EYE_SEALWALK";
 
 interface VariantEntry {
   value: AIVariant;
@@ -58,6 +59,11 @@ export const AI_VARIANTS: ReadonlyArray<VariantEntry> = [
     value: "EYE_SEALGATE",
     label: "기본 + 봉쇄 감지",
     help: "기본에, 자기 그룹이 더 이상 자유칸을 늘릴 수 없는 모양인지 자유칸 5개까지 미리 확인하는 항목을 더합니다. 원래는 자유칸 3개 이하일 때만 봤는데, 세 판을 뜯어보니 그룹이 죽은 세 판 모두 3개 밑으로 떨어지기 한참 전, 자유칸 4~5개일 때 이미 더 클 수 없는 모양이었고 엔진은 그 뒤로 한 번도 그 그룹을 다시 안 뒀습니다. 빈 판 240판에서 승률 53.75%, 잡히는 쪽 승부에서 55.7%로 방향은 맞지만 우연과 구분되지 않고, 집 손해는 없습니다(+0.08칸). 실전에서 이 모양 자체가 잘 안 나오는 상대(엔진)로는 재기 어려운 변화라 사람 상대로 확인이 필요합니다.",
+  },
+  {
+    value: "EYE_SEALWALK",
+    label: "기본 + 죽을 자리 회피",
+    help: "기본에, 지금 자유칸이 넉넉해 보여도 더 이상 늘어날 수 없는 모양으로 스스로 걸어 들어가는 수를 후보에서 뺍니다. 실제로 잡힌 판에서 확인된 수(D6)를 근거로 만들었습니다 — 자유칸 5개로 다른 방어 점검은 다 통과했지만 canBreathe로 보면 이미 죽은 모양이었고, 9수 뒤 잡혔습니다. 빈 판 240판에서는 승률 49.6%로 차이가 없었는데, 아레나 상대는 그 정확한 함정을 잘 안 만들어서 그렇습니다. 확인된 버그 수정이라 위험은 낮고, 사람 상대로 판단이 필요합니다.",
   },
   {
     value: "EYE_FRAME",
@@ -109,7 +115,8 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FRAME" ||
     variant === "EYE_FRAME_TIGHT" ||
     variant === "EYE_FOLLOW" ||
-    variant === "EYE_SEALGATE";
+    variant === "EYE_SEALGATE" ||
+    variant === "EYE_SEALWALK";
   const thin = variant === "THIN_GUARD" || variant === "EYE_THIN";
   const edge = variant === "EYE_EDGE";
   const spacing = variant === "EYE_SPACING";
@@ -119,13 +126,15 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FRAME" ||
     variant === "EYE_FRAME_TIGHT" ||
     variant === "EYE_FOLLOW" ||
-    variant === "EYE_SEALGATE";
+    variant === "EYE_SEALGATE" ||
+    variant === "EYE_SEALWALK";
   const diagonal = variant === "EYE_CORNER_DIAG" || variant === "EYE_FRAME";
   const finish =
     variant === "EYE_FRAME" ||
     variant === "EYE_FRAME_TIGHT" ||
     variant === "EYE_FOLLOW" ||
-    variant === "EYE_SEALGATE";
+    variant === "EYE_SEALGATE" ||
+    variant === "EYE_SEALWALK";
 
   tuning.eyeSpaceWeight = eye ? EYE_SPACE_WEIGHT : 0;
   setEyeMakingDefenceEnabled(eye);
@@ -157,6 +166,12 @@ export function applyAIVariant(variant: AIVariant): void {
   // exactly what this is aimed at. On the picker so real games can judge it.
   setSealedLibertyThreshold(variant === "EYE_SEALGATE" ? 5 : 3);
   tuning.sealedWeight = variant === "EYE_SEALGATE" ? 150 : 0;
+  // Removing a move from stage 1.85's own candidates when it walks a group
+  // into a shape canBreathe already knows is sealed — see its own comment.
+  // Measured null on the arena (49.6% of 240, no direction either way), which
+  // fits the pattern: the arena's opponent does not build the exact trap this
+  // catches. Confirmed directly on the recorded position it was built from.
+  setSelfInflictedSealedGuardEnabled(variant === "EYE_SEALWALK");
   // 15 is where the diagonal overtakes the straight connection in the ordering:
   // an orthogonal neighbour scores 29-32 in a typical corner and a diagonal 15,
   // so anything less leaves the order unchanged and much more would swamp the
