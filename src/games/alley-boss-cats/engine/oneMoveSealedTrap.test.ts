@@ -81,15 +81,17 @@ describe("createsOneMoveSealedTrap", () => {
 
 describe("the full ladder on the recorded position", () => {
   it("plays H5 with the guard off, matching the recorded game", () => {
-    setOneMoveSealedTrapGuardEnabled(false);
+    // Order matters: positionBeforePly17 calls applyAIVariant, which sets every
+    // switch by contract — including this one. Set the guard after building.
     const state = positionBeforePly17();
+    setOneMoveSealedTrapGuardEnabled(false);
     const move = findBestMoveVeryHard(state, "A", 2600);
     expect(move).toEqual(h5);
   });
 
   it("avoids H5 with the guard on", () => {
-    setOneMoveSealedTrapGuardEnabled(true);
     const state = positionBeforePly17();
+    setOneMoveSealedTrapGuardEnabled(true);
     const move = findBestMoveVeryHard(state, "A", 2600);
     expect(move).not.toEqual(h5);
   });
