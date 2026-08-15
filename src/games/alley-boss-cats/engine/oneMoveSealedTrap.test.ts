@@ -58,6 +58,18 @@ describe("createsOneMoveSealedTrap", () => {
     expect(touchesOwn).toBe(false);
   });
 
+  it("exempts a move with a friendly stone within a diagonal step", () => {
+    // Isolation is the narrowing that made this filter safe: the first version
+    // tested only "sealed after their reply" and cost 0.70 cells over 240 arena
+    // games. A corner-book pair always has its partner a diagonal step away, so
+    // requiring genuine isolation exempts every planned shape.
+    const state = positionBeforePly17();
+    const board = state.board.map((r) => [...r]);
+    board[3][7] = "PLAYER_A"; // a friend one step from H5
+    const supported = { ...state, board };
+    expect(createsOneMoveSealedTrap(supported, "A", h5)).toBe(false);
+  });
+
   it("does not fire for a move with genuine room on both sides of the reply", () => {
     // A lone stone in open space, well off the edges and away from the
     // neutral centre: any single opponent reply still leaves several

@@ -1651,6 +1651,23 @@ export function createsOneMoveSealedTrap(rootState: GameState, aiPlayer: Player,
   if (action.type !== "PLACE") return false;
   const { row, col } = action;
 
+  // Isolation, which is what actually distinguished the recorded trap from
+  // ordinary play. The first version tested only "sealed after their best
+  // reply" and lost 0.70 cells over 240 arena games — because canBreathe's
+  // "sealed" means "cannot gain a liberty", not "in danger", and plenty of
+  // sound moves are permanently small on purpose. It removed 8.2% of the pool
+  // on average and up to 80% on individual turns, which is where the cost came
+  // from.
+  //
+  // The recorded H5 was not merely sealed: it was sealed with no friendly stone
+  // anywhere near it (nearest own stone three cells away) while five opponent
+  // stones sat within two. A corner-book pair, by contrast, always has its
+  // partner a diagonal step away, so requiring genuine isolation exempts the
+  // planned shapes and keeps the lone wanderer this is aimed at.
+  if (hasFriendlyStoneWithin(rootState, aiPlayer, row, col, SEALED_TRAP_SUPPORT_RADIUS)) {
+    return false;
+  }
+
   const afterMove = applyAction(rootState, action);
   if (afterMove.winner) return false;
 
@@ -1676,6 +1693,33 @@ export function createsOneMoveSealedTrap(rootState: GameState, aiPlayer: Player,
     const libsAfter = getGroupLiberties(afterReply.board, groupAfter);
     if (libsAfter.size === 0) continue; // captured outright, a different guard's problem
     if (!canBreathe(afterReply.board, groupAfter, libsAfter, aiPlayer)) return true;
+  }
+  return false;
+}
+
+/**
+ * How far away a friendly stone still counts as support.
+ *
+ * 2 in Manhattan distance, which is exactly a diagonal step — the corner
+ * book's own pair spacing. Anything the book plans is therefore supported by
+ * construction, and only a stone with nothing of its own within a knight's
+ * reach counts as isolated. The recorded trap's nearest friend was at 3.
+ */
+const SEALED_TRAP_SUPPORT_RADIUS = 2;
+
+function hasFriendlyStoneWithin(
+  state: GameState,
+  player: Player,
+  row: number,
+  col: number,
+  radius: number,
+): boolean {
+  const own = playerCell(player);
+  for (let r = Math.max(0, row - radius); r <= Math.min(state.board.length - 1, row + radius); r += 1) {
+    for (let c = Math.max(0, col - radius); c <= Math.min(state.board.length - 1, col + radius); c += 1) {
+      if (Math.abs(r - row) + Math.abs(c - col) > radius) continue;
+      if (state.board[r][c] === own) return true;
+    }
   }
   return false;
 }
