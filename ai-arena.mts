@@ -34,6 +34,7 @@ import {
   setCornerBookFollowEnabled,
   setSelfInflictedSealedGuardEnabled,
   setOneMoveSealedTrapGuardEnabled,
+  setCornerAnswerGuardEnabled,
   setCornerFrameCentreEnabled,
   setLargerEnclosureEnabled,
   setSealOverridesBookEnabled,
@@ -155,6 +156,8 @@ type Engine =
   | "VH_NOSEALWALK"
   | "VH_ONESEAL"
   | "VH_NOONESEAL"
+  | "VH_CORNERANS"
+  | "VH_NOCORNERANS"
   | "VH_FOLLOW"
   | "VH_FIXED"
   | "VH_CONTEST"
@@ -270,6 +273,9 @@ const TESTING_SEALWALK = process.env.ONLY === "SEALWALK";
  * answer instead of a liberty count. The player's own read of the position:
  * "이건 애초에 들어오면 안 되었던거 같은데." */
 const TESTING_ONESEAL = process.env.ONLY === "ONESEAL";
+/** Refusing the two outside answers to an opponent's corner entry — the lines
+ * that finish 1.9 against 3.9 over 446 recorded corner fights. */
+const TESTING_CORNERANS = process.env.ONLY === "CORNERANS";
 /** Overruling the full search with a 2+ cell settle its own leaf scored higher. */
 const TESTING_SETTLE = process.env.ONLY === "SETTLE";
 /** Abandoning a corner they have answered for one nobody is in. The player's. */
@@ -467,6 +473,15 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     setOwnDiagonalBonus(0);
     setSelfInflictedSealedGuardEnabled(engine === "VH_SEALWALK");
   }
+  if (TESTING_CORNERANS) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setCornerAnswerGuardEnabled(engine === "VH_CORNERANS");
+  }
   if (TESTING_ONESEAL) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
@@ -592,6 +607,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOSEALWALK" ||
     engine === "VH_ONESEAL" ||
     engine === "VH_NOONESEAL" ||
+    engine === "VH_CORNERANS" ||
+    engine === "VH_NOCORNERANS" ||
     engine === "VH_FOLLOW" ||
     engine === "VH_FIXED" ||
     engine === "VH_CONTEST" ||
@@ -1022,6 +1039,10 @@ if (TESTING_SEALWALK) {
 
 if (TESTING_ONESEAL) {
   addMatch("VH one-ply lookahead for a sealed reply, any placement", "VH_ONESEAL", "VH_NOONESEAL");
+}
+
+if (TESTING_CORNERANS) {
+  addMatch("VH refuse the outside answer to their corner", "VH_CORNERANS", "VH_NOCORNERANS");
 }
 
 if (TESTING_CENTRE) {
