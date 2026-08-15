@@ -33,6 +33,7 @@ import {
   setCornerBookLeaveContestedEnabled,
   setCornerBookFollowEnabled,
   setSelfInflictedSealedGuardEnabled,
+  setOneMoveSealedTrapGuardEnabled,
   setCornerFrameCentreEnabled,
   setLargerEnclosureEnabled,
   setSealOverridesBookEnabled,
@@ -152,6 +153,8 @@ type Engine =
   | "VH_NOSEALGATE"
   | "VH_SEALWALK"
   | "VH_NOSEALWALK"
+  | "VH_ONESEAL"
+  | "VH_NOONESEAL"
   | "VH_FOLLOW"
   | "VH_FIXED"
   | "VH_CONTEST"
@@ -261,6 +264,12 @@ const SEALGATE_WEIGHT = Number(process.env.SEALGATE_WEIGHT ?? 150);
  * guard. A pool filter, not an eval-weight nudge — the player's own read of
  * the D6 trap: "fix walking into the death spot first." */
 const TESTING_SEALWALK = process.env.ONLY === "SEALWALK";
+/** The gap in both createsOneMoveTrap and createsVoluntarySealedGroup:
+ * touchesOwnGroup exempted a fresh stone from either. This drops that
+ * requirement and asks the one-ply-lookahead question with canBreathe's
+ * answer instead of a liberty count. The player's own read of the position:
+ * "이건 애초에 들어오면 안 되었던거 같은데." */
+const TESTING_ONESEAL = process.env.ONLY === "ONESEAL";
 /** Overruling the full search with a 2+ cell settle its own leaf scored higher. */
 const TESTING_SETTLE = process.env.ONLY === "SETTLE";
 /** Abandoning a corner they have answered for one nobody is in. The player's. */
@@ -458,6 +467,15 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     setOwnDiagonalBonus(0);
     setSelfInflictedSealedGuardEnabled(engine === "VH_SEALWALK");
   }
+  if (TESTING_ONESEAL) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setOneMoveSealedTrapGuardEnabled(engine === "VH_ONESEAL");
+  }
   if (TESTING_LONE) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
@@ -572,6 +590,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOSEALGATE" ||
     engine === "VH_SEALWALK" ||
     engine === "VH_NOSEALWALK" ||
+    engine === "VH_ONESEAL" ||
+    engine === "VH_NOONESEAL" ||
     engine === "VH_FOLLOW" ||
     engine === "VH_FIXED" ||
     engine === "VH_CONTEST" ||
@@ -998,6 +1018,10 @@ if (TESTING_SEALGATE) {
 
 if (TESTING_SEALWALK) {
   addMatch("VH refuse to walk into a sealed shape vs today's guards", "VH_SEALWALK", "VH_NOSEALWALK");
+}
+
+if (TESTING_ONESEAL) {
+  addMatch("VH one-ply lookahead for a sealed reply, any placement", "VH_ONESEAL", "VH_NOONESEAL");
 }
 
 if (TESTING_CENTRE) {

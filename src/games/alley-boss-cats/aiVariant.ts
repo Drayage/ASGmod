@@ -5,6 +5,7 @@ import {
   setCornerBookFollowEnabled,
   setCornerBookSpreadEnabled,
   setEyeMakingDefenceEnabled,
+  setOneMoveSealedTrapGuardEnabled,
   setSelfInflictedSealedGuardEnabled,
   setThinGroupGuardEnabled,
 } from "./engine/minimax";
@@ -35,7 +36,7 @@ import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
  * label is what a record shows. Ten entries in the picker was nine questions
  * being asked at once, which is not what any of them were for.
  */
-export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW" | "EYE_SEALGATE" | "EYE_SEALWALK";
+export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW" | "EYE_SEALGATE" | "EYE_SEALWALK" | "EYE_LONETRAP";
 
 interface VariantEntry {
   value: AIVariant;
@@ -64,6 +65,11 @@ export const AI_VARIANTS: ReadonlyArray<VariantEntry> = [
     value: "EYE_SEALWALK",
     label: "기본 + 죽을 자리 회피",
     help: "기본에, 지금 자유칸이 넉넉해 보여도 더 이상 늘어날 수 없는 모양으로 스스로 걸어 들어가는 수를 후보에서 뺍니다. 실제로 잡힌 판에서 확인된 수(D6)를 근거로 만들었습니다 — 자유칸 5개로 다른 방어 점검은 다 통과했지만 canBreathe로 보면 이미 죽은 모양이었고, 9수 뒤 잡혔습니다. 빈 판 240판에서는 승률 49.6%로 차이가 없었는데, 아레나 상대는 그 정확한 함정을 잘 안 만들어서 그렇습니다. 확인된 버그 수정이라 위험은 낮고, 사람 상대로 판단이 필요합니다.",
+  },
+  {
+    value: "EYE_LONETRAP",
+    label: "기본 + 고립수 회피",
+    help: "기본에, 주변에 자기 돌이 하나도 없는 자리에 새로 두면서 상대가 한 수로 봉쇄해버릴 수 있는 수를 후보에서 뺍니다. 실제로 잡힌 판에서 확인된 수(H5)가 근거입니다 — 가장 가까운 아군이 3칸 밖, 상대 돌은 2칸 안에 다섯 개였고, 한 수 뒤 봉쇄되어 방치되다 잡혔습니다. 빈 판 240판에서 승률 53.3%, 잡히는 승부에서 56.7%로 지금까지 중 잡힘 쪽 신호가 가장 강합니다. 대신 집은 0.38칸 적습니다(구간이 0을 포함하므로 확정은 아닙니다). 귀 정석의 대각 짝 간격은 면제되도록 만들어서 정석 수는 걸리지 않습니다.",
   },
   {
     value: "EYE_FRAME",
@@ -116,7 +122,8 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FRAME_TIGHT" ||
     variant === "EYE_FOLLOW" ||
     variant === "EYE_SEALGATE" ||
-    variant === "EYE_SEALWALK";
+    variant === "EYE_SEALWALK" ||
+    variant === "EYE_LONETRAP";
   const thin = variant === "THIN_GUARD" || variant === "EYE_THIN";
   const edge = variant === "EYE_EDGE";
   const spacing = variant === "EYE_SPACING";
@@ -127,14 +134,16 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FRAME_TIGHT" ||
     variant === "EYE_FOLLOW" ||
     variant === "EYE_SEALGATE" ||
-    variant === "EYE_SEALWALK";
+    variant === "EYE_SEALWALK" ||
+    variant === "EYE_LONETRAP";
   const diagonal = variant === "EYE_CORNER_DIAG" || variant === "EYE_FRAME";
   const finish =
     variant === "EYE_FRAME" ||
     variant === "EYE_FRAME_TIGHT" ||
     variant === "EYE_FOLLOW" ||
     variant === "EYE_SEALGATE" ||
-    variant === "EYE_SEALWALK";
+    variant === "EYE_SEALWALK" ||
+    variant === "EYE_LONETRAP";
 
   tuning.eyeSpaceWeight = eye ? EYE_SPACE_WEIGHT : 0;
   setEyeMakingDefenceEnabled(eye);
@@ -172,6 +181,12 @@ export function applyAIVariant(variant: AIVariant): void {
   // fits the pattern: the arena's opponent does not build the exact trap this
   // catches. Confirmed directly on the recorded position it was built from.
   setSelfInflictedSealedGuardEnabled(variant === "EYE_SEALWALK");
+  // Refusing an isolated placement the opponent can seal in one reply. The
+  // unnarrowed version cost 0.70 cells (§81); requiring no friendly stone
+  // within a diagonal step turned that into 53.3% of 240 with 56.7% on the
+  // capture-decided games — the strongest capture-side signal of the three,
+  // still not decisive, and 0.38 cells behind on territory.
+  setOneMoveSealedTrapGuardEnabled(variant === "EYE_LONETRAP");
   // 15 is where the diagonal overtakes the straight connection in the ordering:
   // an orthogonal neighbour scores 29-32 in a typical corner and a diagonal 15,
   // so anything less leaves the order unchanged and much more would swamp the

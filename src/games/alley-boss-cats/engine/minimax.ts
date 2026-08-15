@@ -1631,6 +1631,112 @@ function avoidOneMoveTraps(rootState: GameState, aiPlayer: Player, pool: AIActio
   return safe.length > 0 ? safe : pool;
 }
 
+/**
+ * The gap the player found in both createsOneMoveTrap and
+ * createsVoluntarySealedGroup at once: `if (!touchesOwnGroup) return false`.
+ * A fresh stone touching nothing was exempt from either check — the first
+ * because it only reads one ply ahead by liberty count, never by whether the
+ * shape can still grow; the second because "voluntary" was defined as
+ * extending something, not placing something new. A recorded loss walked
+ * straight through both: a lone stone at four liberties, unremarkable by
+ * either check, sealed by the single opponent stone played beside it one ply
+ * later, then never revisited across four of the engine's own turns.
+ *
+ * So this drops the touchesOwnGroup requirement and asks createsOneMoveTrap's
+ * question with createsVoluntarySealedGroup's answer: not "does the worst
+ * reply drop me to two liberties," but "does the worst reply leave me unable
+ * to ever gain one" — checked for every placement, extension or not.
+ */
+export function createsOneMoveSealedTrap(rootState: GameState, aiPlayer: Player, action: AIAction): boolean {
+  if (action.type !== "PLACE") return false;
+  const { row, col } = action;
+
+  // Isolation, which is what actually distinguished the recorded trap from
+  // ordinary play. The first version tested only "sealed after their best
+  // reply" and lost 0.70 cells over 240 arena games — because canBreathe's
+  // "sealed" means "cannot gain a liberty", not "in danger", and plenty of
+  // sound moves are permanently small on purpose. It removed 8.2% of the pool
+  // on average and up to 80% on individual turns, which is where the cost came
+  // from.
+  //
+  // The recorded H5 was not merely sealed: it was sealed with no friendly stone
+  // anywhere near it (nearest own stone three cells away) while five opponent
+  // stones sat within two. A corner-book pair, by contrast, always has its
+  // partner a diagonal step away, so requiring genuine isolation exempts the
+  // planned shapes and keeps the lone wanderer this is aimed at.
+  if (hasFriendlyStoneWithin(rootState, aiPlayer, row, col, SEALED_TRAP_SUPPORT_RADIUS)) {
+    return false;
+  }
+
+  const afterMove = applyAction(rootState, action);
+  if (afterMove.winner) return false;
+
+  const group = getConnectedGroup(afterMove.board, row, col);
+  const liberties = getGroupLiberties(afterMove.board, group);
+  if (liberties.size === 0 || liberties.size > LOOKAHEAD_LIBERTY_CEILING) return false;
+
+  const ownTerritory = new Set(rootState.territories[aiPlayer].map((c) => `${c.row},${c.col}`));
+  if ([...liberties].some((l) => ownTerritory.has(l))) return false;
+
+  const opponentPlayer = opponent(aiPlayer);
+  const anchor = group[0];
+
+  for (const libertyKey of liberties) {
+    const [r, c] = libertyKey.split(",").map(Number);
+    if (!isLegalMove(afterMove, r, c, opponentPlayer)) continue;
+    const afterReply = applyMove(afterMove, r, c);
+    if (afterReply.winner === opponentPlayer) return true;
+    if (afterReply.winner) continue;
+    if (afterReply.board[anchor.row][anchor.col] !== playerCell(aiPlayer)) continue;
+
+    const groupAfter = getConnectedGroup(afterReply.board, anchor.row, anchor.col);
+    const libsAfter = getGroupLiberties(afterReply.board, groupAfter);
+    if (libsAfter.size === 0) continue; // captured outright, a different guard's problem
+    if (!canBreathe(afterReply.board, groupAfter, libsAfter, aiPlayer)) return true;
+  }
+  return false;
+}
+
+/**
+ * How far away a friendly stone still counts as support.
+ *
+ * 2 in Manhattan distance, which is exactly a diagonal step — the corner
+ * book's own pair spacing. Anything the book plans is therefore supported by
+ * construction, and only a stone with nothing of its own within a knight's
+ * reach counts as isolated. The recorded trap's nearest friend was at 3.
+ */
+const SEALED_TRAP_SUPPORT_RADIUS = 2;
+
+function hasFriendlyStoneWithin(
+  state: GameState,
+  player: Player,
+  row: number,
+  col: number,
+  radius: number,
+): boolean {
+  const own = playerCell(player);
+  for (let r = Math.max(0, row - radius); r <= Math.min(state.board.length - 1, row + radius); r += 1) {
+    for (let c = Math.max(0, col - radius); c <= Math.min(state.board.length - 1, col + radius); c += 1) {
+      if (Math.abs(r - row) + Math.abs(c - col) > radius) continue;
+      if (state.board[r][c] === own) return true;
+    }
+  }
+  return false;
+}
+
+/** Same shape as selfInflictedSealedGuardEnabled, for createsOneMoveSealedTrap.
+ * A separate switch so the two can be measured apart — one screens an
+ * extension against its own immediate result, this one screens any placement
+ * against the opponent's single best reply. */
+export let oneMoveSealedTrapGuardEnabled = false;
+export function setOneMoveSealedTrapGuardEnabled(enabled: boolean): void {
+  oneMoveSealedTrapGuardEnabled = enabled;
+}
+function avoidOneMoveSealedTraps(rootState: GameState, aiPlayer: Player, pool: AIAction[]): AIAction[] {
+  const safe = pool.filter((action) => !createsOneMoveSealedTrap(rootState, aiPlayer, action));
+  return safe.length > 0 ? safe : pool;
+}
+
 /** How many empty cells the flood-fill below is willing to explore before
  * giving up and calling the space open. A group backed by this much room
  * has somewhere to go regardless of how the border stones split. */
@@ -2327,9 +2433,12 @@ function findBestMoveVeryHardInner(
   const trapGuardedPool = oneMoveTrapGuardEnabled
     ? avoidOneMoveTraps(rootState, aiPlayer, sealedGuardedPool)
     : sealedGuardedPool;
-  const pool = dominatedPocketGuardEnabled
-    ? avoidDominatedPockets(rootState, aiPlayer, trapGuardedPool)
+  const sealedTrapGuardedPool = oneMoveSealedTrapGuardEnabled
+    ? avoidOneMoveSealedTraps(rootState, aiPlayer, trapGuardedPool)
     : trapGuardedPool;
+  const pool = dominatedPocketGuardEnabled
+    ? avoidDominatedPockets(rootState, aiPlayer, sealedTrapGuardedPool)
+    : sealedTrapGuardedPool;
 
   // Work out whether a large enclosure is about to happen *before* spending any
   // of the budget on reading fights. The plan is pure enumeration and costs
