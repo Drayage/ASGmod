@@ -53,11 +53,27 @@ for (let r = 0; r <= REGION; r += 1) {
   for (let c = 0; c <= REGION; c += 1) cells.push({ row: r, col: c });
 }
 
-/** Corner cells `side` ends with, minus the other side's. */
+/**
+ * What the two sides are playing for.
+ *
+ *   diff    (default) `side`'s corner cells minus the other's — who wins the corner.
+ *   own     `side`'s own cells alone — what `side` can guarantee whatever the
+ *           other does, since the other now plays only to deny it.
+ *   deny    minus the other side's cells — what `side` can hold the other to.
+ *
+ * A difference of 0 does not say whether the corner ended 0 against 0 or 1
+ * against 1, and a line that holds the difference need not be the line that
+ * keeps the most cells. `own` is the instrument for "does this side always get
+ * a cell out of it".
+ */
+export const OBJECTIVE = (process.env.OBJECTIVE ?? "diff") as "diff" | "own" | "deny";
+
 export function cornerScore(state: GameState, side: Player): number {
   const terr = calculateTerritories(state.board);
   const count = (p: Player) =>
     terr[p].filter((cell) => cell.row <= REGION && cell.col <= REGION).length;
+  if (OBJECTIVE === "own") return count(side);
+  if (OBJECTIVE === "deny") return -count(opponent(side));
   return count(side) - count(opponent(side));
 }
 
