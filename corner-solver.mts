@@ -46,7 +46,7 @@ function cornerScore(state: GameState, side: Player): number {
   return count(side) - count(opponent(side));
 }
 
-const seenStates = new Map<string, number>();
+const seenStates = new Map<string, { score: number; line: string[] }>();
 const keyOf = (state: GameState, toMove: Player, left: number, right: number) =>
   `${state.board.slice(0, REGION + 1).map((r) => r.slice(0, REGION + 1).join("")).join("|")}#${toMove}${left}${right}`;
 
@@ -59,7 +59,7 @@ function search(
   depth: number,
   alpha: number,
   beta: number,
-): number {
+): { score: number; line: string[] } {
   const key = keyOf(state, toMove, budgets.A, budgets.B);
   const hit = seenStates.get(key);
   if (hit !== undefined) return hit;
@@ -73,22 +73,27 @@ function search(
       ? cells.filter((c) => isLegalMove(state, c.row, c.col, opponent(toMove)))
       : [];
     if (depth <= 0 || otherMoves.length === 0) {
-      const score = cornerScore(state, root);
-      seenStates.set(key, score);
-      return score;
+      const out = { score: cornerScore(state, root), line: [] as string[] };
+      seenStates.set(key, out);
+      return out;
     }
     return search(state, root, opponent(toMove), budgets, depth - 1, alpha, beta);
   }
 
   const maximising = toMove === root;
   let best = maximising ? -Infinity : Infinity;
+  let bestLine: string[] = [];
   for (const mv of moves) {
     const next = applyMove({ ...state, currentPlayer: toMove }, mv.row, mv.col);
     // A capture ends the whole game, which dwarfs any corner count.
     let value: number;
-    if (next.winner) value = next.winner === root ? 99 : -99;
-    else {
-      value = search(
+    let line: string[];
+    const tag = `${toMove}:${nm(mv.row, mv.col)}`;
+    if (next.winner) {
+      value = next.winner === root ? 99 : -99;
+      line = [`${tag} (captures)`];
+    } else {
+      const sub = search(
         next,
         root,
         opponent(toMove),
@@ -97,18 +102,20 @@ function search(
         alpha,
         beta,
       );
+      value = sub.score;
+      line = [tag, ...sub.line];
     }
-    if (maximising) {
-      best = Math.max(best, value);
-      alpha = Math.max(alpha, best);
-    } else {
-      best = Math.min(best, value);
-      beta = Math.min(beta, best);
+    if (maximising ? value > best : value < best) {
+      best = value;
+      bestLine = line;
     }
+    if (maximising) alpha = Math.max(alpha, best);
+    else beta = Math.min(beta, best);
     if (beta <= alpha) break;
   }
-  seenStates.set(key, best);
-  return best;
+  const out = { score: best, line: bestLine };
+  seenStates.set(key, out);
+  return out;
 }
 
 function boardWith(stones: Array<{ row: number; col: number; side: Player }>): GameState {
@@ -128,7 +135,7 @@ const answers = cells
   .map((c) => {
     const state = boardWith([...opening, { ...c, side: "A" }]);
     seenStates.clear();
-    const score = search(
+    const { score, line } = search(
       state,
       "A",
       "B",
@@ -140,11 +147,14 @@ const answers = cells
     const dr = Math.min(c.row, 8 - c.row);
     const dc = Math.min(c.col, 8 - c.col);
     const [a, b] = dr <= dc ? [dr, dc] : [dc, dr];
-    return { cell: c, label: `(${a},${b})`, name: nm(c.row, c.col), score };
+    return { cell: c, label: `(${a},${b})`, name: nm(c.row, c.col), score, line };
   })
   .sort((x, y) => y.score - x.score);
 
-console.log(`${"answer".padEnd(10)}${"point".padEnd(8)}${"A - B corner cells".padStart(20)}`);
+console.log(`${"answer".padEnd(10)}${"point".padEnd(8)}${"A - B".padStart(7)}   continuation (best play by both)`);
 for (const a of answers) {
-  console.log(`${a.name.padEnd(10)}${a.label.padEnd(8)}${a.score.toFixed(0).padStart(20)}`);
+  console.log(
+    `${a.name.padEnd(10)}${a.label.padEnd(8)}${a.score.toFixed(0).padStart(7)}   ` +
+      `B:${nm(oa, ob)} A:${a.name} ${a.line.join(" ")}`,
+  );
 }
