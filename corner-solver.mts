@@ -36,9 +36,14 @@ if (!asJson) {
 }
 
 const opening = [{ row: oa, col: ob, side: "B" as Player }];
+/** ANSWER=A2,B1 solves only those replies. A wide corner takes hours per reply. */
+const only = (process.env.ANSWER ?? "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+
 const answers = cells
   .filter((c) => !(c.row === oa && c.col === ob))
+  .filter((c) => only.length === 0 || only.includes(nm(c.row, c.col)))
   .map((c) => {
+    const started = Date.now();
     const state = boardWith([...opening, { ...c, side: "A" }]);
     const { score, line }: Line = search(
       state,
@@ -53,6 +58,12 @@ const answers = cells
     const dr = Math.min(c.row, 8 - c.row);
     const dc = Math.min(c.col, 8 - c.col);
     const [a, b] = dr <= dc ? [dr, dc] : [dc, dr];
+    // Progress on stderr as each reply lands: a wide corner can run for hours,
+    // and a run that reports nothing until the end is a run you cannot steer.
+    console.error(
+      `[${new Date().toISOString().slice(11, 19)}] ${nm(c.row, c.col)} (${a},${b}) ` +
+        `= ${score} in ${((Date.now() - started) / 1000).toFixed(0)}s`,
+    );
     return { cell: c, label: `(${a},${b})`, name: nm(c.row, c.col), score, line };
   })
   .sort((x, y) => y.score - x.score);
