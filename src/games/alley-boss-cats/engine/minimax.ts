@@ -1006,6 +1006,22 @@ export let cornerBookTheirsBeforeEmptyEnabled = false;
 export function setCornerBookTheirsBeforeEmptyEnabled(value: boolean): void {
   cornerBookTheirsBeforeEmptyEnabled = value;
 }
+/**
+ * Answer a corner the opponent is already in at (0,1), not at the frame point.
+ *
+ * The book carries one set of points — the (1,2) class — and uses it both to
+ * build an empty corner and to enter one the opponent holds. Those are
+ * different jobs. Solved over every board size and stone count tried, the mean
+ * result by answer point is (0,1) +0.24, (1,1) -0.38, (0,2) -1.06, (1,2) -1.16,
+ * (1,3) -1.32, (2,3) -1.63, (3,3) -1.67: (0,1) is the only point with a
+ * positive mean, and the one the engine could never play, since no (0,1) point
+ * is in the book at all. Off until measured against the engine.
+ */
+export let cornerAnswerInsideEnabled = false;
+export function setCornerAnswerInsideEnabled(value: boolean): void {
+  cornerAnswerInsideEnabled = value;
+}
+
 export let cornerBookFollowEnabled = false;
 export function setCornerBookFollowEnabled(value: boolean): void {
   cornerBookFollowEnabled = value;
@@ -1394,6 +1410,33 @@ export function cornerBookMove(
       if (there && (there.mine > 0 || there.theirs > CORNER_BOOK_MAX_ENEMY)) continue;
       if (cornerBookTheirsBeforeEmptyEnabled && ((there?.theirs ?? 0) > 0) !== theirsFirst) {
         continue;
+      }
+      // Building and answering are different jobs and the book had one point
+      // for both. On an empty corner (1,2) is right: it is a frame stone, and
+      // the finished four-stone frame encloses six cells. Entering a corner
+      // they are already in is not building a frame, it is answering, and the
+      // solver is unambiguous about where that goes — over every board size and
+      // stone count it was solved at, (0,1) is the only answer point with a
+      // positive mean, while (1,2) averages -1.16 and the outside points -1.32
+      // and -1.63. The engine answered every corner at (1,2), which is 1.4
+      // cells worse than the best point, every time.
+      if (cornerAnswerInsideEnabled && (there?.theirs ?? 0) > 0) {
+        const rowEdge = q[0] === "T" ? 0 : size - 1;
+        const colEdge = q[1] === "L" ? 0 : size - 1;
+        const step = (n: number, edge: number) => (edge === 0 ? n : edge - n);
+        // Which of the two (0,1) reflections matters once their stone is on
+        // the board: answer along the edge they are *not* hugging. Against
+        // their (1,2) at C2 — one line from the top — the solver holds A2, on
+        // the left edge, level, while B1 on the top edge dies outright. Taking
+        // the near one first meant the safety check threw the book move away
+        // and the corner went to the full search instead of to the good point.
+        const near = { row: step(0, rowEdge), col: step(1, colEdge) };
+        const far = { row: step(1, rowEdge), col: step(0, colEdge) };
+        const theirDr = Math.min(row, size - 1 - row);
+        const theirDc = Math.min(col, size - 1 - col);
+        for (const inside of theirDr < theirDc ? [far, near] : [near, far]) {
+          if (playable(inside.row, inside.col)) return { type: "PLACE", ...inside };
+        }
       }
       if (!playable(row, col)) continue;
       return { type: "PLACE", row, col };
