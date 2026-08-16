@@ -1432,8 +1432,20 @@ export function cornerBookMove(
         // and the corner went to the full search instead of to the good point.
         const near = { row: step(0, rowEdge), col: step(1, colEdge) };
         const far = { row: step(1, rowEdge), col: step(0, colEdge) };
-        const theirDr = Math.min(row, size - 1 - row);
-        const theirDc = Math.min(col, size - 1 - col);
+        // Measured on their stones, not on the book point being considered.
+        // Reading it off the book point made the choice a constant, which
+        // happened to be right when their stone sat on the book point and wrong
+        // as soon as it sat on the mirror of it.
+        let theirDr = 0;
+        let theirDc = 0;
+        for (let r = 0; r <= 3; r += 1) {
+          for (let c = 0; c <= 3; c += 1) {
+            const cell = rootState.board[step(r, rowEdge)][step(c, colEdge)];
+            if (cell !== playerCell(opponent(aiPlayer))) continue;
+            theirDr += r;
+            theirDc += c;
+          }
+        }
         for (const inside of theirDr < theirDc ? [far, near] : [near, far]) {
           if (playable(inside.row, inside.col)) return { type: "PLACE", ...inside };
         }
