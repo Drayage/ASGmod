@@ -152,6 +152,83 @@ function moveOrderKey(
   return urgency * 100 + friendly * 10 + (2 * REGION - cell.row - cell.col);
 }
 
+/**
+ * The line actually played out, rebuilt move by move with an open window.
+ *
+ * `search` returns a line alongside its score, but that line is only as good as
+ * the window it was proved under: a value proved as a bound is correct as a
+ * value while the moves attached to it need not be best. That is how the study
+ * came to print `3.B:D1` for a position worth 0 when D1 in fact gives up a
+ * cell. This walks the position forward instead — at each turn, the first move
+ * whose own full-window value equals the position's value — so every move shown
+ * is one that holds the score. Placements are preferred over declining, and
+ * ordered by contact, so the record reads like play rather than bookkeeping.
+ */
+export function principalVariation(
+  state: GameState,
+  root: Player,
+  toMove: Player,
+  budgets: Record<Player, number>,
+  depth: number,
+  seen: Memo,
+  passes = 0,
+): string[] {
+  const line: string[] = [];
+  let here = state;
+  let side = toMove;
+  let left = { ...budgets };
+  let d = depth;
+  let idle = passes;
+
+  while (d > 0 && idle < 2) {
+    const expected = search(here, root, side, left, d, -Infinity, Infinity, seen, idle).score;
+    const libs = libertyMap(here);
+    const placements = left[side] > 0
+      ? cells
+          .filter((c) => isLegalMove(here, c.row, c.col, side))
+          .filter((c) => !RELEVANT || (c.row <= CORE && c.col <= CORE) || touchesAStone(here, c))
+          .sort((x, y) => moveOrderKey(here, libs, y, side) - moveOrderKey(here, libs, x, side))
+      : [];
+
+    let played: { row: number; col: number } | null = null;
+    let ends = false;
+    for (const mv of placements) {
+      const next = applyMove({ ...here, currentPlayer: side }, mv.row, mv.col);
+      const value = next.winner
+        ? next.winner === root ? 99 : -99
+        : search(
+            next,
+            root,
+            opponent(side),
+            { ...left, [side]: left[side] - 1 },
+            d - 1,
+            -Infinity,
+            Infinity,
+            seen,
+            0,
+          ).score;
+      if (value !== expected) continue;
+      played = mv;
+      ends = Boolean(next.winner);
+      if (!next.winner) here = next;
+      break;
+    }
+
+    if (played === null) {
+      line.push(`${side}:${PASS}`);
+      idle += 1;
+    } else {
+      line.push(`${side}:${nm(played.row, played.col)}${ends ? " (captures)" : ""}`);
+      if (ends) return line;
+      left = { ...left, [side]: left[side] - 1 };
+      idle = 0;
+    }
+    side = opponent(side);
+    d -= 1;
+  }
+  return line;
+}
+
 /** Any stone in the eight cells around this one, so contact moves survive the filter. */
 function touchesAStone(state: GameState, cell: { row: number; col: number }): boolean {
   for (let dr = -1; dr <= 1; dr += 1) {

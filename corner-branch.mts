@@ -16,7 +16,7 @@
  * cells minus B's, +-99 for a capture) whichever side is to move, so a number
  * going down is always good for B.
  */
-import { PASS, REGION, boardWith, cells, newMemo, nm, parsePoint, search } from "./corner-core";
+import { PASS, REGION, boardWith, cells, newMemo, nm, parsePoint, principalVariation, search } from "./corner-core";
 import { applyMove, isLegalMove } from "./src/games/alley-boss-cats/rules";
 import { opponent } from "./src/games/alley-boss-cats/types";
 import type { GameState, Player } from "./src/games/alley-boss-cats/types";
@@ -70,17 +70,10 @@ const options = cells
     if (next.winner) {
       return { name: nm(c.row, c.col), score: next.winner === "A" ? 99 : -99, line: ["(captures)"] };
     }
-    const { score, line } = search(
-      next,
-      "A",
-      opponent(toMove),
-      { ...budgets, [toMove]: budgets[toMove] - 1 },
-      DEPTH,
-      -Infinity,
-      Infinity,
-      newMemo(),
-      0,
-    );
+    const after = { ...budgets, [toMove]: budgets[toMove] - 1 };
+    const memo = newMemo();
+    const { score } = search(next, "A", opponent(toMove), after, DEPTH, -Infinity, Infinity, memo, 0);
+    const line = principalVariation(next, "A", opponent(toMove), after, DEPTH, memo);
     return { name: nm(c.row, c.col), score, line };
   })
   // Best first for whoever is to move: A wants the score up, B wants it down.

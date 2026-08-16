@@ -14,7 +14,7 @@
  *   BUDGET=4 DEPTH=10 npx vite-node corner-solver.mts
  *   JSON=1 npx vite-node corner-solver.mts          # one object, for the viewer
  */
-import { REGION, boardWith, cells, newMemo, nm, search } from "./corner-core";
+import { REGION, boardWith, cells, newMemo, nm, principalVariation, search } from "./corner-core";
 import type { Line } from "./corner-core";
 import type { Player } from "./src/games/alley-boss-cats/types";
 
@@ -45,16 +45,12 @@ const answers = cells
   .map((c) => {
     const started = Date.now();
     const state = boardWith([...opening, { ...c, side: "A" }]);
-    const { score, line }: Line = search(
-      state,
-      "A",
-      "B",
-      { A: BUDGET - 1, B: BUDGET - 1 },
-      DEPTH,
-      -Infinity,
-      Infinity,
-      newMemo(),
-    );
+    const budgets = { A: BUDGET - 1, B: BUDGET - 1 };
+    const memo = newMemo();
+    const { score }: Line = search(state, "A", "B", budgets, DEPTH, -Infinity, Infinity, memo);
+    // The search's own line can carry moves proved only as a bound; rebuild it
+    // with an open window so every move shown actually holds the score.
+    const line = principalVariation(state, "A", "B", budgets, DEPTH, memo);
     const dr = Math.min(c.row, 8 - c.row);
     const dc = Math.min(c.col, 8 - c.col);
     const [a, b] = dr <= dc ? [dr, dc] : [dc, dr];
