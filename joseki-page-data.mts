@@ -34,13 +34,26 @@ type SolverRun = {
   answers: SolverAnswer[];
 };
 
-/** "B:C2" or "A:D1 (captures)" -> the side, the cell, and whether it ends the game. */
-function parseTag(tag: string): { side: Player; row: number; col: number; captures: boolean } {
+/**
+ * "B:C2", "A:D1 (captures)" or "B:pass" -> the side, the cell, and whether it
+ * ends the game. A pass carries no cell: either side may decline to add a stone,
+ * and two in a row settle the corner.
+ */
+function parseTag(tag: string): {
+  side: Player;
+  row: number;
+  col: number;
+  captures: boolean;
+  pass: boolean;
+} {
   const [side, rest] = tag.split(":");
   const point = rest.trim().split(" ")[0];
+  if (point === "pass") {
+    return { side: side as Player, row: -1, col: -1, captures: false, pass: true };
+  }
   const col = COLS.indexOf(point[0]);
   const row = Number(point.slice(1)) - 1;
-  return { side: side as Player, row, col, captures: tag.includes("captures") };
+  return { side: side as Player, row, col, captures: tag.includes("captures"), pass: false };
 }
 
 const input = readFileSync(process.argv[2] ?? 0, "utf8");
@@ -58,11 +71,16 @@ function replay(line: string[]) {
     row: number;
     col: number;
     captures: boolean;
+    pass: boolean;
     caught?: Array<[number, number]>;
     illegal?: true;
   }> = [];
   for (const tag of line) {
     const mv = parseTag(tag);
+    if (mv.pass) {
+      moves.push(mv);
+      continue;
+    }
     if (!isLegalMove(state, mv.row, mv.col, mv.side)) {
       moves.push({ ...mv, illegal: true });
       break;
