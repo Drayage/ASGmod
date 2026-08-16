@@ -16,7 +16,7 @@
  * cells minus B's, +-99 for a capture) whichever side is to move, so a number
  * going down is always good for B.
  */
-import { PASS, REGION, boardWith, cells, nm, parsePoint, search } from "./corner-core";
+import { PASS, REGION, boardWith, cells, newMemo, nm, parsePoint, search } from "./corner-core";
 import { applyMove, isLegalMove } from "./src/games/alley-boss-cats/rules";
 import { opponent } from "./src/games/alley-boss-cats/types";
 import type { GameState, Player } from "./src/games/alley-boss-cats/types";
@@ -78,7 +78,7 @@ const options = cells
       DEPTH,
       -Infinity,
       Infinity,
-      new Map(),
+      newMemo(),
       0,
     );
     return { name: nm(c.row, c.col), score, line };

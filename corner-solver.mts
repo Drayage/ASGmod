@@ -14,7 +14,7 @@
  *   BUDGET=4 DEPTH=10 npx vite-node corner-solver.mts
  *   JSON=1 npx vite-node corner-solver.mts          # one object, for the viewer
  */
-import { REGION, boardWith, cells, nm, search } from "./corner-core";
+import { REGION, boardWith, cells, newMemo, nm, search } from "./corner-core";
 import type { Line } from "./corner-core";
 import type { Player } from "./src/games/alley-boss-cats/types";
 
@@ -48,7 +48,7 @@ const answers = cells
       DEPTH,
       -Infinity,
       Infinity,
-      new Map(),
+      newMemo(),
     );
     const dr = Math.min(c.row, 8 - c.row);
     const dc = Math.min(c.col, 8 - c.col);

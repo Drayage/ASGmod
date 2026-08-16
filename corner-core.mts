@@ -76,8 +76,33 @@ const EXACT = 0;
 const LOWER = 1;
 const UPPER = 2;
 type Entry = { value: number; flag: number; depth: number; line: string[] };
-export type Memo = Map<string, Entry>;
-export const newMemo = (): Memo => new Map();
+
+/**
+ * A memo table that cannot outgrow the heap. A JS Map throws once it passes
+ * ~16.7M entries, which a 5x5 corner reaches, so this flushes instead: losing
+ * the table costs time, never correctness.
+ */
+export class Memo {
+  private map = new Map<string, Entry>();
+  constructor(private readonly limit = Number(process.env.MEMO ?? 1_500_000)) {}
+  get(key: string) {
+    return this.map.get(key);
+  }
+  set(key: string, entry: Entry) {
+    if (this.map.size >= this.limit) this.map.clear();
+    this.map.set(key, entry);
+  }
+}
+export const newMemo = (): Memo => new Memo();
+
+/**
+ * Which points are worth considering. Far from every stone, a move can neither
+ * attack, defend, nor wall anything in, so past the 4x4 core the search only
+ * looks at points touching a stone. Off by default at REGION 3, where the core
+ * is the whole block and nothing is dropped.
+ */
+const RELEVANT = process.env.RELEVANT === "1" || (process.env.RELEVANT !== "0" && REGION > 3);
+const CORE = 3;
 
 /**
  * Liberty counts for every group on the board, keyed by cell. One sweep per
@@ -125,6 +150,21 @@ function moveOrderKey(
   }
   // Ties go to points nearer the corner, which is where the territory is.
   return urgency * 100 + friendly * 10 + (2 * REGION - cell.row - cell.col);
+}
+
+/** Any stone in the eight cells around this one, so contact moves survive the filter. */
+function touchesAStone(state: GameState, cell: { row: number; col: number }): boolean {
+  for (let dr = -1; dr <= 1; dr += 1) {
+    for (let dc = -1; dc <= 1; dc += 1) {
+      if (dr === 0 && dc === 0) continue;
+      const r = cell.row + dr;
+      const c = cell.col + dc;
+      if (!inBounds(r, c)) continue;
+      const at = state.board[r][c];
+      if (at !== "EMPTY" && at !== "NEUTRAL") return true;
+    }
+  }
+  return false;
 }
 
 const keyOf = (
@@ -183,6 +223,7 @@ export function search(
   const placements = budgets[toMove] > 0
     ? cells
         .filter((c) => isLegalMove(state, c.row, c.col, toMove))
+        .filter((c) => !RELEVANT || (c.row <= CORE && c.col <= CORE) || touchesAStone(state, c))
         .sort((x, y) => moveOrderKey(state, libs, y, toMove) - moveOrderKey(state, libs, x, toMove))
     : [];
 
