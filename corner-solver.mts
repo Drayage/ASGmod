@@ -105,7 +105,13 @@ function search(
       value = sub.score;
       line = [tag, ...sub.line];
     }
-    if (maximising ? value > best : value < best) {
+    // Ties are broken by resistance, not by cell order. Without this the losing
+    // side's "best" line is whatever came first in row-major order, which shows
+    // it ignoring an atari — technically still lost, but unreadable as a record.
+    // The root side stretches the fight out; the other side ends it soonest.
+    const better = maximising ? value > best : value < best;
+    const tied = value === best && (maximising ? line.length > bestLine.length : line.length < bestLine.length);
+    if (better || tied) {
       best = value;
       bestLine = line;
     }
@@ -126,8 +132,13 @@ function boardWith(stones: Array<{ row: number; col: number; side: Player }>): G
 }
 
 const [oa, ob] = (process.env.OPEN ?? "1,2").split(",").map(Number);
-console.log(`corner solver — the 4x4 corner, ${BUDGET} more stones each, depth ${DEPTH}`);
-console.log(`B opens at (${oa},${ob}) = ${nm(oa, ob)}; A to answer. Score is A's corner cells minus B's.\n`);
+const asJson = process.env.JSON === "1";
+// In JSON mode stdout carries one object and nothing else, so the page can read
+// a run straight off the pipe.
+if (!asJson) {
+  console.log(`corner solver — the 4x4 corner, ${BUDGET} more stones each, depth ${DEPTH}`);
+  console.log(`B opens at (${oa},${ob}) = ${nm(oa, ob)}; A to answer. Score is A's corner cells minus B's.\n`);
+}
 
 const opening = [{ row: oa, col: ob, side: "B" as Player }];
 const answers = cells
@@ -151,10 +162,28 @@ const answers = cells
   })
   .sort((x, y) => y.score - x.score);
 
-console.log(`${"answer".padEnd(10)}${"point".padEnd(8)}${"A - B".padStart(7)}   continuation (best play by both)`);
-for (const a of answers) {
-  console.log(
-    `${a.name.padEnd(10)}${a.label.padEnd(8)}${a.score.toFixed(0).padStart(7)}   ` +
-      `B:${nm(oa, ob)} A:${a.name} ${a.line.join(" ")}`,
-  );
+if (asJson) {
+  // Emitted for the review page, which needs the whole variation rather than
+  // the summary line — same numbers, machine-readable.
+  console.log(JSON.stringify({
+    opening: { a: oa, b: ob, name: nm(oa, ob) },
+    budget: BUDGET,
+    depth: DEPTH,
+    answers: answers.map((a) => ({
+      name: a.name,
+      point: a.label,
+      row: a.cell.row,
+      col: a.cell.col,
+      score: a.score,
+      line: [`B:${nm(oa, ob)}`, `A:${a.name}`, ...a.line],
+    })),
+  }));
+} else {
+  console.log(`${"answer".padEnd(10)}${"point".padEnd(8)}${"A - B".padStart(7)}   continuation (best play by both)`);
+  for (const a of answers) {
+    console.log(
+      `${a.name.padEnd(10)}${a.label.padEnd(8)}${a.score.toFixed(0).padStart(7)}   ` +
+        `B:${nm(oa, ob)} A:${a.name} ${a.line.join(" ")}`,
+    );
+  }
 }
