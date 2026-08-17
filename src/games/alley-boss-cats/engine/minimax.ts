@@ -1402,6 +1402,23 @@ export function cornerBookMove(
   // The player's ordering names all three steps: finish my own corner to the
   // pair, else take a stone in one of theirs, else open an empty one. The first
   // is already what the claim loop above does. This is the other two.
+  //
+  // INVARIANT, and it has been broken once: this loop decides *which corner*,
+  // and it decides it by walking OPENING_BOOK in order and returning the first
+  // entry that survives every check. So anything added before
+  // `playable(row, col)` does not adjust a move — it changes which corner the
+  // book claims. A rule about where to play *inside* a corner therefore belongs
+  // after that check, never before it.
+  //
+  // The break looked nothing like its cause. A substitution added ahead of the
+  // check fired on a corner the opponent held, which sits earlier in
+  // OPENING_BOOK than an empty one, so the engine contested a corner while an
+  // untouched corner sat open; and when the substituted point failed stage
+  // 1.88's safety check, the whole book move was discarded and the ladder fell
+  // through to the full search, which put the stone back into a corner the
+  // engine already led in. The visible symptom was early stone-piling several
+  // moves later, and it cost a long hunt through the evaluation weights, stages
+  // 1.87 and 1.9, and search depth before the loop itself was suspected.
   for (const theirsFirst of cornerBookTheirsBeforeEmptyEnabled ? [true, false] : [false]) {
     for (const { row, col } of OPENING_BOOK) {
       const q = quadrant(row, col);
