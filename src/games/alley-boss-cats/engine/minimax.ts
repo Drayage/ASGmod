@@ -1411,6 +1411,12 @@ export function cornerBookMove(
       if (cornerBookTheirsBeforeEmptyEnabled && ((there?.theirs ?? 0) > 0) !== theirsFirst) {
         continue;
       }
+      // The corner is settled before this point, never by it: substituting
+      // ahead of the playability check let a corner they hold jump the queue in
+      // front of one nobody is in, and if the substitute point then failed the
+      // safety check the whole book move was dropped and the search went back
+      // to reinforcing. Choose the corner first, then choose where inside it.
+      if (!playable(row, col)) continue;
       // Building and answering are different jobs and the book had one point
       // for both. On an empty corner (1,2) is right: it is a frame stone, and
       // the finished four-stone frame encloses six cells. Entering a corner
@@ -1450,7 +1456,6 @@ export function cornerBookMove(
           if (playable(inside.row, inside.col)) return { type: "PLACE", ...inside };
         }
       }
-      if (!playable(row, col)) continue;
       return { type: "PLACE", row, col };
     }
   }
