@@ -1,0 +1,1028 @@
+<title>귀 정석 연구실</title>
+<style>
+  :root {
+    --ground: #f4f2ec;
+    --panel: #fffdf9;
+    --ink: #15181e;
+    --muted: #6e6a62;
+    --hair: #ded9cf;
+    --accent: #3b5bdb;
+    --accent-soft: rgba(59, 91, 219, 0.1);
+
+    --cat-a: #e8863a;
+    --cat-b: #5b6b7c;
+    --cat-a-soft: rgba(232, 134, 58, 0.32);
+    --cat-b-soft: rgba(91, 107, 124, 0.32);
+    --num-a: #2c1a09;
+    --num-b: #f3f5f8;
+
+    --board: #c9b98f;
+    --cell: #ded0a8;
+    --cell-out: #cdc4ab;
+
+    --mark: #d99a00;
+    --dead: #b8371f;
+    --dead-soft: rgba(184, 55, 31, 0.13);
+    --even: #256b4f;
+    --even-soft: rgba(37, 107, 79, 0.13);
+
+    --serif: Georgia, "Nanum Myeongjo", "AppleMyungjo", Batang, serif;
+    --sans: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, "D2Coding", Consolas, monospace;
+
+    color-scheme: light dark;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #14161a;
+      --panel: #1c1f26;
+      --ink: #e9ecf1;
+      --muted: #9aa1ac;
+      --hair: #2d323b;
+      --accent: #7c9aff;
+      --accent-soft: rgba(124, 154, 255, 0.14);
+
+      --cat-a: #e8863a;
+      --cat-b: #90a2b4;
+      --cat-a-soft: rgba(232, 134, 58, 0.34);
+      --cat-b-soft: rgba(144, 162, 180, 0.32);
+      --num-a: #2c1a09;
+      --num-b: #16202a;
+
+      --board: #3a3527;
+      --cell: #55503d;
+      --cell-out: #423e30;
+
+      --mark: #ffc93c;
+      --dead: #ff6b6b;
+      --dead-soft: rgba(255, 107, 107, 0.16);
+      --even: #6fd3a5;
+      --even-soft: rgba(111, 211, 165, 0.16);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #14161a;
+    --panel: #1c1f26;
+    --ink: #e9ecf1;
+    --muted: #9aa1ac;
+    --hair: #2d323b;
+    --accent: #7c9aff;
+    --accent-soft: rgba(124, 154, 255, 0.14);
+
+    --cat-a: #e8863a;
+    --cat-b: #90a2b4;
+    --cat-a-soft: rgba(232, 134, 58, 0.34);
+    --cat-b-soft: rgba(144, 162, 180, 0.32);
+    --num-a: #2c1a09;
+    --num-b: #16202a;
+
+    --board: #3a3527;
+    --cell: #55503d;
+    --cell-out: #423e30;
+
+    --mark: #ffc93c;
+    --dead: #ff6b6b;
+    --dead-soft: rgba(255, 107, 107, 0.16);
+    --even: #6fd3a5;
+    --even-soft: rgba(111, 211, 165, 0.16);
+  }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 4vw, 2rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2.25rem, 5vw, 3.75rem);
+  }
+
+  /* ---- masthead ---- */
+  .eyebrow {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  h1 {
+    margin: 0.5rem 0 0;
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(1.85rem, 5vw, 3rem);
+    line-height: 1.18;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  .lede {
+    margin: 1rem 0 0;
+    max-width: 34em;
+    color: var(--muted);
+  }
+
+  .facts {
+    margin: 1.75rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--hair);
+    border: 1px solid var(--hair);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .facts div {
+    background: var(--panel);
+    padding: 0.75rem 0.9rem;
+  }
+
+  .facts dt {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .facts dd {
+    margin: 0.2rem 0 0;
+    font-size: 0.92rem;
+  }
+
+  /* ---- section furniture ---- */
+  h2 {
+    margin: 0 0 0.35rem;
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(1.3rem, 3vw, 1.75rem);
+    letter-spacing: -0.005em;
+  }
+
+  .sub {
+    margin: 0 0 1.5rem;
+    color: var(--muted);
+    font-size: 0.92rem;
+    max-width: 44em;
+  }
+
+  /* ---- the desk ---- */
+  .desk {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: clamp(1.25rem, 3vw, 2.25rem);
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .desk { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--hair);
+    border-radius: 14px;
+    padding: clamp(1rem, 2.5vw, 1.35rem);
+  }
+
+  .card + .card { margin-top: 1.25rem; }
+
+  .card-title {
+    margin: 0 0 0.9rem;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ---- board ---- */
+  .board-frame {
+    --n: 5;
+    display: grid;
+    grid-template-columns: 1.35rem repeat(var(--n), minmax(0, 1fr));
+    grid-template-rows: 1.35rem repeat(var(--n), auto);
+    gap: 0.15rem;
+    align-items: center;
+    justify-items: center;
+    max-width: 25rem;
+    margin: 0 auto;
+  }
+
+  .coord {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+
+  .grid {
+    position: relative;
+    grid-column: 2 / -1;
+    grid-row: 2 / -1;
+    display: grid;
+    grid-template-columns: repeat(var(--n), 1fr);
+    grid-template-rows: repeat(var(--n), 1fr);
+    gap: 2px;
+    padding: 4px;
+    background: var(--board);
+    border-radius: 8px;
+    aspect-ratio: 1;
+    width: 100%;
+  }
+
+  /* The real board runs on past this crop: the top and left rims are the true
+   * board edge, the right and bottom are a cut, so they fade out. */
+  .grid::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    pointer-events: none;
+    opacity: 0.4;
+    background:
+      linear-gradient(to right, transparent 80%, var(--ground) 106%),
+      linear-gradient(to bottom, transparent 80%, var(--ground) 106%);
+  }
+
+  .cell {
+    position: relative;
+    background: var(--cell);
+    border-radius: 3px;
+  }
+
+  .cell.out { background: var(--cell-out); }
+  .cell.terr-a { background: var(--cat-a-soft); }
+  .cell.terr-b { background: var(--cat-b-soft); }
+
+  .stone {
+    position: absolute;
+    inset: 7%;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-family: var(--mono);
+    font-size: clamp(0.65rem, 2.3vw, 0.95rem);
+    font-weight: 700;
+    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.16);
+  }
+
+  .stone.a { background: var(--cat-a); color: var(--num-a); }
+  .stone.b { background: var(--cat-b); color: var(--num-b); }
+  .stone.last { outline: 3px solid var(--mark); outline-offset: 1px; }
+  .stone.caught { outline: 3px dashed var(--dead); outline-offset: 1px; }
+
+  .ghost {
+    position: absolute;
+    inset: 26%;
+    border-radius: 50%;
+    border: 2px dashed var(--muted);
+    opacity: 0.5;
+  }
+
+  /* ---- controls & ribbon ---- */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 1rem;
+    justify-content: center;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--hair);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    cursor: pointer;
+  }
+
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: default; }
+
+  :where(button, [tabindex]):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .ribbon {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 1rem;
+    justify-content: center;
+  }
+
+  .chip {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 7px;
+    border: 1px solid var(--hair);
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .chip .dot {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    flex: none;
+  }
+
+  .chip .dot.a { background: var(--cat-a); }
+  .chip .dot.b { background: var(--cat-b); }
+  .chip.now { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .chip.dim { opacity: 0.45; }
+
+  .status {
+    margin: 1rem 0 0;
+    text-align: center;
+    font-size: 0.95rem;
+    min-height: 3.1em;
+  }
+
+  .status .who { font-weight: 700; }
+  .status .pt { font-family: var(--mono); }
+  .status .note { display: block; color: var(--muted); font-size: 0.85rem; }
+  .status .kill { color: var(--dead); font-weight: 700; }
+
+  /* ---- opening picker ---- */
+  .pick-grid {
+    --n: 4;
+    display: grid;
+    grid-template-columns: repeat(var(--n), 1fr);
+    gap: 2px;
+    padding: 4px;
+    background: var(--board);
+    border-radius: 8px;
+    aspect-ratio: 1;
+    max-width: 15rem;
+    margin: 0 auto 1rem;
+  }
+
+  .pick-cell {
+    position: relative;
+    background: var(--cell);
+    border: none;
+    border-radius: 3px;
+    padding: 0;
+    cursor: default;
+  }
+
+  .pick-cell.can { cursor: pointer; }
+  .pick-cell.can::after {
+    content: "";
+    position: absolute;
+    inset: 22%;
+    border-radius: 50%;
+    border: 2px dashed var(--muted);
+    opacity: 0.55;
+  }
+
+  .pick-cell.can:hover::after { opacity: 1; border-color: var(--accent); }
+
+  .pick-cell.on::after {
+    inset: 7%;
+    border: none;
+    background: var(--cat-b);
+    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.16), 0 0 0 3px var(--accent);
+    opacity: 1;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+
+  .face {
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 50%;
+    position: relative;
+    flex: none;
+    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.16);
+  }
+
+  .face.a { background: var(--cat-a); }
+  .face.b { background: var(--cat-b); }
+
+  .face::before,
+  .face::after {
+    content: "";
+    position: absolute;
+    width: 15%;
+    height: 15%;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    top: 38%;
+  }
+
+  .face::before { left: 26%; }
+  .face::after { right: 26%; }
+
+  /* ---- answer list ---- */
+  .answers {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 27rem;
+    overflow-y: auto;
+  }
+
+  .ans {
+    display: grid;
+    grid-template-columns: 3rem 1fr auto;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    text-align: left;
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+
+  .ans:hover { background: var(--accent-soft); }
+  .ans.on { border-color: var(--accent); background: var(--accent-soft); }
+
+  .ans .name {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .ans .desc { color: var(--muted); font-size: 0.82rem; }
+
+  .pill {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.12rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .pill.even { background: var(--even-soft); color: var(--even); }
+  .pill.loss { background: var(--hair); color: var(--muted); }
+  .pill.dead { background: var(--dead-soft); color: var(--dead); }
+
+  /* ---- findings ---- */
+  .findings {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+    gap: 1rem;
+  }
+
+  .finding h3 {
+    margin: 0 0 0.5rem;
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 1.15rem;
+  }
+
+  .finding p { margin: 0 0 0.6rem; font-size: 0.9rem; color: var(--muted); }
+  .finding p:last-child { margin-bottom: 0; }
+  .finding strong { color: var(--ink); }
+
+  .finding.warn-card { border-color: var(--dead); background: var(--dead-soft); }
+  .finding.warn-card .tag { color: var(--dead); }
+
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  /* ---- opening strength table ---- */
+  .scroller { overflow-x: auto; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 30rem;
+    font-size: 0.88rem;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 0.5rem 0.7rem;
+    border-bottom: 1px solid var(--hair);
+  }
+
+  th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  td.num {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  td.pt { font-family: var(--mono); font-weight: 700; }
+
+  .bar {
+    display: inline-block;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: var(--cat-b);
+    vertical-align: middle;
+    min-width: 2px;
+  }
+
+  tr.sharp td.pt { color: var(--dead); }
+  tr.refuted td { color: var(--muted); }
+  tr.refuted td.pt { color: var(--muted); }
+  tr.soft td.pt { color: var(--even); }
+
+  .method p { font-size: 0.9rem; color: var(--muted); max-width: 44em; }
+
+  .method p.warn {
+    color: var(--ink);
+    background: var(--dead-soft);
+    border-left: 3px solid var(--dead);
+    border-radius: 0 8px 8px 0;
+    padding: 0.85rem 1rem;
+  }
+
+  .method p.warn b { color: var(--dead); }
+  .method code {
+    font-family: var(--mono);
+    font-size: 0.85em;
+    background: var(--hair);
+    padding: 0.1rem 0.35rem;
+    border-radius: 5px;
+    color: var(--ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">골목대냥 · 오프닝 연구</p>
+    <h1>귀 하나만 떼어내서<br />끝까지 두어봤다</h1>
+    <p class="lede">
+      판 전체로는 귀 싸움의 손익이 다른 것들에 묻혀 보이지 않는다. 그래서 왼쪽 위
+      4×4 귀만 남기고 그 안에서만 두게 한 뒤, 양쪽 최선수로 끝까지 풀었다.
+      아래 판을 한 수씩 넘겨보면 <strong>누가 먼저 어디에 두고, 그다음 어디에
+      두는지</strong>가 그대로 보인다.
+    </p>
+    <dl class="facts">
+      <div><dt>전장</dt><dd>왼쪽 위 4×4 귀 안쪽만</dd></div>
+      <div><dt>돌 수</dt><dd>첫수 포함 양쪽 8개까지</dd></div>
+      <div><dt>손 빼기</dt><dd>가능 — 두 번 연달아면 끝</dd></div>
+      <div><dt>점수</dt><dd>오렌지냥 집 − 회색냥 집</dd></div>
+      <div><dt>잡히면</dt><dd>집과 무관하게 즉시 패</dd></div>
+    </dl>
+  </header>
+
+  <section>
+    <h2>기보로 보기</h2>
+    <p class="sub">
+      회색냥이 귀에 첫수를 둔다. 오렌지냥이 답한다. 그 뒤는 양쪽 다 최선수다.
+      첫수를 고르고, 답수를 고르고, <strong>다음 ▶</strong> 또는 키보드 ← → 로 넘겨라.
+    </p>
+
+    <div class="desk">
+      <div>
+        <div class="card">
+          <p class="card-title" id="boardTitle">진행</p>
+          <div class="board-frame" id="board"></div>
+          <p class="status" id="status"></p>
+          <div class="controls">
+            <button type="button" id="btnFirst">|◀ 처음</button>
+            <button type="button" id="btnPrev">◀ 이전</button>
+            <button type="button" id="btnNext">다음 ▶</button>
+            <button type="button" id="btnLast">끝까지 ▶|</button>
+          </div>
+          <div class="ribbon" id="ribbon"></div>
+          <div class="legend" style="margin-top: 1rem">
+            <span><i class="face b"></i> 회색냥 — 먼저 둔 쪽</span>
+            <span><i class="face a"></i> 오렌지냥 — 답하는 쪽</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <p class="card-title">① 회색냥의 첫수</p>
+          <div class="pick-grid" id="picker"></div>
+          <p class="sub" id="pickNote" style="margin: 0; text-align: center"></p>
+        </div>
+
+        <div class="card">
+          <p class="card-title">② 오렌지냥의 답 — 좋은 순서</p>
+          <div class="answers" id="answers"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>확정된 것과, 아직 아닌 것</h2>
+    <p class="sub">
+      같은 자리를 판 크기(4×4 · 5×5 · 6×6)와 돌 수(4 · 5 · 6 · 8 · 10)를 바꿔가며
+      다시 풀었다. <strong>설정을 바꿔도 안 움직인 것만 확정</strong>으로 적는다.
+    </p>
+    <div class="findings">
+      <article class="card finding">
+        <span class="tag">확정 · 모든 설정에서 동일</span>
+        <h3>귀 꼭짓점(A1)에 답하면 죽는다</h3>
+        <p>
+          판을 4×4에서 5×5, 6×6으로 넓혀도, 돌을 4개에서 10개로 늘려도
+          <strong>−99, 잡힌다</strong>. 다른 사활 결론이 전부 흔들리는 동안 이것만
+          한 번도 안 움직였다.
+        </p>
+        <p>
+          반대로 <strong>회색냥이 A1에 먼저 두면 오렌지냥 B2가 잡는다</strong>.
+          귀에서 유일하게 양쪽 다 손해가 확정된 점.
+        </p>
+      </article>
+      <article class="card finding">
+        <span class="tag">확정 · 순서가 안 바뀜</span>
+        <h3>귀 쪽 1선 옆자리(0,1)가 최선이다</h3>
+        <p>
+          <strong>(0,1)은 어떤 설정에서도 0</strong>이고, 그보다 좋은 응수는 어디에도
+          없다. 5×5에서는 그 자리의 두 방향(A2·B1)이 모두 0으로 나왔다.
+        </p>
+        <p>
+          손해는 <strong>깊이 순서대로</strong> 커진다 — 판 크기를 바꿔도 순서 자체는
+          그대로다. 4×4 기준 자리별 평균은 (0,1) +0.24, (1,1) −0.38, (0,2) −1.06,
+          (1,2) −1.16, (1,3) −1.32, (2,3) −1.63, (3,3) −1.67. 엔진이 즐겨 두는
+          (1,3)·(2,3)은 두 판 크기 모두에서 아래쪽 끝이다.
+        </p>
+      </article>
+      <article class="card finding warn-card">
+        <span class="tag">아직 아님 · 사활</span>
+        <h3>판을 좁게 자르면 살 돌이 죽어 보인다</h3>
+        <p>
+          C2에 B1으로 받는 수는 <strong>4×4에서 −99, 5×5와 6×6에서 0</strong>이다.
+          4×4는 수비 쪽이 귀 <em>바깥으로</em> 달아날 길을 통째로 막아버린다.
+          5×5와 6×6이 일치하니 판은 5×5면 충분하다.
+        </p>
+        <p>
+          그런데 5×5에서 돌을 6개로 늘리면 B1이 다시 −99가 된다. 판과 돌 수를 함께
+          수렴시키기 전까지 <strong>A1 말고 "잡힌다"고 적힌 것은 확정이 아니다.</strong>
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>첫수 열 자리의 세기</h2>
+    <p class="sub">
+      막대는 <b>답하는 쪽이 최선을 낼 수 있는 자리의 개수</b>다. 짧을수록 상대가
+      무사히 넘어갈 길이 좁다. 정렬은 답하는 쪽의 최선이 나쁜 순서, 같으면 막대가
+      짧은 순서 — 즉 <b>위로 갈수록 강한 첫수</b>다.
+    </p>
+    <div class="card scroller">
+      <table>
+        <thead>
+          <tr>
+            <th>첫수</th><th>귀 기준점</th><th>답하는 쪽 최선</th>
+            <th>버티는 답</th><th></th><th>죽는 답</th><th>첫수 평가</th>
+          </tr>
+        </thead>
+        <tbody id="strength"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="method">
+    <h2>어떻게 구했나</h2>
+    <p>
+      <code>corner-solver.mts</code> — 왼쪽 위 4×4 블록만 착수 가능하게 두고
+      알파-베타로 완전탐색한다. 첫수를 포함해 양쪽 8개씩(<code>BUDGET=8</code>),
+      깊이 20, 그리고 <strong>양쪽 다 손을 뺄 수 있다</strong> — 두 번 연달아
+      손을 빼면 그 귀는 끝난다. 손 빼기가 있어야 돌 수가 할당량이 아니라 상한이
+      되어서, 예산을 늘려도 억지 악수를 강요하지 않는다.
+    </p>
+    <p>
+      집 계산은 게임 본체와 같은 <code>calculateTerritories</code>로, 착수 합법성도
+      같은 <code>rules.ts</code>로 판정한다 — 이 판이 엔진과 다른 판정을 내리는
+      경우는 없다. 150개 진행을 실제 규칙으로 재생해 점수를 대조했고 어긋난 건
+      0개다.
+    </p>
+    <p>
+      <strong>화면의 수순은 탐색이 뱉은 것을 그대로 쓰지 않는다.</strong> 캐시에
+      상한·하한으로만 증명된 항목은 값은 정확해도 딸린 수순이 최선이라는 보장이
+      없다. 그래서 탐색이 끝난 뒤 판을 한 수씩 앞으로 걸어가며, 매 차례
+      <em>자기 값이 그 자리의 값과 같은 수</em>만 골라 수순을 새로 짓는다. 고치기
+      전에는 150개 중 <strong>146개의 수순이 틀려 있었고, 그중 135개가 3수에서
+      갈라졌다</strong> — 점수는 하나도 안 틀린 채로. 재생해서 끝 점수만 맞춰보는
+      검산으로는 이런 오류가 안 잡힌다. 나쁜 수를 둬도 끝 숫자는 같을 수 있다.
+    </p>
+    <p>
+      탐색 자체도 의심하고 검증했다. 알파-베타 창 안에서 얻은 값을 캐시에 넣고
+      다른 창에서 재사용하면 최선이 아닌 수를 최선으로 보고할 수 있어서, 캐시
+      항목이 정확값인지 상한인지 하한인지를 구분하도록 고쳤다. 실제로 그 버그가
+      한 번 답을 바꿨다 — 고치기 전에는 4×4 / 돌 6개에서 B1이 살아 있었는데,
+      고친 뒤 다시 풀자 <strong>−99</strong>가 나왔다.
+      <code>corner-verify.mts</code>가 <strong>가지치기도 캐시도 없는 순수
+      미니맥스</strong>와 같은 자리를 비교하며, 불일치는 0개다.
+    </p>
+    <p class="warn">
+      <b>이 페이지의 숫자는 4×4 / 돌 8개 기준이다.</b> 4×4에서는 돌 8개와 10개가
+      같은 답을 내지만, 판을 5×5로 넓히면 사활이 달라진다 — C2에 대한 죽는 답 셋 중
+      <b>둘이 살아난다</b>(B1 −99→0, C1 −99→−1). 6×6은 5×5와 완전히 같으니 판은
+      5×5면 충분하고, 지금은 그 5×5에서 돌 수를 다시 수렴시키는 중이다.
+      <b>응수 서열과 집 계산은 판 크기를 바꿔도 유지되지만, A1 말고 "잡힌다"는
+      표시는 아직 확정이 아니다.</b>
+    </p>
+    <p>
+      귀는 이미 두 변으로 막혀 있어서 대각선 방향의 벽 하나면 집이 된다. 그래서
+      이 4×4 안의 싸움은 실제 판의 귀 싸움과 같은 모양이다. 다만 블록 경계는 두
+      방향으로 거짓말을 한다 — 경계에 닿은 돌은 아무도 못 채우는 활로를 얻어
+      <em>실제보다 안전해</em> 보이고, 반대로 밖으로 달아나야 사는 돌은 달아날
+      곳이 없어 <em>실제보다 위험해</em> 보인다. 5×5 검산이 재는 것이 정확히 이
+      둘이다.
+    </p>
+  </section>
+</div>
+
+<script id="joseki" type="application/json">[{"opening":{"a":1,"b":2,"name":"C2"},"budget":8,"depth":20,"answers":[{"name":"A2","point":"(0,1)","row":1,"col":0,"score":0,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"D1","point":"(0,3)","row":0,"col":3,"score":-1,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"B2","point":"(1,1)","row":1,"col":1,"score":-1,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"B3","point":"(1,2)","row":2,"col":1,"score":-1,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"A3","point":"(0,2)","row":2,"col":0,"score":-2,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[0,2]]},"cells":{"A":0,"B":2}},{"name":"A4","point":"(0,3)","row":3,"col":0,"score":-2,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[0,1]]},"cells":{"A":0,"B":2}},{"name":"D2","point":"(1,3)","row":1,"col":3,"score":-4,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0],[0,1],[1,1]]},"cells":{"A":0,"B":4}},{"name":"C3","point":"(2,2)","row":2,"col":2,"score":-4,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0],[0,1],[1,1]]},"cells":{"A":0,"B":4}},{"name":"D3","point":"(2,3)","row":2,"col":3,"score":-4,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0],[0,1],[1,1]]},"cells":{"A":0,"B":4}},{"name":"B4","point":"(1,3)","row":3,"col":1,"score":-4,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0],[0,1],[1,1]]},"cells":{"A":0,"B":4}},{"name":"C4","point":"(2,3)","row":3,"col":2,"score":-4,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0],[0,1],[1,1]]},"cells":{"A":0,"B":4}},{"name":"D4","point":"(3,3)","row":3,"col":3,"score":-4,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0],[0,1],[1,1]]},"cells":{"A":0,"B":4}},{"name":"A1","point":"(0,0)","row":0,"col":0,"score":-99,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":true,"pass":false,"caught":[[0,0]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"B1","point":"(0,1)","row":0,"col":1,"score":-99,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":true,"pass":false,"caught":[[0,0],[0,1],[0,2]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"C1","point":"(0,2)","row":0,"col":2,"score":-99,"moves":[{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":true,"pass":false,"caught":[[0,2]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}}]},{"opening":{"a":0,"b":1,"name":"B1"},"budget":8,"depth":20,"answers":[{"name":"B2","point":"(1,1)","row":1,"col":1,"score":-1,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"A3","point":"(0,2)","row":2,"col":0,"score":-1,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"B3","point":"(1,2)","row":2,"col":1,"score":-1,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,2]]},"cells":{"A":0,"B":1}},{"name":"A4","point":"(0,3)","row":3,"col":0,"score":-1,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"D1","point":"(0,3)","row":0,"col":3,"score":-2,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0]]},"cells":{"A":0,"B":2}},{"name":"C2","point":"(1,2)","row":1,"col":2,"score":-2,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0]]},"cells":{"A":0,"B":2}},{"name":"D2","point":"(1,3)","row":1,"col":3,"score":-2,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0]]},"cells":{"A":0,"B":2}},{"name":"C3","point":"(2,2)","row":2,"col":2,"score":-2,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0]]},"cells":{"A":0,"B":2}},{"name":"D3","point":"(2,3)","row":2,"col":3,"score":-2,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0]]},"cells":{"A":0,"B":2}},{"name":"B4","point":"(1,3)","row":3,"col":1,"score":-2,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0]]},"cells":{"A":0,"B":2}},{"name":"C4","point":"(2,3)","row":3,"col":2,"score":-2,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0]]},"cells":{"A":0,"B":2}},{"name":"D4","point":"(3,3)","row":3,"col":3,"score":-2,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0]]},"cells":{"A":0,"B":2}},{"name":"C1","point":"(0,2)","row":0,"col":2,"score":-3,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0],[1,1]]},"cells":{"A":0,"B":3}},{"name":"A1","point":"(0,0)","row":0,"col":0,"score":-99,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":true,"pass":false,"caught":[[0,0]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"A2","point":"(0,1)","row":1,"col":0,"score":-99,"moves":[{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":true,"pass":false,"caught":[[0,0],[1,0],[2,0]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}}]},{"opening":{"a":1,"b":1,"name":"B2"},"budget":8,"depth":20,"answers":[{"name":"B1","point":"(0,1)","row":0,"col":1,"score":0,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"A2","point":"(0,1)","row":1,"col":0,"score":0,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[2,0]],"B":[[0,2]]},"cells":{"A":1,"B":1}},{"name":"D2","point":"(1,3)","row":1,"col":3,"score":-1,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1]]},"cells":{"A":0,"B":1}},{"name":"C3","point":"(2,2)","row":2,"col":2,"score":-1,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,2]]},"cells":{"A":0,"B":1}},{"name":"B4","point":"(1,3)","row":3,"col":1,"score":-1,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[1,0]]},"cells":{"A":0,"B":1}},{"name":"C1","point":"(0,2)","row":0,"col":2,"score":-2,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0]]},"cells":{"A":0,"B":2}},{"name":"D1","point":"(0,3)","row":0,"col":3,"score":-2,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1],[1,2]]},"cells":{"A":0,"B":2}},{"name":"A3","point":"(0,2)","row":2,"col":0,"score":-2,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[0,1]]},"cells":{"A":0,"B":2}},{"name":"D3","point":"(2,3)","row":2,"col":3,"score":-2,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1],[1,2]]},"cells":{"A":0,"B":2}},{"name":"A4","point":"(0,3)","row":3,"col":0,"score":-2,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[1,0],[2,1]]},"cells":{"A":0,"B":2}},{"name":"C4","point":"(2,3)","row":3,"col":2,"score":-2,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1],[1,2]]},"cells":{"A":0,"B":2}},{"name":"D4","point":"(3,3)","row":3,"col":3,"score":-2,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1],[1,2]]},"cells":{"A":0,"B":2}},{"name":"C2","point":"(1,2)","row":1,"col":2,"score":-3,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0],[0,1]]},"cells":{"A":0,"B":3}},{"name":"B3","point":"(1,2)","row":2,"col":1,"score":-3,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0],[0,1]]},"cells":{"A":0,"B":3}},{"name":"A1","point":"(0,0)","row":0,"col":0,"score":-99,"moves":[{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":true,"pass":false,"caught":[[0,0],[1,0]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}}]},{"opening":{"a":0,"b":0,"name":"A1"},"budget":8,"depth":20,"answers":[{"name":"B2","point":"(1,1)","row":1,"col":1,"score":99,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":true,"pass":false,"caught":[[0,0],[0,1]]}],"winner":"A","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"B1","point":"(0,1)","row":0,"col":1,"score":0,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"C1","point":"(0,2)","row":0,"col":2,"score":0,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"A2","point":"(0,1)","row":1,"col":0,"score":0,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"A3","point":"(0,2)","row":2,"col":0,"score":0,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"D1","point":"(0,3)","row":0,"col":3,"score":-1,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1]]},"cells":{"A":0,"B":1}},{"name":"C2","point":"(1,2)","row":1,"col":2,"score":-1,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[1,0]]},"cells":{"A":0,"B":1}},{"name":"D2","point":"(1,3)","row":1,"col":3,"score":-1,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[1,0]]},"cells":{"A":0,"B":1}},{"name":"B3","point":"(1,2)","row":2,"col":1,"score":-1,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1]]},"cells":{"A":0,"B":1}},{"name":"C3","point":"(2,2)","row":2,"col":2,"score":-1,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[1,0]]},"cells":{"A":0,"B":1}},{"name":"D3","point":"(2,3)","row":2,"col":3,"score":-1,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[2,2]],"B":[[0,1],[1,0]]},"cells":{"A":1,"B":2}},{"name":"A4","point":"(0,3)","row":3,"col":0,"score":-1,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1]]},"cells":{"A":0,"B":1}},{"name":"B4","point":"(1,3)","row":3,"col":1,"score":-1,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1]]},"cells":{"A":0,"B":1}},{"name":"C4","point":"(2,3)","row":3,"col":2,"score":-1,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[2,2]],"B":[[0,1],[1,0]]},"cells":{"A":1,"B":2}},{"name":"D4","point":"(3,3)","row":3,"col":3,"score":-1,"moves":[{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1]]},"cells":{"A":0,"B":1}}]},{"opening":{"a":0,"b":2,"name":"C1"},"budget":8,"depth":20,"answers":[{"name":"B1","point":"(0,1)","row":0,"col":1,"score":0,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"A2","point":"(0,1)","row":1,"col":0,"score":0,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"B2","point":"(1,1)","row":1,"col":1,"score":0,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"D2","point":"(1,3)","row":1,"col":3,"score":-1,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"A3","point":"(0,2)","row":2,"col":0,"score":-1,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"B3","point":"(1,2)","row":2,"col":1,"score":-1,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"C3","point":"(2,2)","row":2,"col":2,"score":-1,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"A4","point":"(0,3)","row":3,"col":0,"score":-1,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"B4","point":"(1,3)","row":3,"col":1,"score":-1,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"D1","point":"(0,3)","row":0,"col":3,"score":-2,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1],[1,2]]},"cells":{"A":0,"B":2}},{"name":"D3","point":"(2,3)","row":2,"col":3,"score":-2,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1],[1,2]]},"cells":{"A":0,"B":2}},{"name":"C4","point":"(2,3)","row":3,"col":2,"score":-2,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1],[1,2]]},"cells":{"A":0,"B":2}},{"name":"D4","point":"(3,3)","row":3,"col":3,"score":-2,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,1],[1,2]]},"cells":{"A":0,"B":2}},{"name":"C2","point":"(1,2)","row":1,"col":2,"score":-3,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0],[1,0],[0,1]]},"cells":{"A":0,"B":3}},{"name":"A1","point":"(0,0)","row":0,"col":0,"score":-99,"moves":[{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":true,"pass":false,"caught":[[0,0],[1,0],[2,0],[1,1]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}}]},{"opening":{"a":0,"b":3,"name":"D1"},"budget":8,"depth":20,"answers":[{"name":"B1","point":"(0,1)","row":0,"col":1,"score":0,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"A2","point":"(0,1)","row":1,"col":0,"score":0,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"B2","point":"(1,1)","row":1,"col":1,"score":-1,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,2]]},"cells":{"A":0,"B":1}},{"name":"C2","point":"(1,2)","row":1,"col":2,"score":-1,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"D2","point":"(1,3)","row":1,"col":3,"score":-1,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,2]]},"cells":{"A":0,"B":1}},{"name":"A3","point":"(0,2)","row":2,"col":0,"score":-1,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"B3","point":"(1,2)","row":2,"col":1,"score":-1,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"C3","point":"(2,2)","row":2,"col":2,"score":-1,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,2]]},"cells":{"A":0,"B":1}},{"name":"D3","point":"(2,3)","row":2,"col":3,"score":-1,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"A4","point":"(0,3)","row":3,"col":0,"score":-1,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"B4","point":"(1,3)","row":3,"col":1,"score":-1,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,2]]},"cells":{"A":0,"B":1}},{"name":"C4","point":"(2,3)","row":3,"col":2,"score":-1,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"D4","point":"(3,3)","row":3,"col":3,"score":-1,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"A1","point":"(0,0)","row":0,"col":0,"score":-99,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":true,"pass":false,"caught":[[0,0]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"C1","point":"(0,2)","row":0,"col":2,"score":-99,"moves":[{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":true,"pass":false,"caught":[[0,2]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}}]},{"opening":{"a":2,"b":2,"name":"C3"},"budget":8,"depth":20,"answers":[{"name":"B1","point":"(0,1)","row":0,"col":1,"score":0,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"D1","point":"(0,3)","row":0,"col":3,"score":0,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"A2","point":"(0,1)","row":1,"col":0,"score":0,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"B2","point":"(1,1)","row":1,"col":1,"score":0,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"A4","point":"(0,3)","row":3,"col":0,"score":0,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"C1","point":"(0,2)","row":0,"col":2,"score":-1,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"C2","point":"(1,2)","row":1,"col":2,"score":-1,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"D2","point":"(1,3)","row":1,"col":3,"score":-1,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,2]]},"cells":{"A":0,"B":1}},{"name":"A3","point":"(0,2)","row":2,"col":0,"score":-1,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"B3","point":"(1,2)","row":2,"col":1,"score":-1,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"D3","point":"(2,3)","row":2,"col":3,"score":-1,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,2]]},"cells":{"A":0,"B":1}},{"name":"B4","point":"(1,3)","row":3,"col":1,"score":-1,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[2,0]]},"cells":{"A":0,"B":1}},{"name":"C4","point":"(2,3)","row":3,"col":2,"score":-1,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,2]]},"cells":{"A":0,"B":1}},{"name":"D4","point":"(3,3)","row":3,"col":3,"score":-1,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,2]]},"cells":{"A":0,"B":1}},{"name":"A1","point":"(0,0)","row":0,"col":0,"score":-99,"moves":[{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":true,"pass":false,"caught":[[0,0]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}}]},{"opening":{"a":1,"b":3,"name":"D2"},"budget":8,"depth":20,"answers":[{"name":"B1","point":"(0,1)","row":0,"col":1,"score":0,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"D1","point":"(0,3)","row":0,"col":3,"score":0,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"A2","point":"(0,1)","row":1,"col":0,"score":0,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"B2","point":"(1,1)","row":1,"col":1,"score":0,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"A4","point":"(0,3)","row":3,"col":0,"score":0,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[2,0]],"B":[[1,2]]},"cells":{"A":1,"B":1}},{"name":"C1","point":"(0,2)","row":0,"col":2,"score":-1,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"C2","point":"(1,2)","row":1,"col":2,"score":-1,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"A3","point":"(0,2)","row":2,"col":0,"score":-1,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"B3","point":"(1,2)","row":2,"col":1,"score":-1,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"C3","point":"(2,2)","row":2,"col":2,"score":-1,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[2,1]],"B":[[0,0],[0,2]]},"cells":{"A":1,"B":2}},{"name":"D3","point":"(2,3)","row":2,"col":3,"score":-1,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"B4","point":"(1,3)","row":3,"col":1,"score":-1,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[2,1]],"B":[[0,0],[0,2]]},"cells":{"A":1,"B":2}},{"name":"C4","point":"(2,3)","row":3,"col":2,"score":-1,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[2,2]],"B":[[0,0],[1,0]]},"cells":{"A":1,"B":2}},{"name":"D4","point":"(3,3)","row":3,"col":3,"score":-1,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"A1","point":"(0,0)","row":0,"col":0,"score":-99,"moves":[{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":true,"pass":false,"caught":[[0,0]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}}]},{"opening":{"a":2,"b":3,"name":"D3"},"budget":8,"depth":20,"answers":[{"name":"B1","point":"(0,1)","row":0,"col":1,"score":1,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[0,0]],"B":[]},"cells":{"A":1,"B":0}},{"name":"A2","point":"(0,1)","row":1,"col":0,"score":1,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[0,0]],"B":[]},"cells":{"A":1,"B":0}},{"name":"B2","point":"(1,1)","row":1,"col":1,"score":0,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[2,0]],"B":[[0,2]]},"cells":{"A":1,"B":1}},{"name":"C2","point":"(1,2)","row":1,"col":2,"score":0,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"B3","point":"(1,2)","row":2,"col":1,"score":0,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[2,0]],"B":[[0,2]]},"cells":{"A":1,"B":1}},{"name":"C1","point":"(0,2)","row":0,"col":2,"score":-1,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"D1","point":"(0,3)","row":0,"col":3,"score":-1,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"D2","point":"(1,3)","row":1,"col":3,"score":-1,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[2,1]],"B":[[0,0],[0,2]]},"cells":{"A":1,"B":2}},{"name":"A3","point":"(0,2)","row":2,"col":0,"score":-1,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"C3","point":"(2,2)","row":2,"col":2,"score":-1,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"A4","point":"(0,3)","row":3,"col":0,"score":-1,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"B4","point":"(1,3)","row":3,"col":1,"score":-1,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[1,2]],"B":[[0,0],[2,0]]},"cells":{"A":1,"B":2}},{"name":"C4","point":"(2,3)","row":3,"col":2,"score":-1,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"D4","point":"(3,3)","row":3,"col":3,"score":-1,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[1,2]]},"cells":{"A":0,"B":1}},{"name":"A1","point":"(0,0)","row":0,"col":0,"score":-99,"moves":[{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":true,"pass":false,"caught":[[0,0],[0,1]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}}]},{"opening":{"a":3,"b":3,"name":"D4"},"budget":8,"depth":20,"answers":[{"name":"B1","point":"(0,1)","row":0,"col":1,"score":1,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[0,0]],"B":[]},"cells":{"A":1,"B":0}},{"name":"A2","point":"(0,1)","row":1,"col":0,"score":1,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[0,0]],"B":[]},"cells":{"A":1,"B":0}},{"name":"C1","point":"(0,2)","row":0,"col":2,"score":0,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"D1","point":"(0,3)","row":0,"col":3,"score":0,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"B2","point":"(1,1)","row":1,"col":1,"score":0,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"C2","point":"(1,2)","row":1,"col":2,"score":0,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"D2","point":"(1,3)","row":1,"col":3,"score":0,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"A3","point":"(0,2)","row":2,"col":0,"score":0,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"B3","point":"(1,2)","row":2,"col":1,"score":0,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[2,0]],"B":[[0,2]]},"cells":{"A":1,"B":1}},{"name":"C3","point":"(2,2)","row":2,"col":2,"score":0,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"A4","point":"(0,3)","row":3,"col":0,"score":0,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":3,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[[2,0]],"B":[[0,2]]},"cells":{"A":1,"B":1}},{"name":"B4","point":"(1,3)","row":3,"col":1,"score":0,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":0,"col":3,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":2,"col":2,"captures":false,"pass":false},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}},{"name":"D3","point":"(2,3)","row":2,"col":3,"score":-1,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":3,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":2,"col":1,"captures":false,"pass":false},{"side":"A","row":3,"col":0,"captures":false,"pass":false},{"side":"B","row":2,"col":0,"captures":false,"pass":false},{"side":"A","row":3,"col":1,"captures":false,"pass":false},{"side":"B","row":3,"col":2,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"C4","point":"(2,3)","row":3,"col":2,"score":-1,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":3,"col":2,"captures":false,"pass":false},{"side":"B","row":0,"col":1,"captures":false,"pass":false},{"side":"A","row":1,"col":1,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":false,"pass":false},{"side":"A","row":1,"col":2,"captures":false,"pass":false},{"side":"B","row":2,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":2,"captures":false,"pass":false},{"side":"B","row":3,"col":1,"captures":false,"pass":false},{"side":"A","row":2,"col":1,"captures":false,"pass":false},{"side":"B","row":2,"col":3,"captures":false,"pass":false},{"side":"A","row":2,"col":0,"captures":false,"pass":false},{"side":"B","row":3,"col":0,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":3,"captures":false,"pass":false},{"side":"A","row":-1,"col":-1,"captures":false,"pass":true},{"side":"B","row":-1,"col":-1,"captures":false,"pass":true}],"winner":null,"territory":{"A":[],"B":[[0,0]]},"cells":{"A":0,"B":1}},{"name":"A1","point":"(0,0)","row":0,"col":0,"score":-99,"moves":[{"side":"B","row":3,"col":3,"captures":false,"pass":false},{"side":"A","row":0,"col":0,"captures":false,"pass":false},{"side":"B","row":1,"col":1,"captures":false,"pass":false},{"side":"A","row":0,"col":1,"captures":false,"pass":false},{"side":"B","row":0,"col":2,"captures":false,"pass":false},{"side":"A","row":0,"col":3,"captures":false,"pass":false},{"side":"B","row":1,"col":0,"captures":true,"pass":false,"caught":[[0,0],[0,1]]}],"winner":"B","territory":{"A":[],"B":[]},"cells":{"A":0,"B":0}}]}]</script>
+<script>
+  (function () {
+    "use strict";
+    var DATA = JSON.parse(document.getElementById("joseki").textContent);
+    var COLS = "ABCDE";
+    var VIEW = 5; // rows/cols drawn; the playable block is the first 4
+    var BLOCK = 4;
+
+    var state = { open: 0, ans: 0, step: 2 };
+
+    var elBoard = document.getElementById("board");
+    var elStatus = document.getElementById("status");
+    var elRibbon = document.getElementById("ribbon");
+    var elPicker = document.getElementById("picker");
+    var elPickNote = document.getElementById("pickNote");
+    var elAnswers = document.getElementById("answers");
+    var elTitle = document.getElementById("boardTitle");
+
+    function run() { return DATA[state.open]; }
+    function ans() { return run().answers[state.ans]; }
+    function pt(r, c) { return COLS[c] + (r + 1); }
+    function sideName(s) { return s === "A" ? "오렌지냥" : "회색냥"; }
+    function best(r) { return r.answers[0].score; }
+    function levelCount(r) { var b = best(r); return r.answers.filter(function (a) { return a.score === b; }).length; }
+    function deadCount(r) { return r.answers.filter(function (a) { return a.score <= -90; }).length; }
+    function scoreText(s) { return s <= -90 ? "잡힘" : s >= 90 ? "잡음" : (s > 0 ? "+" : "") + s; }
+
+    /* ---------- board ---------- */
+    function drawBoard() {
+      var a = ans();
+      var shown = a.moves.slice(0, state.step);
+      var atEnd = state.step === a.moves.length;
+      var caught = {};
+      var killer = null;
+      shown.forEach(function (m) {
+        if (m.caught) { m.caught.forEach(function (c) { caught[c[0] + "," + c[1]] = true; }); killer = m; }
+      });
+
+      var terr = {};
+      if (atEnd && !a.winner) {
+        a.territory.A.forEach(function (c) { terr[c[0] + "," + c[1]] = "a"; });
+        a.territory.B.forEach(function (c) { terr[c[0] + "," + c[1]] = "b"; });
+      }
+
+      var placed = shown.filter(function (m) { return !m.pass; });
+      var html = '<span class="coord"></span>';
+      for (var c = 0; c < VIEW; c += 1) html += '<span class="coord">' + COLS[c] + "</span>";
+      for (var r = 0; r < VIEW; r += 1) html += '<span class="coord" style="grid-column:1;grid-row:' + (r + 2) + '">' + (r + 1) + "</span>";
+      html += '<div class="grid">';
+      for (var rr = 0; rr < VIEW; rr += 1) {
+        for (var cc = 0; cc < VIEW; cc += 1) {
+          var key = rr + "," + cc;
+          var outside = rr >= BLOCK || cc >= BLOCK;
+          var cls = "cell" + (outside ? " out" : "") + (terr[key] ? " terr-" + terr[key] : "");
+          var inner = "";
+          for (var i = 0; i < shown.length; i += 1) {
+            var m = shown[i];
+            if (m.pass || m.row !== rr || m.col !== cc) continue;
+            inner = '<span class="stone ' + m.side.toLowerCase() +
+              (m === placed[placed.length - 1] ? " last" : "") +
+              (caught[key] ? " caught" : "") + '">' + (i + 1) + "</span>";
+            break;
+          }
+          html += '<div class="' + cls + '">' + inner + "</div>";
+        }
+      }
+      html += "</div>";
+      elBoard.innerHTML = html;
+
+      /* ---- status line ---- */
+      var s;
+      if (state.step === 0) {
+        s = "빈 귀. <span class='note'>다음 ▶ 을 눌러 첫수부터 보자.</span>";
+      } else {
+        var last = shown[shown.length - 1];
+        s = "<span class='who'>" + state.step + "수 · " + sideName(last.side) + "</span> " +
+          "<span class='pt'>" + (last.pass ? "손 뺐다" : pt(last.row, last.col)) + "</span>";
+        if (last.pass) {
+          s += "<span class='note'>이 귀에 더 두는 것이 손해라 안 둔다. 양쪽이 연달아 손을 빼면 그 귀는 끝난다.</span>";
+        } else if (last.caught) {
+          s += " <span class='kill'>— " + sideName(last.side === "A" ? "B" : "A") +
+            " 잡힘, 여기서 게임 끝</span>";
+          s += "<span class='note'>점선으로 표시된 돌이 활로를 다 잃었다.</span>";
+        } else if (state.step === 1) {
+          s += "<span class='note'>회색냥의 첫수. 귀 기준점 " + run().opening.a + "," + run().opening.b + ".</span>";
+        } else if (state.step === 2) {
+          s += "<span class='note'>오렌지냥의 답. 이 답의 최종 결과가 " + scoreText(a.score) + " 이다.</span>";
+        } else if (atEnd) {
+          s += "<span class='note'>끝. 오렌지냥 " + a.cells.A + "집, 회색냥 " + a.cells.B +
+            "집 → <b>" + scoreText(a.score) + "</b>." +
+            (a.cells.A + a.cells.B === 0
+              ? " 여덟 수를 다 쓰고도 양쪽 다 귀를 못 감쌌다."
+              : " 색이 옅게 깔린 칸이 확정된 집이다.") + "</span>";
+        } else {
+          s += "<span class='note'>양쪽 최선수 진행 중.</span>";
+        }
+      }
+      elStatus.innerHTML = s;
+
+      elTitle.textContent = "회색냥 " + run().opening.name + " → 오렌지냥 " + a.name +
+        " · 결과 " + scoreText(a.score);
+
+      /* ---- ribbon ---- */
+      var rib = "";
+      for (var k = 0; k < a.moves.length; k += 1) {
+        var mv = a.moves[k];
+        rib += '<button type="button" class="chip' + (k + 1 === state.step ? " now" : "") +
+          (k + 1 > state.step ? " dim" : "") + '" data-step="' + (k + 1) + '">' +
+          '<i class="dot ' + mv.side.toLowerCase() + '"></i>' + (k + 1) + " " +
+          (mv.pass ? "손뺌" : pt(mv.row, mv.col)) + "</button>";
+      }
+      elRibbon.innerHTML = rib;
+
+      document.getElementById("btnFirst").disabled = state.step <= 1;
+      document.getElementById("btnPrev").disabled = state.step <= 0;
+      document.getElementById("btnNext").disabled = state.step >= a.moves.length;
+      document.getElementById("btnLast").disabled = state.step >= a.moves.length;
+    }
+
+    /* ---------- picker ---------- */
+    function drawPicker() {
+      var byCell = {};
+      DATA.forEach(function (r, i) { byCell[r.opening.a + "," + r.opening.b] = i; });
+      var html = "";
+      for (var r = 0; r < BLOCK; r += 1) {
+        for (var c = 0; c < BLOCK; c += 1) {
+          var i = byCell[r + "," + c];
+          var on = i === state.open;
+          if (i === undefined) {
+            html += '<span class="pick-cell"></span>';
+          } else {
+            html += '<button type="button" class="pick-cell can' + (on ? " on" : "") +
+              '" data-open="' + i + '" title="' + DATA[i].opening.name + " (" + r + "," + c + ')" ' +
+              'aria-label="첫수 ' + DATA[i].opening.name + '"></button>';
+          }
+        }
+      }
+      elPicker.innerHTML = html;
+      var cur = run();
+      var b = best(cur);
+      elPickNote.innerHTML = "<b>" + cur.opening.name + "</b> (" + cur.opening.a + "," + cur.opening.b +
+        ") — 답하는 쪽 최선 <b>" + (b >= 90 ? "잡는다" : scoreText(b)) + "</b>, " +
+        "그 값을 내는 답 " + levelCount(cur) + "개 / " + cur.answers.length + "개, " +
+        "죽는 답 " + deadCount(cur) + "개";
+    }
+
+    /* ---------- answers ---------- */
+    function drawAnswers() {
+      var r = run();
+      var html = "";
+      r.answers.forEach(function (a, i) {
+        var cls = a.score <= -90 ? "dead" : a.score >= 90 ? "even" : a.score === best(r) ? "even" : "loss";
+        var desc = a.score <= -90
+          ? "무엇을 두어도 잡힌다"
+          : a.score >= 90
+            ? "회색냥을 잡는다"
+            : a.score === 0 ? "비긴다"
+              : a.score > 0 ? a.score + "집 이득" : -a.score + "집 손해";
+        html += '<button type="button" class="ans' + (i === state.ans ? " on" : "") + '" data-ans="' + i + '">' +
+          '<span class="name">' + a.name + "</span>" +
+          '<span class="desc">' + a.point + " · " + desc + "</span>" +
+          '<span class="pill ' + cls + '">' + scoreText(a.score) + "</span>" +
+          "</button>";
+      });
+      elAnswers.innerHTML = html;
+      // The list is taller than its box; keep the answer being shown in sight.
+      var on = elAnswers.querySelector(".ans.on");
+      if (on) elAnswers.scrollTop = on.offsetTop - elAnswers.clientHeight / 2 + on.offsetHeight / 2;
+    }
+
+    /* ---------- strength table ---------- */
+    function drawStrength() {
+      var rows = DATA.slice().sort(function (x, y) {
+        return best(y) - best(x) === 0 ? levelCount(x) - levelCount(y) : best(x) - best(y);
+      });
+      var max = Math.max.apply(null, DATA.map(levelCount));
+      var html = "";
+      rows.forEach(function (r) {
+        var lv = levelCount(r);
+        var b = best(r);
+        var refuted = b >= 90;
+        var verdict = refuted ? "자멸 — 잡힌다"
+          : b < 0 ? "강함 — 상대가 못 비긴다"
+          : b > 0 ? "손해 — 상대가 앞선다"
+          : lv <= 2 ? "호각, 답이 좁다" : "호각, 답이 넓다";
+        var cls = refuted ? "refuted" : b < 0 ? "sharp" : b > 0 ? "soft" : "";
+        html += "<tr" + (cls ? ' class="' + cls + '"' : "") + ">" +
+          '<td class="pt">' + r.opening.name + "</td>" +
+          '<td class="num">(' + r.opening.a + "," + r.opening.b + ")</td>" +
+          '<td class="num">' + (refuted ? "잡는다" : scoreText(b)) + "</td>" +
+          '<td class="num">' + lv + " / " + r.answers.length + "</td>" +
+          "<td><i class='bar' style='width:" + Math.round((lv / max) * 100) + "%'></i></td>" +
+          '<td class="num">' + deadCount(r) + "</td>" +
+          "<td>" + verdict + "</td>" +
+          "</tr>";
+      });
+      document.getElementById("strength").innerHTML = html;
+    }
+
+    /* ---------- wiring ---------- */
+    function render() { drawPicker(); drawAnswers(); drawBoard(); }
+
+    elPicker.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-open]");
+      if (!b) return;
+      state.open = Number(b.dataset.open);
+      state.ans = 0;
+      state.step = 2;
+      render();
+    });
+
+    elAnswers.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-ans]");
+      if (!b) return;
+      state.ans = Number(b.dataset.ans);
+      state.step = 2;
+      render();
+    });
+
+    elRibbon.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-step]");
+      if (!b) return;
+      state.step = Number(b.dataset.step);
+      drawBoard();
+    });
+
+    document.getElementById("btnFirst").addEventListener("click", function () { state.step = 1; drawBoard(); });
+    document.getElementById("btnPrev").addEventListener("click", function () { state.step = Math.max(0, state.step - 1); drawBoard(); });
+    document.getElementById("btnNext").addEventListener("click", function () { state.step = Math.min(ans().moves.length, state.step + 1); drawBoard(); });
+    document.getElementById("btnLast").addEventListener("click", function () { state.step = ans().moves.length; drawBoard(); });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") { state.step = Math.min(ans().moves.length, state.step + 1); drawBoard(); }
+      else if (e.key === "ArrowLeft") { state.step = Math.max(0, state.step - 1); drawBoard(); }
+      else return;
+      e.preventDefault();
+    });
+
+    // Open on C2 — the sharpest corner, and the one the engine keeps mishandling.
+    var start = DATA.findIndex(function (r) { return r.opening.name === "C2"; });
+    if (start >= 0) state.open = start;
+    drawStrength();
+    render();
+  })();
+</script>

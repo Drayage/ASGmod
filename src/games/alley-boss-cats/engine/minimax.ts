@@ -1006,6 +1006,22 @@ export let cornerBookTheirsBeforeEmptyEnabled = false;
 export function setCornerBookTheirsBeforeEmptyEnabled(value: boolean): void {
   cornerBookTheirsBeforeEmptyEnabled = value;
 }
+/**
+ * Answer a corner the opponent is already in at (0,1), not at the frame point.
+ *
+ * The book carries one set of points — the (1,2) class — and uses it both to
+ * build an empty corner and to enter one the opponent holds. Those are
+ * different jobs. Solved over every board size and stone count tried, the mean
+ * result by answer point is (0,1) +0.24, (1,1) -0.38, (0,2) -1.06, (1,2) -1.16,
+ * (1,3) -1.32, (2,3) -1.63, (3,3) -1.67: (0,1) is the only point with a
+ * positive mean, and the one the engine could never play, since no (0,1) point
+ * is in the book at all. Off until measured against the engine.
+ */
+export let cornerAnswerInsideEnabled = false;
+export function setCornerAnswerInsideEnabled(value: boolean): void {
+  cornerAnswerInsideEnabled = value;
+}
+
 export let cornerBookFollowEnabled = false;
 export function setCornerBookFollowEnabled(value: boolean): void {
   cornerBookFollowEnabled = value;
@@ -1395,6 +1411,45 @@ export function cornerBookMove(
       if (cornerBookTheirsBeforeEmptyEnabled && ((there?.theirs ?? 0) > 0) !== theirsFirst) {
         continue;
       }
+      // Building and answering are different jobs and the book had one point
+      // for both. On an empty corner (1,2) is right: it is a frame stone, and
+      // the finished four-stone frame encloses six cells. Entering a corner
+      // they are already in is not building a frame, it is answering, and the
+      // solver is unambiguous about where that goes — over every board size and
+      // stone count it was solved at, (0,1) is the only answer point with a
+      // positive mean, while (1,2) averages -1.16 and the outside points -1.32
+      // and -1.63. The engine answered every corner at (1,2), which is 1.4
+      // cells worse than the best point, every time.
+      if (cornerAnswerInsideEnabled && (there?.theirs ?? 0) > 0) {
+        const rowEdge = q[0] === "T" ? 0 : size - 1;
+        const colEdge = q[1] === "L" ? 0 : size - 1;
+        const step = (n: number, edge: number) => (edge === 0 ? n : edge - n);
+        // Which of the two (0,1) reflections matters once their stone is on
+        // the board: answer along the edge they are *not* hugging. Against
+        // their (1,2) at C2 — one line from the top — the solver holds A2, on
+        // the left edge, level, while B1 on the top edge dies outright. Taking
+        // the near one first meant the safety check threw the book move away
+        // and the corner went to the full search instead of to the good point.
+        const near = { row: step(0, rowEdge), col: step(1, colEdge) };
+        const far = { row: step(1, rowEdge), col: step(0, colEdge) };
+        // Measured on their stones, not on the book point being considered.
+        // Reading it off the book point made the choice a constant, which
+        // happened to be right when their stone sat on the book point and wrong
+        // as soon as it sat on the mirror of it.
+        let theirDr = 0;
+        let theirDc = 0;
+        for (let r = 0; r <= 3; r += 1) {
+          for (let c = 0; c <= 3; c += 1) {
+            const cell = rootState.board[step(r, rowEdge)][step(c, colEdge)];
+            if (cell !== playerCell(opponent(aiPlayer))) continue;
+            theirDr += r;
+            theirDc += c;
+          }
+        }
+        for (const inside of theirDr < theirDc ? [far, near] : [near, far]) {
+          if (playable(inside.row, inside.col)) return { type: "PLACE", ...inside };
+        }
+      }
       if (!playable(row, col)) continue;
       return { type: "PLACE", row, col };
     }
@@ -1734,6 +1789,97 @@ export function setOneMoveSealedTrapGuardEnabled(enabled: boolean): void {
 }
 function avoidOneMoveSealedTraps(rootState: GameState, aiPlayer: Player, pool: AIAction[]): AIAction[] {
   const safe = pool.filter((action) => !createsOneMoveSealedTrap(rootState, aiPlayer, action));
+  return safe.length > 0 ? safe : pool;
+}
+
+/**
+ * Answering a corner the opponent has just entered, from outside it.
+ *
+ * 446 corner fights from the pro, community, human-vs-human and engine records
+ * were reduced to canonical lines — each move written as its pair of edge
+ * distances from the nearest corner, smaller first, so all four corners and
+ * both reflections are one sequence. Against an opponent's opening (1,2), the
+ * answers divide sharply, and the engine and people do not choose alike:
+ *
+ *                    engine (114)          people (71)
+ *   (1,2) mirror     54x  1.5 vs 2.8   53x  2.2 vs 2.4
+ *   (1,3) outside    20x  1.9 vs 3.9    4x  1.8 vs 4.3
+ *   (2,3) outside    19x  1.9 vs 3.9    1x
+ *   (1,1) inside      0x       —       10x  2.4 vs 2.3
+ *   (0,1) inside     11x  2.0 vs 1.6    2x  2.5 vs 2.0
+ *
+ * The two outside answers take half of what the other side takes, the engine
+ * plays them 39 times in 114, and people almost never do. This is the same
+ * thing `corner-depth.mts` measures across whole games: over 275 contested
+ * corners the side nearer the corner finished with 4.1 cells against 1.0, and
+ * the engine was the outside one in 68% of them.
+ *
+ * So this refuses only those two points, only when they are answering, and only
+ * while something further in is still available — the narrow shape that worked
+ * for the isolated-placement guard, rather than a shortlist, which is the shape
+ * that has failed here twice (see thinGroupGuardEnabled).
+ *
+ * Deliberately not touching (1,2): mirroring is mediocre for both sides rather
+ * than bad, and it is what the book itself plays.
+ */
+function answersCornerFromOutside(rootState: GameState, aiPlayer: Player, action: AIAction): boolean {
+  if (!cornerAnswerGuardEnabled || action.type !== "PLACE") return false;
+  const size = rootState.board.length;
+  const foe = opponent(aiPlayer);
+
+  const nearestCorner = (row: number, col: number) => {
+    const dr = Math.min(row, size - 1 - row);
+    const dc = Math.min(col, size - 1 - col);
+    return { dr, dc, top: row < size / 2, left: col < size / 2 };
+  };
+
+  const here = nearestCorner(action.row, action.col);
+  if (here.dr > CORNER_ANSWER_DEPTH || here.dc > CORNER_ANSWER_DEPTH) return false;
+  const [a, b] = here.dr <= here.dc ? [here.dr, here.dc] : [here.dc, here.dr];
+  const isOutsideAnswer = (a === 1 && b === 3) || (a === 2 && b === 3);
+  if (!isOutsideAnswer) return false;
+
+  // Only when this really is an answer: they are in this corner, I am not.
+  let mine = 0;
+  let theirs = 0;
+  let inside: AIAction | null = null;
+  for (let r = 0; r < size; r += 1) {
+    for (let c = 0; c < size; c += 1) {
+      const k = nearestCorner(r, c);
+      if (k.dr > CORNER_ANSWER_DEPTH || k.dc > CORNER_ANSWER_DEPTH) continue;
+      if (k.top !== here.top || k.left !== here.left) continue;
+      if (rootState.board[r][c] === playerCell(aiPlayer)) mine += 1;
+      else if (rootState.board[r][c] === playerCell(foe)) theirs += 1;
+      else if (rootState.board[r][c] === "EMPTY") {
+        const [ka, kb] = k.dr <= k.dc ? [k.dr, k.dc] : [k.dc, k.dr];
+        const isInside =
+          (ka === 0 && kb === 1) || (ka === 1 && kb === 1) || (ka === 0 && kb === 2);
+        if (isInside && !inside && isLegalMove(rootState, r, c, aiPlayer)) {
+          inside = { type: "PLACE", row: r, col: c };
+        }
+      }
+    }
+  }
+  if (mine > 0 || theirs !== 1) return false;
+  // Refusing the outside point is only an improvement if something further in
+  // is actually playable; otherwise this would just remove a move for nothing.
+  return inside !== null;
+}
+
+/** How deep from a corner still counts as being in it, matching the analysis. */
+const CORNER_ANSWER_DEPTH = 3;
+
+/** Whether the two losing outside answers are removed. Off until measured. */
+export let cornerAnswerGuardEnabled = false;
+export function setCornerAnswerGuardEnabled(enabled: boolean): void {
+  cornerAnswerGuardEnabled = enabled;
+}
+function avoidOutsideCornerAnswers(
+  rootState: GameState,
+  aiPlayer: Player,
+  pool: AIAction[],
+): AIAction[] {
+  const safe = pool.filter((action) => !answersCornerFromOutside(rootState, aiPlayer, action));
   return safe.length > 0 ? safe : pool;
 }
 
@@ -2436,9 +2582,12 @@ function findBestMoveVeryHardInner(
   const sealedTrapGuardedPool = oneMoveSealedTrapGuardEnabled
     ? avoidOneMoveSealedTraps(rootState, aiPlayer, trapGuardedPool)
     : trapGuardedPool;
-  const pool = dominatedPocketGuardEnabled
-    ? avoidDominatedPockets(rootState, aiPlayer, sealedTrapGuardedPool)
+  const cornerAnswerPool = cornerAnswerGuardEnabled
+    ? avoidOutsideCornerAnswers(rootState, aiPlayer, sealedTrapGuardedPool)
     : sealedTrapGuardedPool;
+  const pool = dominatedPocketGuardEnabled
+    ? avoidDominatedPockets(rootState, aiPlayer, cornerAnswerPool)
+    : cornerAnswerPool;
 
   // Work out whether a large enclosure is about to happen *before* spending any
   // of the budget on reading fights. The plan is pure enumeration and costs

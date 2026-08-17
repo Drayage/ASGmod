@@ -2,6 +2,7 @@ import { setSealedLibertyThreshold, tuning } from "./ai";
 import {
   setCornerBookEnabled,
   setCornerBookFinishEnabled,
+  setCornerAnswerInsideEnabled,
   setCornerBookFollowEnabled,
   setCornerBookSpreadEnabled,
   setEyeMakingDefenceEnabled,
@@ -36,7 +37,7 @@ import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
  * label is what a record shows. Ten entries in the picker was nine questions
  * being asked at once, which is not what any of them were for.
  */
-export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW" | "EYE_SEALGATE" | "EYE_SEALWALK" | "EYE_LONETRAP";
+export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW" | "EYE_INSIDE" | "EYE_SEALGATE" | "EYE_SEALWALK" | "EYE_LONETRAP";
 
 interface VariantEntry {
   value: AIVariant;
@@ -55,6 +56,11 @@ export const AI_VARIANTS: ReadonlyArray<VariantEntry> = [
     value: "EYE_FOLLOW",
     label: "기본 + 귀 따라두기",
     help: "기본에, 귀에 쓰는 돌 수를 상대에 맞추는 규칙을 더합니다. 한 돌씩으로 동수면 그 귀를 두고 아무도 없는 귀로 가고, 상대가 두 돌째를 놓으면 돌아와 맞춥니다. 빈 판 240판에서 승률 52.5%로 유일하게 50%를 넘겼지만 집은 0.28칸 적었고, 둘 다 우연과 구분되지 않는 크기입니다. 사람 상대에서 어떤지가 남은 질문입니다.",
+  },
+  {
+    value: "EYE_INSIDE",
+    label: "기본 + 귀 안쪽 응수",
+    help: "기본에, 상대가 이미 돌을 둔 귀에 들어갈 때는 (1,2) 대신 귀 옆 1선 (0,1) 에 두는 규칙을 더합니다. 지금 북에는 (1,2) 점 여덟 개뿐이고 (0,1) 은 아예 없어서, 빈 귀를 짓는 자리와 상대 귀에 답하는 자리를 같은 점으로 씁니다. 한 귀만 떼어 끝까지 푼 결과 응수 자리별 평균은 (0,1) +0.24, (1,1) −0.38, (1,2) −1.16, (1,3) −1.32, (2,3) −1.63 으로, 플러스가 나오는 자리는 (0,1) 하나뿐이고 판 크기와 돌 수를 바꿔도 순서가 그대로였습니다. 빈 귀에 먼저 두는 자리는 (1,2) 그대로입니다.",
   },
   {
     value: "EYE_SEALGATE",
@@ -121,6 +127,7 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FRAME" ||
     variant === "EYE_FRAME_TIGHT" ||
     variant === "EYE_FOLLOW" ||
+    variant === "EYE_INSIDE" ||
     variant === "EYE_SEALGATE" ||
     variant === "EYE_SEALWALK" ||
     variant === "EYE_LONETRAP";
@@ -133,6 +140,7 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FRAME" ||
     variant === "EYE_FRAME_TIGHT" ||
     variant === "EYE_FOLLOW" ||
+    variant === "EYE_INSIDE" ||
     variant === "EYE_SEALGATE" ||
     variant === "EYE_SEALWALK" ||
     variant === "EYE_LONETRAP";
@@ -141,6 +149,7 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FRAME" ||
     variant === "EYE_FRAME_TIGHT" ||
     variant === "EYE_FOLLOW" ||
+    variant === "EYE_INSIDE" ||
     variant === "EYE_SEALGATE" ||
     variant === "EYE_SEALWALK" ||
     variant === "EYE_LONETRAP";
@@ -168,6 +177,9 @@ export function applyAIVariant(variant: AIVariant): void {
   // fewer, and neither number is outside what chance produces at that count. On
   // the picker so it can be judged where the arena cannot judge it.
   setCornerBookFollowEnabled(variant === "EYE_FOLLOW");
+  // Answering a corner they are in at (0,1) rather than the frame point. See the
+  // flag's comment in minimax.ts for the per-point means behind it.
+  setCornerAnswerInsideEnabled(variant === "EYE_INSIDE");
   // Widening what `sealed` can see past three liberties — see its own comment
   // in ai.ts. Measured null on the arena's own engine opponent (53.75% of 240,
   // territory flat), which is expected: the arena's opponent does not hunt a
