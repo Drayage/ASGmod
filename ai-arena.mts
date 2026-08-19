@@ -35,6 +35,7 @@ import {
   setSelfInflictedSealedGuardEnabled,
   setOneMoveSealedTrapGuardEnabled,
   setCornerAnswerGuardEnabled,
+  setCornerAnswerInsideEnabled,
   setCornerFrameCentreEnabled,
   setLargerEnclosureEnabled,
   setSealOverridesBookEnabled,
@@ -158,6 +159,8 @@ type Engine =
   | "VH_NOONESEAL"
   | "VH_CORNERANS"
   | "VH_NOCORNERANS"
+  | "VH_INSIDE"
+  | "VH_NOINSIDE"
   | "VH_FOLLOW"
   | "VH_FIXED"
   | "VH_CONTEST"
@@ -276,6 +279,15 @@ const TESTING_ONESEAL = process.env.ONLY === "ONESEAL";
 /** Refusing the two outside answers to an opponent's corner entry — the lines
  * that finish 1.9 against 3.9 over 446 recorded corner fights. */
 const TESTING_CORNERANS = process.env.ONLY === "CORNERANS";
+/**
+ * Answering a corner the opponent already holds at (0,1) rather than at the
+ * frame point. Solved over every board size and stone count tried, (0,1) is the
+ * only answer point with a positive mean; no (0,1) point was in the book at all.
+ * Shipped as EYE_INSIDE; this asks whether the arena's own opponent can see any
+ * difference, which it may well not — it rarely leaves a corner for the engine
+ * to answer in the shape a person does.
+ */
+const TESTING_INSIDE = process.env.ONLY === "INSIDE";
 /** Overruling the full search with a 2+ cell settle its own leaf scored higher. */
 const TESTING_SETTLE = process.env.ONLY === "SETTLE";
 /** Abandoning a corner they have answered for one nobody is in. The player's. */
@@ -482,6 +494,15 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     setOwnDiagonalBonus(0);
     setCornerAnswerGuardEnabled(engine === "VH_CORNERANS");
   }
+  if (TESTING_INSIDE) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    setCornerAnswerInsideEnabled(engine === "VH_INSIDE");
+  }
   if (TESTING_ONESEAL) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
@@ -609,6 +630,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOONESEAL" ||
     engine === "VH_CORNERANS" ||
     engine === "VH_NOCORNERANS" ||
+    engine === "VH_INSIDE" ||
+    engine === "VH_NOINSIDE" ||
     engine === "VH_FOLLOW" ||
     engine === "VH_FIXED" ||
     engine === "VH_CONTEST" ||
@@ -1041,6 +1064,9 @@ if (TESTING_ONESEAL) {
   addMatch("VH one-ply lookahead for a sealed reply, any placement", "VH_ONESEAL", "VH_NOONESEAL");
 }
 
+if (TESTING_INSIDE) {
+  addMatch("VH answer their corner at (0,1)", "VH_INSIDE", "VH_NOINSIDE");
+}
 if (TESTING_CORNERANS) {
   addMatch("VH refuse the outside answer to their corner", "VH_CORNERANS", "VH_NOCORNERANS");
 }
