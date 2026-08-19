@@ -691,6 +691,13 @@ function searchVerified(
       if (hasWidened || !widenTo || widenTo.length === 0) break;
       candidates = widenTo;
       hasWidened = true;
+      // Widening past the shortlist abandons the reason the stage fired: every
+      // move satisfying it was refuted, and what follows is an ordinary search
+      // over the whole pool. The trace has to say so, or an analysis reading it
+      // will credit the stage with work it did not do — which is exactly what
+      // happened when three straight turns recorded as "deny their framework"
+      // while the framework went uncontested and was finished by the opponent.
+      lastDecision = { ...lastDecision, stage: `${lastDecision.stage} + widened` };
     }
 
     const timeLeft = Math.max(150, deadline - Date.now());

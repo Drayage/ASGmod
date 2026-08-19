@@ -18,7 +18,7 @@ const everyName: AIVariant[] = [
 
 describe("the variant list", () => {
   it("offers only live hypotheses, with the current engine first", () => {
-    expect(AI_VARIANTS).toHaveLength(8);
+    expect(AI_VARIANTS).toHaveLength(9);
     expect(AI_VARIANTS[0].value).toBe("EYE_FRAME_TIGHT");
   });
 
