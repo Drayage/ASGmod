@@ -4,6 +4,7 @@ import {
   setCornerBookEnabled,
   setCornerBookFinishEnabled,
   setCornerAnswerInsideEnabled,
+  setCornerBookLeaveContestedEnabled,
   setCornerBookFollowEnabled,
   setCornerBookSpreadEnabled,
   setEyeMakingDefenceEnabled,
@@ -61,7 +62,7 @@ export const AI_VARIANTS: ReadonlyArray<VariantEntry> = [
   {
     value: "EYE_INSIDE",
     label: "기본 + 귀 안쪽 응수",
-    help: "기본에, 상대가 이미 돌을 둔 귀에 들어갈 때는 (1,2) 대신 귀 옆 1선 (0,1) 에 두는 규칙을 더합니다. 지금 북에는 (1,2) 점 여덟 개뿐이고 (0,1) 은 아예 없어서, 빈 귀를 짓는 자리와 상대 귀에 답하는 자리를 같은 점으로 씁니다. 한 귀만 떼어 끝까지 푼 결과 응수 자리별 평균은 (0,1) +0.24, (1,1) −0.38, (1,2) −1.16, (1,3) −1.32, (2,3) −1.63 으로, 플러스가 나오는 자리는 (0,1) 하나뿐이고 판 크기와 돌 수를 바꿔도 순서가 그대로였습니다. 빈 귀에 먼저 두는 자리는 (1,2) 그대로입니다.",
+    help: "기본에, 상대가 이미 돌을 둔 귀에 들어갈 때는 (1,2) 대신 귀 옆 1선 (0,1) 에 두는 규칙을 더합니다. 지금 북에는 (1,2) 점 여덟 개뿐이고 (0,1) 은 아예 없어서, 빈 귀를 짓는 자리와 상대 귀에 답하는 자리를 같은 점으로 씁니다. 한 귀만 떼어 끝까지 푼 결과 응수 자리별 평균은 (0,1) +0.24, (1,1) −0.38, (1,2) −1.16, (1,3) −1.32, (2,3) −1.63 으로, 플러스가 나오는 자리는 (0,1) 하나뿐이고 판 크기와 돌 수를 바꿔도 순서가 그대로였습니다. 빈 귀에 먼저 두는 자리는 (1,2) 그대로입니다. 여기에 더해, 아무도 없는 귀가 남아 있으면 상대가 이미 답한 귀에는 돌을 더 얹지 않고 그 빈 귀로 갑니다 — 플레이어가 세션 내내 지적한, 1대1이 된 귀에 하나 더 두는 동작입니다.",
   },
   {
     value: "EYE_STRIP",
@@ -189,6 +190,15 @@ export function applyAIVariant(variant: AIVariant): void {
   // Answering a corner they are in at (0,1) rather than the frame point. See the
   // flag's comment in minimax.ts for the per-point means behind it.
   setCornerAnswerInsideEnabled(variant === "EYE_INSIDE");
+  // Same variant carries the other half of the player's own corner rule: with a
+  // corner nobody is in still open, a corner they have answered in is left
+  // alone rather than made into a contested trio. The two go together — where
+  // to answer, and whether to answer at all — and splitting them across
+  // variants only multiplies the games they have to judge. The arena cannot
+  // separate them either: it measured the (0,1) half at +0.075 cells and 55.0%
+  // over 240 games, both intervals across even, because its own opponent rarely
+  // builds the corner shape a person does.
+  setCornerBookLeaveContestedEnabled(variant === "EYE_INSIDE");
   // The strip family — a wall from one rim to the opposite one. See its comment
   // in frameworks.ts for the shapes measured out of the recorded games.
   setEdgeStripFramesEnabled(variant === "EYE_STRIP");
