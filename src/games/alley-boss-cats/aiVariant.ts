@@ -2,6 +2,7 @@ import { setEdgeStripFramesEnabled } from "./engine/frameworks";
 import { setSealedLibertyThreshold, tuning } from "./ai";
 import {
   setCornerBookEnabled,
+  setFrameworkInsideDenialEnabled,
   setCornerBookFinishEnabled,
   setCornerAnswerInsideEnabled,
   setCornerBookLeaveContestedEnabled,
@@ -39,7 +40,7 @@ import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
  * label is what a record shows. Ten entries in the picker was nine questions
  * being asked at once, which is not what any of them were for.
  */
-export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW" | "EYE_INSIDE" | "EYE_STRIP" | "EYE_SEALGATE" | "EYE_SEALWALK" | "EYE_LONETRAP";
+export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW" | "EYE_INSIDE" | "EYE_STRIP" | "EYE_DENY" | "EYE_SEALGATE" | "EYE_SEALWALK" | "EYE_LONETRAP";
 
 interface VariantEntry {
   value: AIVariant;
@@ -102,6 +103,11 @@ export const AI_VARIANTS: ReadonlyArray<VariantEntry> = [
  */
 export const RETIRED_VARIANTS: ReadonlyArray<{ value: AIVariant; label: string; why: string }> = [
   { value: "STANDARD", label: "이전 엔진", why: "눈 만들기 이전 동작. 기준선은 EYE로 옮겼습니다." },
+  {
+    value: "EYE_DENY",
+    label: "귀 안쪽 응수 + 틀 안에 들어가기",
+    why: "아레나 240판에서 승률 42.9% [36.7%, 49.2%] 로, 구간 위쪽 끝이 50% 아래인 첫 변형입니다. 집은 오히려 +0.28칸 많은데 판을 더 지는데, 상대 영역에 박은 돌이 잡히면 그 판이 끝나기 때문입니다. 이유는 기보에서 바로 나옵니다 — 3561턴에서 발동 가능한 205턴이 전부 6칸짜리 귀 삼각형이었습니다. 6칸 벌자고 판 전체를 건 셈이고, 크기 조건을 걸면 아예 발동하지 않습니다.",
+  },
   { value: "THIN_GUARD", label: "얇은 그룹 방어", why: "이득이 확인되지 않았습니다." },
   { value: "EYE_THIN", label: "눈 만들기 + 얇은 그룹", why: "이득이 확인되지 않았습니다." },
   { value: "EYE_CORNER", label: "눈 만들기 + 귀 선수점", why: "귀 예산이 다섯 수에서 끊겨 정석을 못 끝냈습니다. EYE_FRAME_TIGHT이 대체합니다." },
@@ -117,6 +123,27 @@ export function variantLabel(variant: AIVariant | undefined): string {
   if (live) return live.label;
   return RETIRED_VARIANTS.find((v) => v.value === variant)?.label ?? variant;
 }
+
+/**
+ * WARNING for measurement scripts: this function writes into module-level
+ * variables in minimax.ts, moveOrdering.ts and the rest, and under `vite-node`
+ * those writes only reach the reader when both are resolved through the *same*
+ * module graph. A script whose entry file lives outside the project root gets a
+ * second copy of the engine modules: `applyAIVariant` succeeds, returns
+ * normally, and every flag it set stays at its default in the copy the script
+ * itself imported. There is no error and no warning — the measurement simply
+ * runs STANDARD and reports it as whatever variant was asked for.
+ *
+ * It cost a set of readings that had to be thrown away. Two ways to stay safe,
+ * either is enough:
+ *
+ *   - keep the entry `.mts` in the repository root, like every committed one;
+ *   - or assert it took, e.g. after applying EYE_INSIDE check that
+ *     `cornerBookEnabled` is actually true, and fail loudly if not.
+ *
+ * Under `vitest` the graph is shared and this cannot happen; there is a test
+ * covering it in aiVariant.test.ts.
+ */
 
 /** Points per liberty of a thin group that could still be closed into an eye. */
 const EYE_SPACE_WEIGHT = 60;
@@ -136,6 +163,7 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FOLLOW" ||
     variant === "EYE_INSIDE" ||
     variant === "EYE_STRIP" ||
+    variant === "EYE_DENY" ||
     variant === "EYE_SEALGATE" ||
     variant === "EYE_SEALWALK" ||
     variant === "EYE_LONETRAP";
@@ -150,6 +178,7 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FOLLOW" ||
     variant === "EYE_INSIDE" ||
     variant === "EYE_STRIP" ||
+    variant === "EYE_DENY" ||
     variant === "EYE_SEALGATE" ||
     variant === "EYE_SEALWALK" ||
     variant === "EYE_LONETRAP";
@@ -160,6 +189,7 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FOLLOW" ||
     variant === "EYE_INSIDE" ||
     variant === "EYE_STRIP" ||
+    variant === "EYE_DENY" ||
     variant === "EYE_SEALGATE" ||
     variant === "EYE_SEALWALK" ||
     variant === "EYE_LONETRAP";
@@ -189,7 +219,7 @@ export function applyAIVariant(variant: AIVariant): void {
   setCornerBookFollowEnabled(variant === "EYE_FOLLOW");
   // Answering a corner they are in at (0,1) rather than the frame point. See the
   // flag's comment in minimax.ts for the per-point means behind it.
-  setCornerAnswerInsideEnabled(variant === "EYE_INSIDE");
+  setCornerAnswerInsideEnabled(variant === "EYE_INSIDE" || variant === "EYE_DENY");
   // Same variant carries the other half of the player's own corner rule: with a
   // corner nobody is in still open, a corner they have answered in is left
   // alone rather than made into a contested trio. The two go together — where
@@ -198,10 +228,16 @@ export function applyAIVariant(variant: AIVariant): void {
   // separate them either: it measured the (0,1) half at +0.075 cells and 55.0%
   // over 240 games, both intervals across even, because its own opponent rarely
   // builds the corner shape a person does.
-  setCornerBookLeaveContestedEnabled(variant === "EYE_INSIDE");
+  setCornerBookLeaveContestedEnabled(variant === "EYE_INSIDE" || variant === "EYE_DENY");
   // The strip family — a wall from one rim to the opposite one. See its comment
   // in frameworks.ts for the shapes measured out of the recorded games.
   setEdgeStripFramesEnabled(variant === "EYE_STRIP");
+  // Stage 1.87's second way to deny a frame: play inside it when every wall
+  // point is capturable. See opponentFrameworkInsideMoves in minimax.ts for the
+  // fourteen-of-fourteen measurement, and note that the arena is the wrong
+  // instrument here for the same reason it was for EYE_INSIDE — its opponent
+  // does not build the loose rim-leaning region a person does.
+  setFrameworkInsideDenialEnabled(variant === "EYE_DENY");
   // Widening what `sealed` can see past three liberties — see its own comment
   // in ai.ts. Measured null on the arena's own engine opponent (53.75% of 240,
   // territory flat), which is expected: the arena's opponent does not hunt a

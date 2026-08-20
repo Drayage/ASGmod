@@ -228,9 +228,45 @@ export interface FrameworkVerdict {
 }
 
 /** Budget per invasion read. Deliberately small: this runs over several frames
- * and the reader is only confirming a local kill, not solving the board. */
-const INVASION_READ_MS = 25;
-const INVASION_READ_DEPTH = 5;
+ * and the reader is only confirming a local kill, not solving the board.
+ *
+ * Settable so the cost of being cheap here can be measured rather than argued
+ * about. Note which way the cheapness errs: an unproven kill counts the invasion
+ * as *living*, so a starved read makes frames look insecure, not secure — and
+ * both stages that consult this only fire on secure frames. Being cheap here
+ * therefore shows up as the engine ignoring frames, its own and the
+ * opponent's. */
+let invasionReadMs = 25;
+let invasionReadDepth = 5;
+export function setInvasionRead(ms: number, depth: number): void {
+  invasionReadMs = ms;
+  invasionReadDepth = depth;
+}
+export function invasionRead(): { ms: number; depth: number } {
+  return { ms: invasionReadMs, depth: invasionReadDepth };
+}
+
+/**
+ * Whether the invasion read works up to its depth instead of diving straight to
+ * it. findForcedCapture takes a fixed depth and a deadline, with no deepening of
+ * its own, so a deeper cap does not mean a deeper answer — it means the first
+ * candidate's subtree eats the whole 25ms and the shallow proofs that were
+ * being found at depth five are never reached. Measured over 1187 recorded
+ * engine turns, raising the cap from five to eight found *fewer* secure frames
+ * (16.0% to 13.9%) at three and a half times the cost. Working up finds the
+ * cheap proof first and only spends what is left going deeper.
+ */
+export let invasionDeepenEnabled = false;
+export function setInvasionDeepenEnabled(value: boolean): void {
+  invasionDeepenEnabled = value;
+}
+
+/** Whether the invasion read gives the frame's owner one move or two. See the
+ * comment at the findForcedCapture call below. Off until measured. */
+export let invasionTempoHonest = false;
+export function setInvasionTempoHonest(value: boolean): void {
+  invasionTempoHonest = value;
+}
 /** Checking every cell of a large region costs more than it is worth; the
  * roomiest points are the ones an invader would actually choose. */
 const MAX_INVASION_CHECKS = 6;
@@ -284,7 +320,7 @@ export function judgeFramework(
     // cats closing it early. Reading the invasion without this reply says no
     // frame is ever safe until it is already territory, which is true but
     // useless: it is just the definition of territory again.
-    if (frame.missing.length === 1) {
+    if (frame.missing.length === 1 && !invasionTempoHonest) {
       const gap = frame.missing[0];
       if (isLegalMove(invaded, gap.row, gap.col, player)) {
         invaded = applyAction({ ...invaded, currentPlayer: player }, { type: "PLACE", ...gap });
@@ -301,13 +337,39 @@ export function judgeFramework(
     // about the invasion. Taking any kill as proof made every frame in a test
     // position look secure, including ones six moves from being closed, because
     // the opponent happened to have a weak cat in a far corner.
-    const kill = findForcedCapture(
-      { ...invaded, currentPlayer: player },
-      player,
-      INVASION_READ_DEPTH,
-      INVASION_READ_MS,
-    );
-    const killedTheInvader = kill !== null && kill.target.row === cell.row && kill.target.col === cell.col;
+    //
+    // The turn is forced to the owner because findForcedCapture reads with the
+    // attacker to move and refuses any other state. That is free when the
+    // closing reply above did not run — after their invasion it *is* the
+    // owner's turn. When it did run, the owner has now played twice in a row
+    // and the invader never answered, which hands the defence a tempo it would
+    // not have in the game and reports invasions dead that are not.
+    // `invasionTempoHonest` takes that tempo back by not closing at all, so the
+    // owner spends its one move hunting: fewer frames come back secure, and the
+    // ones that do are secure against a move order that can actually happen.
+    const hunt = { ...invaded, currentPlayer: player };
+    const isTheInvader = (kill: ReturnType<typeof findForcedCapture>) =>
+      kill !== null && kill.target.row === cell.row && kill.target.col === cell.col;
+
+    let killedTheInvader = false;
+    if (invasionDeepenEnabled) {
+      // Odd depths only: a forced capture is proven on the attacker's move, so
+      // an even cap spends its last ply on the defender and can never finish a
+      // proof the odd one below it did not already find.
+      const readDeadline = Date.now() + invasionReadMs;
+      for (let d = 3; d <= invasionReadDepth; d += 2) {
+        const left = readDeadline - Date.now();
+        if (left <= 0) break;
+        if (isTheInvader(findForcedCapture(hunt, player, d, left))) {
+          killedTheInvader = true;
+          break;
+        }
+      }
+    } else {
+      killedTheInvader = isTheInvader(
+        findForcedCapture(hunt, player, invasionReadDepth, invasionReadMs),
+      );
+    }
     if (!killedTheInvader) livingInvasions.push(cell);
   }
 
@@ -353,7 +415,7 @@ export function rankFrameworks(state: GameState, player: Player, budgetMs = 400)
   for (const frame of candidateFrameworks(state.board, player)) {
     if (Date.now() >= deadline) break;
     if (frame.intruders.length > 0) continue; // already broken into
-    verdicts.push(judgeFramework(state, player, frame, INVASION_READ_MS * MAX_INVASION_CHECKS));
+    verdicts.push(judgeFramework(state, player, frame, invasionReadMs * MAX_INVASION_CHECKS));
   }
 
   return verdicts.sort((a, b) => {
