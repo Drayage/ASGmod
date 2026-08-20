@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AI_VARIANTS, RETIRED_VARIANTS, applyAIVariant, variantLabel } from "./aiVariant";
 import type { AIVariant } from "./aiVariant";
-import { cornerBookFollowEnabled } from "./engine/minimax";
+import { cornerBookEnabled, cornerBookFollowEnabled, frameworkInsideDenialEnabled } from "./engine/minimax";
 import { sealedLibertyThreshold, tuning } from "./ai";
 import { oneMoveSealedTrapGuardEnabled, selfInflictedSealedGuardEnabled } from "./engine/minimax";
 
@@ -17,8 +17,32 @@ const everyName: AIVariant[] = [
 ];
 
 describe("the variant list", () => {
+  /**
+   * Not a test of the variant table but of the wiring underneath it: applying a
+   * variant has to reach the same module the rest of the program reads. It does
+   * under vitest and under any entry file inside the project root, and it
+   * silently does not under vite-node from outside it — see the warning on
+   * applyAIVariant. This is here so the assumption is stated somewhere that
+   * fails when it stops holding.
+   */
+  it("actually reaches the modules it sets", () => {
+    applyAIVariant("STANDARD");
+    expect(cornerBookEnabled).toBe(false);
+    applyAIVariant("EYE_FRAME_TIGHT");
+    expect(cornerBookEnabled).toBe(true);
+  });
+
+  it("puts the framework-inside fallback on EYE_DENY alone", () => {
+    applyAIVariant("EYE_INSIDE");
+    expect(frameworkInsideDenialEnabled).toBe(false);
+    applyAIVariant("EYE_DENY");
+    expect(frameworkInsideDenialEnabled).toBe(true);
+    applyAIVariant("EYE_FRAME_TIGHT");
+    expect(frameworkInsideDenialEnabled).toBe(false);
+  });
+
   it("offers only live hypotheses, with the current engine first", () => {
-    expect(AI_VARIANTS).toHaveLength(9);
+    expect(AI_VARIANTS).toHaveLength(10);
     expect(AI_VARIANTS[0].value).toBe("EYE_FRAME_TIGHT");
   });
 

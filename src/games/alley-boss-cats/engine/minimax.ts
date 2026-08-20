@@ -88,6 +88,15 @@ export function setOpponentFrameworkGuardEnabled(enabled: boolean): void {
   opponentFrameworkGuardEnabled = enabled;
 }
 
+/** Whether stage 1.87 may fall back to playing inside a frame whose wall points
+ * are all capturable, instead of giving its reason up. See
+ * opponentFrameworkInsideMoves for the fourteen-out-of-fourteen measurement
+ * this exists for. */
+export let frameworkInsideDenialEnabled = false;
+export function setFrameworkInsideDenialEnabled(enabled: boolean): void {
+  frameworkInsideDenialEnabled = enabled;
+}
+
 /**
  * Same, for thinGroupDanger — stage 1.75. Off, on the arena's evidence.
  *
@@ -658,18 +667,38 @@ const MAX_VERIFY_ATTEMPTS = 6;
  * is exhausted. A territorial shortlist can be as small as one or two moves
  * — if every one of those is refuted, retrying within that same tiny list
  * has nothing left to offer, even though the wider legal pool still has
- * genuinely safe moves the shortlist never included. */
+ * genuinely safe moves the shortlist never included.
+ *
+ * `beforeWidening` is a second shortlist tried in between: still moves that
+ * serve the stage's reason, just a different way of serving it. It exists
+ * because falling straight from a one-move shortlist to the whole pool throws
+ * the reason away, and the reason was usually right — see stage 1.87, whose
+ * shortlist was a single point that died on all fourteen turns it fired
+ * across four recorded games while a dozen safe moves inside the same shape
+ * went unconsidered. Reaching this tier keeps the stage's name; reaching
+ * `widenTo` does not. */
 function searchVerified(
   rootState: GameState,
   aiPlayer: Player,
   pool: AIAction[],
   budgetMs: number,
   widenTo?: AIAction[],
+  beforeWidening?: AIAction[],
 ): AIAction {
   const deadline = Date.now() + budgetMs;
   let candidates = pool;
-  let hasWidened = false;
   let choice: AIAction = pool[0];
+
+  // Fallbacks in the order they are tried, each with what it does to the trace.
+  // Only the last one abandons the stage's reason, so only it says "widened".
+  const fallbacks: Array<{ moves: AIAction[]; note: string }> = [];
+  if (beforeWidening && beforeWidening.length > 0) {
+    fallbacks.push({ moves: beforeWidening, note: " + inside" });
+  }
+  if (widenTo && widenTo.length > 0) {
+    fallbacks.push({ moves: widenTo, note: " + widened" });
+  }
+  let tier = 0;
 
   // One table across every retry, rather than one per attempt. A refuted
   // candidate only removes a move from the *root* list; every position below
@@ -688,16 +717,17 @@ function searchVerified(
 
   for (let attempt = 0; attempt < MAX_VERIFY_ATTEMPTS; attempt++) {
     if (candidates.length === 0) {
-      if (hasWidened || !widenTo || widenTo.length === 0) break;
-      candidates = widenTo;
-      hasWidened = true;
+      const next = fallbacks[tier];
+      tier += 1;
+      if (!next) break;
+      candidates = next.moves;
       // Widening past the shortlist abandons the reason the stage fired: every
       // move satisfying it was refuted, and what follows is an ordinary search
       // over the whole pool. The trace has to say so, or an analysis reading it
       // will credit the stage with work it did not do — which is exactly what
       // happened when three straight turns recorded as "deny their framework"
       // while the framework went uncontested and was finished by the opponent.
-      lastDecision = { ...lastDecision, stage: `${lastDecision.stage} + widened` };
+      lastDecision = { ...lastDecision, stage: `${lastDecision.stage}${next.note}` };
     }
 
     const timeLeft = Math.max(150, deadline - Date.now());
@@ -2320,6 +2350,83 @@ function opponentFrameworkDenialMoves(rootState: GameState, aiPlayer: Player): A
   return moves;
 }
 
+/** How many interior points stage 1.87 will offer when the wall is all dead.
+ * The same reasoning as MAX_INVASION_CHECKS in frameworks.ts: an invader picks
+ * the roomiest point, and reading a whole region costs more than it returns. */
+const MAX_INSIDE_DENIALS = 6;
+
+/**
+ * The other way to deny a frame: live inside it.
+ *
+ * opponentFrameworkDenialMoves names the frame's missing *wall* points, and its
+ * own comment explains why — a wall point sits on the frontier, connected to
+ * the open board, so it only has to survive, not survive surrounded. That is
+ * true and it is not enough. Measured over four recorded games against the
+ * player, stage 1.87 fired fourteen times, and on all fourteen every wall point
+ * it could name was capturable, so the stage widened to an ordinary search and
+ * the frame went uncontested. The frames were not corner cuts in any tight
+ * sense — they were large regions leaning on two board rims, which
+ * candidateFrameworks can only describe as a corner cut whose one missing cell
+ * is a first-line point deep behind the opponent's wall. One point, and it dies.
+ *
+ * On those same turns an average of 12.4 cells that ended up as the opponent's
+ * territory were empty, legal and — checked at the depth searchVerified uses —
+ * not capturable. So the interior was not dead; judgeFramework only thought so,
+ * on a 25ms five-ply read that over-reports death exactly the way the corner
+ * solver over-reports it on a truncated board.
+ *
+ * Which is why these are offered as a fallback tier rather than mixed into the
+ * shortlist. When a wall point works it is still the better move — cheaper, and
+ * it does not put a stone somewhere it has to live. This is for the case the
+ * records show: the wall is unreachable and the choice is between playing
+ * inside and giving the region away.
+ *
+ * Nothing here is assumed safe. searchVerified runs the same forced-capture
+ * check on these as on every other candidate; if the cheap invasion read was
+ * right after all, they are refuted one by one and the stage widens as before.
+ */
+function opponentFrameworkInsideMoves(
+  rootState: GameState,
+  aiPlayer: Player,
+  pool: AIAction[],
+): AIAction[] {
+  const foe = opponent(aiPlayer);
+  const safe = new Set(
+    pool
+      .filter((action): action is Extract<AIAction, { type: "PLACE" }> => action.type === "PLACE")
+      .map((action) => `${action.row},${action.col}`),
+  );
+
+  const scored: Array<{ cell: Coord; room: number }> = [];
+  const seen = new Set<string>();
+  for (const verdict of rankFrameworks(rootState, foe, FRAMEWORK_READ_BUDGET_MS)) {
+    if (!verdict.secure) continue;
+    if (verdict.movesToClose === 0 || verdict.movesToClose > FRAMEWORK_MAX_GAPS) continue;
+
+    for (const cell of verdict.frame.enclosed) {
+      const key = `${cell.row},${cell.col}`;
+      if (seen.has(key)) continue;
+      if (!safe.has(key)) continue;
+      if (!isLegalMove(rootState, cell.row, cell.col, aiPlayer)) continue;
+      seen.add(key);
+      // Room, not distance: the point an invader wants is the one with the most
+      // empty neighbours, which is what gives a stone somewhere to grow into.
+      let room = 0;
+      for (const [dr, dc] of DIRECTIONS) {
+        const r = cell.row + dr;
+        const c = cell.col + dc;
+        if (inBounds(r, c) && rootState.board[r][c] === "EMPTY") room += 1;
+      }
+      scored.push({ cell, room });
+    }
+  }
+
+  return scored
+    .sort((a, b) => b.room - a.room)
+    .slice(0, MAX_INSIDE_DENIALS)
+    .map(({ cell }): AIAction => ({ type: "PLACE", row: cell.row, col: cell.col }));
+}
+
 /**
  * Seals the opponent can materially take away.
  *
@@ -2747,8 +2854,21 @@ function findBestMoveVeryHardInner(
     : [];
   if (opponentFrameworkMoves.length > 0) {
     const opponentFrameworkBudget = Math.max(300, deadline - Date.now());
+    // Living inside the frame is the second way to deny it, tried only when the
+    // wall is unreachable. Computed here rather than inside searchVerified so
+    // the cost is paid once, and only on turns this stage actually fires.
+    const inside = frameworkInsideDenialEnabled
+      ? opponentFrameworkInsideMoves(rootState, aiPlayer, pool)
+      : [];
     note("1.87 deny their framework", opponentFrameworkMoves.length, pool.length, opponentFrameworkMoves);
-    return searchVerified(rootState, aiPlayer, opponentFrameworkMoves, opponentFrameworkBudget, pool);
+    return searchVerified(
+      rootState,
+      aiPlayer,
+      opponentFrameworkMoves,
+      opponentFrameworkBudget,
+      pool,
+      inside,
+    );
   }
 
   // 1.9. Nothing is in danger. Is there a corner cut of my own that is one or

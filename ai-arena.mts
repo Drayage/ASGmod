@@ -31,6 +31,7 @@ import {
   setCornerBookSpreadStones,
   setSettleOverSearchEnabled,
   setCornerBookLeaveContestedEnabled,
+  setFrameworkInsideDenialEnabled,
   setCornerBookFollowEnabled,
   setSelfInflictedSealedGuardEnabled,
   setOneMoveSealedTrapGuardEnabled,
@@ -161,6 +162,8 @@ type Engine =
   | "VH_NOCORNERANS"
   | "VH_INSIDE"
   | "VH_NOINSIDE"
+  | "VH_DENYIN"
+  | "VH_NODENYIN"
   | "VH_FOLLOW"
   | "VH_FIXED"
   | "VH_CONTEST"
@@ -288,6 +291,14 @@ const TESTING_CORNERANS = process.env.ONLY === "CORNERANS";
  * to answer in the shape a person does.
  */
 const TESTING_INSIDE = process.env.ONLY === "INSIDE";
+/**
+ * Stage 1.87's fallback: when every wall point of the opponent's frame is
+ * capturable, play inside the frame instead of giving the reason up. Measured
+ * on four recorded games against the player it fired fourteen times and widened
+ * fourteen times; here the question is only whether keeping the reason costs
+ * anything against an opponent that rarely builds the shape in the first place.
+ */
+const TESTING_DENYIN = process.env.ONLY === "DENYIN";
 /** Overruling the full search with a 2+ cell settle its own leaf scored higher. */
 const TESTING_SETTLE = process.env.ONLY === "SETTLE";
 /** Abandoning a corner they have answered for one nobody is in. The player's. */
@@ -503,6 +514,19 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     setOwnDiagonalBonus(0);
     setCornerAnswerInsideEnabled(engine === "VH_INSIDE");
   }
+  if (TESTING_DENYIN) {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setEyeMakingDefenceEnabled(true);
+    tuning.eyeSpaceWeight = EYE_W;
+    setOwnDiagonalBonus(0);
+    // Both arms carry the shipped corner rules, so the only difference between
+    // them is the fallback itself.
+    setCornerAnswerInsideEnabled(true);
+    setCornerBookLeaveContestedEnabled(true);
+    setFrameworkInsideDenialEnabled(engine === "VH_DENYIN");
+  }
   if (TESTING_ONESEAL) {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
@@ -632,6 +656,8 @@ function decide(state: GameState, player: Player, engine: Engine): AIAction {
     engine === "VH_NOCORNERANS" ||
     engine === "VH_INSIDE" ||
     engine === "VH_NOINSIDE" ||
+    engine === "VH_DENYIN" ||
+    engine === "VH_NODENYIN" ||
     engine === "VH_FOLLOW" ||
     engine === "VH_FIXED" ||
     engine === "VH_CONTEST" ||
@@ -1066,6 +1092,9 @@ if (TESTING_ONESEAL) {
 
 if (TESTING_INSIDE) {
   addMatch("VH answer their corner at (0,1)", "VH_INSIDE", "VH_NOINSIDE");
+}
+if (TESTING_DENYIN) {
+  addMatch("VH deny their frame from inside it", "VH_DENYIN", "VH_NODENYIN");
 }
 if (TESTING_CORNERANS) {
   addMatch("VH refuse the outside answer to their corner", "VH_CORNERANS", "VH_NOCORNERANS");

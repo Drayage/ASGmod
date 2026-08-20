@@ -2,6 +2,7 @@ import { setEdgeStripFramesEnabled } from "./engine/frameworks";
 import { setSealedLibertyThreshold, tuning } from "./ai";
 import {
   setCornerBookEnabled,
+  setFrameworkInsideDenialEnabled,
   setCornerBookFinishEnabled,
   setCornerAnswerInsideEnabled,
   setCornerBookLeaveContestedEnabled,
@@ -39,7 +40,7 @@ import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
  * label is what a record shows. Ten entries in the picker was nine questions
  * being asked at once, which is not what any of them were for.
  */
-export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW" | "EYE_INSIDE" | "EYE_STRIP" | "EYE_SEALGATE" | "EYE_SEALWALK" | "EYE_LONETRAP";
+export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW" | "EYE_INSIDE" | "EYE_STRIP" | "EYE_DENY" | "EYE_SEALGATE" | "EYE_SEALWALK" | "EYE_LONETRAP";
 
 interface VariantEntry {
   value: AIVariant;
@@ -63,6 +64,11 @@ export const AI_VARIANTS: ReadonlyArray<VariantEntry> = [
     value: "EYE_INSIDE",
     label: "기본 + 귀 안쪽 응수",
     help: "기본에, 상대가 이미 돌을 둔 귀에 들어갈 때는 (1,2) 대신 귀 옆 1선 (0,1) 에 두는 규칙을 더합니다. 지금 북에는 (1,2) 점 여덟 개뿐이고 (0,1) 은 아예 없어서, 빈 귀를 짓는 자리와 상대 귀에 답하는 자리를 같은 점으로 씁니다. 한 귀만 떼어 끝까지 푼 결과 응수 자리별 평균은 (0,1) +0.24, (1,1) −0.38, (1,2) −1.16, (1,3) −1.32, (2,3) −1.63 으로, 플러스가 나오는 자리는 (0,1) 하나뿐이고 판 크기와 돌 수를 바꿔도 순서가 그대로였습니다. 빈 귀에 먼저 두는 자리는 (1,2) 그대로입니다. 여기에 더해, 아무도 없는 귀가 남아 있으면 상대가 이미 답한 귀에는 돌을 더 얹지 않고 그 빈 귀로 갑니다 — 플레이어가 세션 내내 지적한, 1대1이 된 귀에 하나 더 두는 동작입니다.",
+  },
+  {
+    value: "EYE_DENY",
+    label: "귀 안쪽 응수 + 틀 안에 들어가기",
+    help: "'기본 + 귀 안쪽 응수' 에 한 가지만 더합니다 — 상대 틀을 견제할 때 막을 자리가 전부 잡히는 자리면, 이유를 버리고 딴 데 두는 대신 그 틀 '안쪽' 에 살러 들어갑니다. 2026-08-20 기보 4판에서 견제 단계(1.87)가 발동한 14턴 전부, 후보가 단 한 점이었고 그 한 점이 잡히는 자리라 14번 다 이유가 증발했습니다. 같은 턴에 결국 상대 집이 된 칸 중 두어도 안 잡히는 칸이 평균 12.4개 있었는데 후보에 오른 것은 0.4개였습니다. 1판은 그렇게 다섯 턴을 흘려보낸 뒤 22수 한 방에 상대 집이 1에서 13으로 늘었습니다. 원인은 견제 판단이 아니라 모양 사전입니다: 엔진이 아는 틀은 귀 대각선 자르기 하나뿐이라, 두 변에 기댄 큰 덩어리를 '빠진 칸 한 개' 로 줄여버립니다. 안쪽이 다 죽는다는 판정은 25ms·5수짜리 싼 읽기인데, 실제로 그 칸들은 600ms·6수로 읽으면 죽지 않았습니다. 들어간 돌의 안전은 기존 잡힘 검사가 그대로 확인하므로, 싼 읽기가 옳았다면 예전처럼 되돌아갑니다.",
   },
   {
     value: "EYE_STRIP",
@@ -118,6 +124,27 @@ export function variantLabel(variant: AIVariant | undefined): string {
   return RETIRED_VARIANTS.find((v) => v.value === variant)?.label ?? variant;
 }
 
+/**
+ * WARNING for measurement scripts: this function writes into module-level
+ * variables in minimax.ts, moveOrdering.ts and the rest, and under `vite-node`
+ * those writes only reach the reader when both are resolved through the *same*
+ * module graph. A script whose entry file lives outside the project root gets a
+ * second copy of the engine modules: `applyAIVariant` succeeds, returns
+ * normally, and every flag it set stays at its default in the copy the script
+ * itself imported. There is no error and no warning — the measurement simply
+ * runs STANDARD and reports it as whatever variant was asked for.
+ *
+ * It cost a set of readings that had to be thrown away. Two ways to stay safe,
+ * either is enough:
+ *
+ *   - keep the entry `.mts` in the repository root, like every committed one;
+ *   - or assert it took, e.g. after applying EYE_INSIDE check that
+ *     `cornerBookEnabled` is actually true, and fail loudly if not.
+ *
+ * Under `vitest` the graph is shared and this cannot happen; there is a test
+ * covering it in aiVariant.test.ts.
+ */
+
 /** Points per liberty of a thin group that could still be closed into an eye. */
 const EYE_SPACE_WEIGHT = 60;
 /** What one diagonally adjacent own stone adds in the move ordering. */
@@ -136,6 +163,7 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FOLLOW" ||
     variant === "EYE_INSIDE" ||
     variant === "EYE_STRIP" ||
+    variant === "EYE_DENY" ||
     variant === "EYE_SEALGATE" ||
     variant === "EYE_SEALWALK" ||
     variant === "EYE_LONETRAP";
@@ -150,6 +178,7 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FOLLOW" ||
     variant === "EYE_INSIDE" ||
     variant === "EYE_STRIP" ||
+    variant === "EYE_DENY" ||
     variant === "EYE_SEALGATE" ||
     variant === "EYE_SEALWALK" ||
     variant === "EYE_LONETRAP";
@@ -160,6 +189,7 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FOLLOW" ||
     variant === "EYE_INSIDE" ||
     variant === "EYE_STRIP" ||
+    variant === "EYE_DENY" ||
     variant === "EYE_SEALGATE" ||
     variant === "EYE_SEALWALK" ||
     variant === "EYE_LONETRAP";
@@ -189,7 +219,7 @@ export function applyAIVariant(variant: AIVariant): void {
   setCornerBookFollowEnabled(variant === "EYE_FOLLOW");
   // Answering a corner they are in at (0,1) rather than the frame point. See the
   // flag's comment in minimax.ts for the per-point means behind it.
-  setCornerAnswerInsideEnabled(variant === "EYE_INSIDE");
+  setCornerAnswerInsideEnabled(variant === "EYE_INSIDE" || variant === "EYE_DENY");
   // Same variant carries the other half of the player's own corner rule: with a
   // corner nobody is in still open, a corner they have answered in is left
   // alone rather than made into a contested trio. The two go together — where
@@ -198,10 +228,16 @@ export function applyAIVariant(variant: AIVariant): void {
   // separate them either: it measured the (0,1) half at +0.075 cells and 55.0%
   // over 240 games, both intervals across even, because its own opponent rarely
   // builds the corner shape a person does.
-  setCornerBookLeaveContestedEnabled(variant === "EYE_INSIDE");
+  setCornerBookLeaveContestedEnabled(variant === "EYE_INSIDE" || variant === "EYE_DENY");
   // The strip family — a wall from one rim to the opposite one. See its comment
   // in frameworks.ts for the shapes measured out of the recorded games.
   setEdgeStripFramesEnabled(variant === "EYE_STRIP");
+  // Stage 1.87's second way to deny a frame: play inside it when every wall
+  // point is capturable. See opponentFrameworkInsideMoves in minimax.ts for the
+  // fourteen-of-fourteen measurement, and note that the arena is the wrong
+  // instrument here for the same reason it was for EYE_INSIDE — its opponent
+  // does not build the loose rim-leaning region a person does.
+  setFrameworkInsideDenialEnabled(variant === "EYE_DENY");
   // Widening what `sealed` can see past three liberties — see its own comment
   // in ai.ts. Measured null on the arena's own engine opponent (53.75% of 240,
   // territory flat), which is expected: the arena's opponent does not hunt a
