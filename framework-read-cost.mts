@@ -15,7 +15,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { applyAction } from "./src/games/alley-boss-cats/ai";
-import { rankFrameworks, setInvasionRead } from "./src/games/alley-boss-cats/engine/frameworks";
+import { rankFrameworks, setInvasionDeepenEnabled, setInvasionRead, setInvasionTempoHonest } from "./src/games/alley-boss-cats/engine/frameworks";
 import { createInitialState } from "./src/games/alley-boss-cats/rules";
 import { opponent } from "./src/games/alley-boss-cats/types";
 import type { GameState, Player } from "./src/games/alley-boss-cats/types";
@@ -62,6 +62,8 @@ console.log(
   `${"ms".padStart(4)}${"깊이".padStart(5)}${"바깥예산".padStart(9)}` +
   `${"상대 틀 있음".padStart(14)}${"내 틀 있음".padStart(13)}${"턴당 ms".padStart(10)}`,
 );
+setInvasionTempoHonest(process.env.TEMPO === "honest");
+setInvasionDeepenEnabled(process.env.DEEPEN === "1");
 for (const [ms, depth, outer] of SETTINGS) {
   setInvasionRead(ms, depth);
   let theirs = 0;

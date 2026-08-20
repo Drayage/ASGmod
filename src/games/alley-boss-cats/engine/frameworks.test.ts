@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { candidateFrameworks, judgeFramework, rankFrameworks } from "./frameworks";
+import { candidateFrameworks, invasionRead, judgeFramework, rankFrameworks, setInvasionRead } from "./frameworks";
 import { createInitialState } from "../rules";
 import { calculateTerritories } from "../territory";
 import { BOARD_SIZE, CENTER, playerCell } from "../types";
@@ -58,6 +58,15 @@ describe("corner frameworks", () => {
     // every way in. Room to live scales with the size of the region, so a
     // sprawling frame is a claim rather than a holding — which is why taking a
     // modest corner beats sketching out half the board.
+    //
+    // The per-invasion read is pinned generously because the claim is about the
+    // two shapes, not about the clock: on a loaded machine the default 25ms
+    // fails to prove the small frame's kills either, both sides come back at
+    // MAX_INVASION_CHECKS, and the comparison says nothing. Restored afterwards
+    // so the rest of the file sees the shipped setting.
+    const shipped = invasionRead();
+    setInvasionRead(400, shipped.depth);
+    try {
     const small = position([[0, 4], [1, 3], [2, 2], [3, 1]], [[6, 6]]);
     const big = position([[0, 6], [1, 5], [2, 4], [3, 3], [4, 2], [5, 1]], [[8, 8]]);
 
@@ -67,6 +76,9 @@ describe("corner frameworks", () => {
     expect(smallVerdict.size).toBe(10);
     expect(bigVerdict.size).toBe(21);
     expect(bigVerdict.livingInvasions.length).toBeGreaterThan(smallVerdict.livingInvasions.length);
+    } finally {
+      setInvasionRead(shipped.ms, shipped.depth);
+    }
   });
 
   it("calls a closed corner secure and needs nothing more spent on it", () => {

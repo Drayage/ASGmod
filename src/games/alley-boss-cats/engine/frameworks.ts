@@ -246,6 +246,21 @@ export function invasionRead(): { ms: number; depth: number } {
   return { ms: invasionReadMs, depth: invasionReadDepth };
 }
 
+/**
+ * Whether the invasion read works up to its depth instead of diving straight to
+ * it. findForcedCapture takes a fixed depth and a deadline, with no deepening of
+ * its own, so a deeper cap does not mean a deeper answer — it means the first
+ * candidate's subtree eats the whole 25ms and the shallow proofs that were
+ * being found at depth five are never reached. Measured over 1187 recorded
+ * engine turns, raising the cap from five to eight found *fewer* secure frames
+ * (16.0% to 13.9%) at three and a half times the cost. Working up finds the
+ * cheap proof first and only spends what is left going deeper.
+ */
+export let invasionDeepenEnabled = false;
+export function setInvasionDeepenEnabled(value: boolean): void {
+  invasionDeepenEnabled = value;
+}
+
 /** Whether the invasion read gives the frame's owner one move or two. See the
  * comment at the findForcedCapture call below. Off until measured. */
 export let invasionTempoHonest = false;
@@ -332,13 +347,29 @@ export function judgeFramework(
     // `invasionTempoHonest` takes that tempo back by not closing at all, so the
     // owner spends its one move hunting: fewer frames come back secure, and the
     // ones that do are secure against a move order that can actually happen.
-    const kill = findForcedCapture(
-      { ...invaded, currentPlayer: player },
-      player,
-      invasionReadDepth,
-      invasionReadMs,
-    );
-    const killedTheInvader = kill !== null && kill.target.row === cell.row && kill.target.col === cell.col;
+    const hunt = { ...invaded, currentPlayer: player };
+    const isTheInvader = (kill: ReturnType<typeof findForcedCapture>) =>
+      kill !== null && kill.target.row === cell.row && kill.target.col === cell.col;
+
+    let killedTheInvader = false;
+    if (invasionDeepenEnabled) {
+      // Odd depths only: a forced capture is proven on the attacker's move, so
+      // an even cap spends its last ply on the defender and can never finish a
+      // proof the odd one below it did not already find.
+      const readDeadline = Date.now() + invasionReadMs;
+      for (let d = 3; d <= invasionReadDepth; d += 2) {
+        const left = readDeadline - Date.now();
+        if (left <= 0) break;
+        if (isTheInvader(findForcedCapture(hunt, player, d, left))) {
+          killedTheInvader = true;
+          break;
+        }
+      }
+    } else {
+      killedTheInvader = isTheInvader(
+        findForcedCapture(hunt, player, invasionReadDepth, invasionReadMs),
+      );
+    }
     if (!killedTheInvader) livingInvasions.push(cell);
   }
 
