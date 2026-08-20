@@ -228,25 +228,44 @@ describe("cornerBookMove with the finishing budget", () => {
 /**
  * Leaving a corner the opponent has answered, which is the player's own read of
  * the position: the engine plays (1,2), they answer at (2,1), and the engine
- * spends a third stone there while a corner nobody is in sits open.
+ * spends a *third* stone there while a corner nobody is in sits open.
+ *
+ * The third is the whole point, and the first version of this rule missed it —
+ * without a stone count it refused the second stone too, so a corner they
+ * answered immediately was abandoned holding one stone. Against an opponent who
+ * mirrors every corner that is every corner. Over 100 recorded games decided on
+ * count, a quadrant holding one, two or three stones is worth 0.00, 0.20 and
+ * 0.17 cells to the player and nothing at all to the engine; the return only
+ * appears at four. So the pair gets finished first, and the rule applies to the
+ * stone after it.
  */
 describe("a corner they have answered", () => {
-  const contested = () => withStones([[1, 2, "A"], [2, 1, "B"]]);
+  const onePlusTheirs = () => withStones([[1, 2, "A"], [2, 1, "B"]]);
+  const pairPlusTheirs = () => withStones([[1, 2, "A"], [0, 3, "A"], [2, 1, "B"]]);
 
   it("is built up by default, which is what the player saw", () => {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
     setCornerBookSpreadEnabled(true);
-    const state = contested();
+    const state = onePlusTheirs();
     expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("0,3");
   });
 
-  it("is left for an empty corner when the rule is on", () => {
+  it("still finishes the pair when the rule is on", () => {
     setCornerBookEnabled(true);
     setCornerBookFinishEnabled(true);
     setCornerBookSpreadEnabled(true);
     setCornerBookLeaveContestedEnabled(true);
-    const state = contested();
+    const state = onePlusTheirs();
+    expect(at(cornerBookMove(state, "A", pool(state, "A")))).toBe("0,3");
+  });
+
+  it("is left for an empty corner once the pair stands", () => {
+    setCornerBookEnabled(true);
+    setCornerBookFinishEnabled(true);
+    setCornerBookSpreadEnabled(true);
+    setCornerBookLeaveContestedEnabled(true);
+    const state = pairPlusTheirs();
     const move = cornerBookMove(state, "A", pool(state, "A"));
     expect(move && move.type === "PLACE").toBe(true);
     if (move && move.type === "PLACE") {

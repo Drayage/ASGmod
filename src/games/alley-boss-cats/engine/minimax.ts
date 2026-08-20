@@ -1279,7 +1279,33 @@ export function cornerBookMove(
       if (theirsHere > CORNER_BOOK_MAX_ENEMY) continue;
       // Their answer landed here and there is still a corner nobody is in: the
       // next stone is worth more there than as the third of a contested trio.
-      if (cornerBookLeaveContestedEnabled && emptyCornerLeft && theirsHere > 0) {
+      //
+      // Only once the pair is standing, though, and that qualifier was missing.
+      // The player asked for a rule against the *third* stone in a corner they
+      // had answered; without the stone count the rule also refused the
+      // *second*, so a corner they answered on their very next move was
+      // abandoned at one stone. Against an opponent who mirrors every corner —
+      // which is how this player opens — that is every corner, and the engine
+      // spent the whole opening holding four single stones.
+      //
+      // What that costs is on the board. Over 100 recorded games decided on
+      // count, cells finally held in a quadrant against stones spent there:
+      //
+      //     stones      1     2     3     4     5     6
+      //     human    0.00  0.20  0.17  2.87  4.33  4.92
+      //     engine   0.00  0.17  0.97  0.36  1.30  2.53
+      //
+      // Nothing under four stones is worth anything to either side. Leaving at
+      // one is leaving with the whole investment still to make, and coming back
+      // later costs the tempo twice.
+      const pairHere = held[q]?.frame ?? 0;
+      const wantPair = cornerBookSpreadEnabled ? cornerBookSpreadStones : CORNER_BOOK_FRAME_STONES;
+      if (
+        cornerBookLeaveContestedEnabled &&
+        emptyCornerLeft &&
+        theirsHere > 0 &&
+        pairHere >= wantPair
+      ) {
         continue;
       }
       if (cornerBookFollowEnabled) {
