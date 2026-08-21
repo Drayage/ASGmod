@@ -13,6 +13,13 @@
  * the moves that are facts about the position and leaves the ties to the
  * routing assertion, which covers them anyway.
  *
+ * Repeating at one budget is not enough, and the first version of this screen
+ * proved it: it cleared a case that then failed in the suite, because vitest
+ * runs files in parallel and every search there gets a fraction of the machine
+ * this script had to itself. So each case also has to survive the budget being
+ * halved. A move that is the same answer with half the reading is a fact about
+ * the position; one that changes is a tie waiting for a busy afternoon.
+ *
  *   npx vite-node screen-stage-fixture.mts
  */
 import { readFileSync, writeFileSync } from "node:fs";
@@ -41,7 +48,10 @@ for (const kase of fixture.cases) {
   for (let run = 0; run < RUNS; run += 1) {
     let s: GameState = createInitialState();
     for (const [r, c] of kase.moves) s = applyAction(s, { type: "PLACE", row: r, col: c });
-    const a = findBestMoveVeryHard(s, kase.engine as Player, fixture.budgetMs);
+    // Alternate between the fixture's budget and half of it: same answer with
+    // half the reading, or it is not pinned.
+    const budget = run % 2 === 0 ? fixture.budgetMs : Math.round(fixture.budgetMs / 2);
+    const a = findBestMoveVeryHard(s, kase.engine as Player, budget);
     seen.add(a.type === "PLACE" ? `${COLS[a.col]}${a.row + 1}` : "PASS");
     stages.add(lastDecision.stage.split(" +")[0]);
   }
