@@ -16,9 +16,14 @@
  * Repeating at one budget is not enough, and the first version of this screen
  * proved it: it cleared a case that then failed in the suite, because vitest
  * runs files in parallel and every search there gets a fraction of the machine
- * this script had to itself. So each case also has to survive the budget being
- * halved. A move that is the same answer with half the reading is a fact about
- * the position; one that changes is a tie waiting for a busy afternoon.
+ * this script had to itself. Halving the budget as well caught most of the
+ * rest, and still not all — no solo screen can sample the suite's own load.
+ *
+ * So the fixture records the *set* of moves a case was ever seen to play, and
+ * the test asks whether today's move is in it. Two tied candidates swapping
+ * under load stays inside the set; a rule that changed which move the stage
+ * wants leaves it. That is the distinction worth failing on, and unlike a
+ * tolerance it does not get looser as the machine gets busier.
  *
  *   npx vite-node screen-stage-fixture.mts
  */
@@ -33,7 +38,14 @@ const PATH = "src/games/alley-boss-cats/engine/stageRouting.fixture.json";
 const RUNS = Number(process.env.RUNS ?? 6);
 const COLS = "ABCDEFGHI";
 
-type Case = { stage: string; move: string; moves: Array<[number, number]>; engine: Player; moveStable?: boolean };
+type Case = {
+  stage: string;
+  move: string;
+  moves: Array<[number, number]>;
+  engine: Player;
+  /** Every move this case was seen to play, across budgets and repeats. */
+  moveCandidates?: string[];
+};
 const fixture = JSON.parse(readFileSync(PATH, "utf8")) as {
   variant: string; budgetMs: number; cases: Case[];
 };
@@ -55,11 +67,12 @@ for (const kase of fixture.cases) {
     seen.add(a.type === "PLACE" ? `${COLS[a.col]}${a.row + 1}` : "PASS");
     stages.add(lastDecision.stage.split(" +")[0]);
   }
-  kase.moveStable = seen.size === 1 && seen.has(kase.move);
-  if (kase.moveStable) stable += 1;
-  else console.error(`  흔들림 ${kase.stage} ${kase.moves.length + 1}수: ${[...seen].join(" / ")}`);
+  seen.add(kase.move); // the move generation recorded is part of the set
+  kase.moveCandidates = [...seen].sort();
+  if (seen.size === 1) stable += 1;
+  else console.error(`  동점 ${kase.stage} ${kase.moves.length + 1}수: ${kase.moveCandidates.join(" / ")}`);
   if (stages.size > 1) console.error(`  ** 단계도 흔들림: ${[...stages].join(" / ")}`);
 }
 
 writeFileSync(PATH, `${JSON.stringify(fixture, null, 2)}\n`);
-console.log(`\n${fixture.cases.length}개 중 수까지 고정 가능한 것 ${stable}개 (${RUNS}회 일치)`);
+console.log(`\n${fixture.cases.length}개 국면: 수가 하나로 정해지는 것 ${stable}개, 동점 후보를 가진 것 ${fixture.cases.length - stable}개 (${RUNS}회)`);
