@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import fixture from "./stageRouting.fixture.json";
 import { applyAIVariant } from "../aiVariant";
 import { applyAction } from "../ai";
@@ -64,38 +64,44 @@ function decide(kase: Case) {
 }
 
 describe("stage routing", () => {
+  // Decided once and asserted twice: each case costs a full search at the
+  // fixture's budget, so re-deciding for the second assertion doubled the
+  // suite's runtime for nothing.
+  const decided = new Map<Case, { stage: string; move: string }>();
+  beforeAll(() => {
+    applyAIVariant(variant);
+    expect(cornerBookEnabled, "variant did not take").toBe(true);
+    for (const kase of cases) decided.set(kase, decide(kase));
+  }, 300_000);
+
   /**
    * The base stage is the routing decision — which rule owns this position.
    * Asserted separately from the move because the two fail for different
    * reasons and the distinction is most of the diagnosis.
    */
   it("routes every recorded position to the same stage", () => {
-    applyAIVariant(variant);
-    expect(cornerBookEnabled, "variant did not take").toBe(true);
-
     const drifted: string[] = [];
     for (const kase of cases) {
-      const got = decide(kase);
+      const got = decided.get(kase)!;
       const want = kase.stage.split(" +")[0];
       const mine = got.stage.split(" +")[0];
       if (mine !== want) drifted.push(`${kase.moves.length + 1}수: ${want} -> ${mine}`);
     }
     expect(drifted).toEqual([]);
-  }, 300_000);
+  });
 
   it("plays the same move at each of them", () => {
-    applyAIVariant(variant);
     const drifted: string[] = [];
     const pinned = cases.filter((kase) => kase.moveStable);
     // If the screen has never run, everything is unscreened and this asserts
     // nothing — say so rather than passing quietly.
     expect(pinned.length, "no screened cases — run screen-stage-fixture.mts").toBeGreaterThan(0);
     for (const kase of pinned) {
-      const got = decide(kase);
+      const got = decided.get(kase)!;
       if (got.move !== kase.move) {
         drifted.push(`${kase.stage} ${kase.moves.length + 1}수: ${kase.move} -> ${got.move}`);
       }
     }
     expect(drifted).toEqual([]);
-  }, 300_000);
+  });
 });
