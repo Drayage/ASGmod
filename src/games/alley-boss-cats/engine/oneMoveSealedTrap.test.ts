@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { applyAction } from "../ai";
+import { applyAction, getSafeActions } from "../ai";
+import type { AIAction } from "../ai";
 import { applyAIVariant } from "../aiVariant";
 import {
   createsOneMoveSealedTrap,
@@ -80,13 +81,32 @@ describe("createsOneMoveSealedTrap", () => {
 });
 
 describe("the full ladder on the recorded position", () => {
-  it("plays H5 with the guard off, matching the recorded game", () => {
+  it("leaves H5 available with the guard off, and removes it with the guard on", () => {
     // Order matters: positionBeforePly17 calls applyAIVariant, which sets every
     // switch by contract — including this one. Set the guard after building.
+    //
+    // Asserted on the pool rather than on the ladder's answer. The original
+    // form pinned the chosen move to H5 from a 2600ms search, and that search
+    // is on a clock: run alongside the rest of the suite it sometimes had time
+    // to prefer F6 instead, so the test failed on a busy machine rather than on
+    // a change. What the guard actually does is remove the move from the pool,
+    // and that is decided by `createsOneMoveSealedTrap` with no clock in it.
     const state = positionBeforePly17();
+    const has = () => {
+      const { pool } = getSafeActions(state, "A");
+      return (pool as AIAction[]).some(
+        (a) => a.type === "PLACE" && a.row === h5.row && a.col === h5.col,
+      );
+    };
+
     setOneMoveSealedTrapGuardEnabled(false);
-    const move = findBestMoveVeryHard(state, "A", 2600);
-    expect(move).toEqual(h5);
+    expect(has()).toBe(true);
+    expect(createsOneMoveSealedTrap(state, "A", h5)).toBe(true);
+
+    // The ladder half of the contract, in the direction that does not depend on
+    // a tiebreak: with the guard on, H5 must not come back however long it read.
+    setOneMoveSealedTrapGuardEnabled(true);
+    expect(findBestMoveVeryHard(state, "A", 2600)).not.toEqual(h5);
   });
 
   it("avoids H5 with the guard on", () => {

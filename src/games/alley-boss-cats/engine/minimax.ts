@@ -1279,7 +1279,33 @@ export function cornerBookMove(
       if (theirsHere > CORNER_BOOK_MAX_ENEMY) continue;
       // Their answer landed here and there is still a corner nobody is in: the
       // next stone is worth more there than as the third of a contested trio.
-      if (cornerBookLeaveContestedEnabled && emptyCornerLeft && theirsHere > 0) {
+      //
+      // Only once the pair is standing, though, and that qualifier was missing.
+      // The player asked for a rule against the *third* stone in a corner they
+      // had answered; without the stone count the rule also refused the
+      // *second*, so a corner they answered on their very next move was
+      // abandoned at one stone. Against an opponent who mirrors every corner —
+      // which is how this player opens — that is every corner, and the engine
+      // spent the whole opening holding four single stones.
+      //
+      // What that costs is on the board. Over 100 recorded games decided on
+      // count, cells finally held in a quadrant against stones spent there:
+      //
+      //     stones      1     2     3     4     5     6
+      //     human    0.00  0.20  0.17  2.87  4.33  4.92
+      //     engine   0.00  0.17  0.97  0.36  1.30  2.53
+      //
+      // Nothing under four stones is worth anything to either side. Leaving at
+      // one is leaving with the whole investment still to make, and coming back
+      // later costs the tempo twice.
+      const pairHere = held[q]?.frame ?? 0;
+      const wantPair = cornerBookSpreadEnabled ? cornerBookSpreadStones : CORNER_BOOK_FRAME_STONES;
+      if (
+        cornerBookLeaveContestedEnabled &&
+        emptyCornerLeft &&
+        theirsHere > 0 &&
+        pairHere >= wantPair
+      ) {
         continue;
       }
       if (cornerBookFollowEnabled) {
@@ -2667,12 +2693,40 @@ export function findBestMoveVeryHard(
       return settle;
     }
   }
-  const bigger = largerVersionOf(rootState, aiPlayer, chosen, LARGER_ENCLOSURE_READ_MS);
-  if (bigger) {
-    lastDecision = { ...lastDecision, stage: `${lastDecision.stage} + larger` };
-    return bigger;
+  if (groundIsTheQuestion(lastDecision.stage)) {
+    const bigger = largerVersionOf(rootState, aiPlayer, chosen, LARGER_ENCLOSURE_READ_MS);
+    if (bigger) {
+      lastDecision = { ...lastDecision, stage: `${lastDecision.stage} + larger` };
+      return bigger;
+    }
   }
   return chosen;
+}
+
+/**
+ * Whether this stage's move may be traded for a bigger enclosure.
+ *
+ * The upgrade used to run on whatever the ladder returned, which put it in
+ * direct contradiction with the stages above it. Stage 1 says a forced capture
+ * "still outranks any amount of ground"; stage 1.5 says "no amount of ground is
+ * actually a competing option" — and both handed their move to a function whose
+ * whole job is to trade it for ground.
+ *
+ * It was not theoretical. Over 877 recorded engine turns the upgrade replaced
+ * ten moves, and seven of the ten came from a stage that had just said ground
+ * does not compete: six from 1.85 and one from 1.5.
+ *
+ * The validation was the weak half of the problem. `largerVersionOf` clears a
+ * swap by asking `opponentCanForceCapture` on a 300ms slice, while the alarm was
+ * raised by `existingGroupDanger` on its own budget — so a danger the deeper
+ * read proved could be waved through by the shallower one. Stage 1.85 is worse
+ * still: nothing in the upgrade looks at the pocket it was escaping.
+ *
+ * An allow-list rather than a deny-list, so a stage added later has to opt in
+ * deliberately instead of inheriting an override nobody considered.
+ */
+function groundIsTheQuestion(stage: string): boolean {
+  return ["1.87", "1.88", "1.9", "2 ", "3 ", "4 "].some((prefix) => stage.startsWith(prefix));
 }
 
 /** Read given to checking the upgrade does not hand over a group. */
