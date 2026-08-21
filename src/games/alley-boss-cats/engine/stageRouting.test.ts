@@ -37,18 +37,38 @@ type Case = {
   move: string;
   moves: Array<[number, number]>;
   engine: Player;
-  /** Whether the move itself is a fact about the position or a coin-flip between
-   * tied candidates. Set by `screen-stage-fixture.mts`; only the stable ones are
-   * pinned, because a tolerance on the move assertion would hide a narrow real
-   * regression as readily as it hides a tie. The unstable cases are still
-   * covered by the routing assertion above. */
-  moveStable?: boolean;
+  /** Every move this case was seen to play while screening. Informational for
+   * the search-decided stages, asserted for the rest — see LOOKUP_STAGES. */
+  moveCandidates?: string[];
 };
-const { variant, budgetMs, cases } = fixture as {
+const { variant, budgetMs, cases } = fixture as unknown as {
   variant: AIVariant;
   budgetMs: number;
   cases: Case[];
 };
+
+/**
+ * Stages whose move is a lookup rather than a search result, and so the only
+ * ones whose move is worth pinning.
+ *
+ * Three attempts went into this line. Pinning every case's move failed about one
+ * run in three; recording the tied candidates and asserting membership of that
+ * set failed too, because a set built by sampling is only as complete as the
+ * sample. The pattern across every failure was the same and should have been the
+ * starting point: 1.5, 1.85, 1.87, 3 and 4 all drifted, and 1.88, "0 only move"
+ * and "0 wins outright" never did once. The first group is decided by a search
+ * on a clock, where two close candidates fall whichever way the last iteration
+ * lands; the second is decided by a table.
+ *
+ * Nothing is lost by the narrowing that the routing assertion does not already
+ * cover, and the case that mattered most is inside it: the rule that abandoned a
+ * corner holding one stone changed a 1.88 move while leaving its stage alone.
+ *
+ * "1 forced capture" is left out deliberately. It looks like a lookup and is
+ * not — findForcedCapture has its own deadline, so a shallower read can prove a
+ * different capture or none at all.
+ */
+const LOOKUP_STAGES = ["1.88 corner point", "0 only move", "0 wins outright"];
 
 const COLS = "ABCDEFGHI";
 const nm = (row: number, col: number) => `${COLS[col]}${row + 1}`;
@@ -90,16 +110,20 @@ describe("stage routing", () => {
     expect(drifted).toEqual([]);
   });
 
-  it("plays the same move at each of them", () => {
+  it("plays the same move wherever the move is a lookup, not a search", () => {
     const drifted: string[] = [];
-    const pinned = cases.filter((kase) => kase.moveStable);
+    const pinned = cases.filter(
+      (kase) => kase.moveCandidates?.length && LOOKUP_STAGES.includes(kase.stage.split(" +")[0]),
+    );
     // If the screen has never run, everything is unscreened and this asserts
     // nothing — say so rather than passing quietly.
     expect(pinned.length, "no screened cases — run screen-stage-fixture.mts").toBeGreaterThan(0);
     for (const kase of pinned) {
       const got = decided.get(kase)!;
-      if (got.move !== kase.move) {
-        drifted.push(`${kase.stage} ${kase.moves.length + 1}수: ${kase.move} -> ${got.move}`);
+      if (!kase.moveCandidates!.includes(got.move)) {
+        drifted.push(
+          `${kase.stage} ${kase.moves.length + 1}수: ${kase.moveCandidates!.join("/")} -> ${got.move}`,
+        );
       }
     }
     expect(drifted).toEqual([]);

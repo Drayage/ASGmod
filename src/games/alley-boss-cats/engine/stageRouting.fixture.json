@@ -12,7 +12,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "C2"
+      ]
     },
     {
       "stage": "1.88 corner point",
@@ -32,7 +34,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "B3"
+      ]
     },
     {
       "stage": "1.88 corner point",
@@ -60,7 +64,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "H1"
+      ]
     },
     {
       "stage": "1.88 corner point",
@@ -96,7 +102,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "H1"
+      ]
     },
     {
       "stage": "1.85 pocket seal danger",
@@ -172,7 +180,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "B1"
+      ]
     },
     {
       "stage": "1.85 pocket seal danger",
@@ -304,7 +314,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "G6"
+      ]
     },
     {
       "stage": "1.85 pocket seal danger",
@@ -460,7 +472,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": false
+      "moveCandidates": [
+        "C6"
+      ]
     },
     {
       "stage": "1.85 pocket seal danger",
@@ -624,7 +638,10 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "D7",
+        "F6"
+      ]
     },
     {
       "stage": "4 full search",
@@ -716,7 +733,10 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "C9",
+        "G4"
+      ]
     },
     {
       "stage": "4 full search",
@@ -816,7 +836,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "C8"
+      ]
     },
     {
       "stage": "4 full search",
@@ -924,7 +946,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "B8"
+      ]
     },
     {
       "stage": "4 full search",
@@ -1048,7 +1072,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "G2"
+      ]
     },
     {
       "stage": "1.5 group in danger",
@@ -1164,7 +1190,10 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "C8",
+        "D8"
+      ]
     },
     {
       "stage": "1.5 group in danger",
@@ -1240,7 +1269,10 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "F9",
+        "G8"
+      ]
     },
     {
       "stage": "1.5 group in danger",
@@ -1328,7 +1360,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "A6"
+      ]
     },
     {
       "stage": "1.5 group in danger",
@@ -1392,7 +1426,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "C8"
+      ]
     },
     {
       "stage": "1.5 group in danger + widened",
@@ -1536,7 +1572,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "E8"
+      ]
     },
     {
       "stage": "1.5 group in danger + widened",
@@ -1656,7 +1694,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "E3"
+      ]
     },
     {
       "stage": "1.5 group in danger + widened",
@@ -1784,7 +1824,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "F8"
+      ]
     },
     {
       "stage": "1.5 group in danger + widened",
@@ -1932,7 +1974,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "H1"
+      ]
     },
     {
       "stage": "1 forced capture",
@@ -1968,7 +2012,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "B5"
+      ]
     },
     {
       "stage": "1 forced capture",
@@ -2012,7 +2058,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "A2"
+      ]
     },
     {
       "stage": "1 forced capture",
@@ -2064,7 +2112,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "B4"
+      ]
     },
     {
       "stage": "1 forced capture",
@@ -2124,7 +2174,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "B6"
+      ]
     },
     {
       "stage": "0 only move",
@@ -2208,7 +2260,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "B9"
+      ]
     },
     {
       "stage": "0 only move",
@@ -2352,7 +2406,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "D8"
+      ]
     },
     {
       "stage": "0 only move",
@@ -2496,7 +2552,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "D8"
+      ]
     },
     {
       "stage": "0 only move",
@@ -2580,7 +2638,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "B9"
+      ]
     },
     {
       "stage": "0 wins outright",
@@ -2680,7 +2740,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "D9"
+      ]
     },
     {
       "stage": "0 wins outright",
@@ -2796,7 +2858,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "B9"
+      ]
     },
     {
       "stage": "0 wins outright",
@@ -2908,7 +2972,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "D1"
+      ]
     },
     {
       "stage": "0 wins outright",
@@ -3060,7 +3126,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "B9"
+      ]
     },
     {
       "stage": "1.85 pocket seal danger + widened",
@@ -3196,7 +3264,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "A5"
+      ]
     },
     {
       "stage": "1.85 pocket seal danger + widened",
@@ -3360,7 +3430,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "G3"
+      ]
     },
     {
       "stage": "1.85 pocket seal danger + widened",
@@ -3524,7 +3596,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "G3"
+      ]
     },
     {
       "stage": "1.85 pocket seal danger + widened",
@@ -3660,7 +3734,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "A5"
+      ]
     },
     {
       "stage": "4 full search + larger",
@@ -3800,7 +3876,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "C7"
+      ]
     },
     {
       "stage": "4 full search + larger",
@@ -3940,7 +4018,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "C7"
+      ]
     },
     {
       "stage": "4 full search + larger",
@@ -4080,7 +4160,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "C7"
+      ]
     },
     {
       "stage": "4 full search + larger",
@@ -4232,7 +4314,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "C3"
+      ]
     },
     {
       "stage": "1.87 deny their framework",
@@ -4368,7 +4452,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "F9"
+      ]
     },
     {
       "stage": "1.87 deny their framework",
@@ -4484,7 +4570,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "I6"
+      ]
     },
     {
       "stage": "1.87 deny their framework",
@@ -4632,7 +4720,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "A4"
+      ]
     },
     {
       "stage": "1.87 deny their framework",
@@ -4692,7 +4782,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "D9"
+      ]
     },
     {
       "stage": "1.87 deny their framework + widened",
@@ -4856,7 +4948,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": false
+      "moveCandidates": [
+        "E6"
+      ]
     },
     {
       "stage": "1.87 deny their framework + widened",
@@ -4968,7 +5062,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "B5"
+      ]
     },
     {
       "stage": "1.87 deny their framework + widened",
@@ -5040,7 +5136,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "G4"
+      ]
     },
     {
       "stage": "1.87 deny their framework + widened",
@@ -5096,7 +5194,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "H5"
+      ]
     },
     {
       "stage": "3 territorial answer",
@@ -5216,7 +5316,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "B4"
+      ]
     },
     {
       "stage": "3 territorial answer",
@@ -5316,7 +5418,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "G6"
+      ]
     },
     {
       "stage": "3 territorial answer",
@@ -5412,7 +5516,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "F7"
+      ]
     },
     {
       "stage": "3 territorial answer",
@@ -5504,7 +5610,10 @@
         ]
       ],
       "engine": "B",
-      "moveStable": false
+      "moveCandidates": [
+        "E2",
+        "G4"
+      ]
     },
     {
       "stage": "1.9 finish my framework + larger",
@@ -5600,7 +5709,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "D3"
+      ]
     },
     {
       "stage": "1.9 finish my framework + larger",
@@ -5696,7 +5807,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "I5"
+      ]
     },
     {
       "stage": "1.87 deny their framework + widened + larger",
@@ -5780,7 +5893,10 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "C1",
+        "E6"
+      ]
     },
     {
       "stage": "1.9 finish my framework",
@@ -5872,7 +5988,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "D9"
+      ]
     },
     {
       "stage": "1.9 finish my framework",
@@ -5940,7 +6058,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "D1"
+      ]
     },
     {
       "stage": "1.9 finish my framework",
@@ -6020,7 +6140,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "A6"
+      ]
     },
     {
       "stage": "1.9 finish my framework",
@@ -6092,7 +6214,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": true
+      "moveCandidates": [
+        "F9"
+      ]
     },
     {
       "stage": "1.9 finish my framework + widened",
@@ -6224,7 +6348,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "D8"
+      ]
     },
     {
       "stage": "1.9 finish my framework + widened",
@@ -6356,7 +6482,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "D8"
+      ]
     },
     {
       "stage": "1.9 finish my framework + widened",
@@ -6488,7 +6616,9 @@
         ]
       ],
       "engine": "B",
-      "moveStable": true
+      "moveCandidates": [
+        "D8"
+      ]
     },
     {
       "stage": "3 territorial answer + widened",
@@ -6568,7 +6698,9 @@
         ]
       ],
       "engine": "A",
-      "moveStable": false
+      "moveCandidates": [
+        "G5"
+      ]
     }
   ]
 }
