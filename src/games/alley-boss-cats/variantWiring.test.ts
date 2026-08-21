@@ -66,6 +66,10 @@ const WIRING: Record<AIVariant, Switch[]> = {
     "eyeMakingDefence", "cornerBook", "cornerBookFinish", "cornerBookSpread",
     "cornerAnswerInside", "cornerBookLeaveContested", "settledOutOfInfluence",
   ],
+  EYE_PAIR: [
+    "eyeMakingDefence", "cornerBook", "cornerBookFinish", "cornerBookSpread",
+    "cornerBookLeaveContested", "settledOutOfInfluence",
+  ],
   EYE_DENY: [
     "eyeMakingDefence", "cornerBook", "cornerBookFinish", "cornerBookSpread",
     "cornerAnswerInside", "cornerBookLeaveContested", "frameworkInsideDenial",

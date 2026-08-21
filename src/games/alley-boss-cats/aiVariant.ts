@@ -40,7 +40,7 @@ import { setSettledOutOfInfluenceEnabled } from "./engine/territoryPlanner";
  * label is what a record shows. Ten entries in the picker was nine questions
  * being asked at once, which is not what any of them were for.
  */
-export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW" | "EYE_INSIDE" | "EYE_STRIP" | "EYE_DENY" | "EYE_SEALGATE" | "EYE_SEALWALK" | "EYE_LONETRAP";
+export type AIVariant = "STANDARD" | "EYE" | "THIN_GUARD" | "EYE_THIN" | "EYE_EDGE" | "EYE_SPACING" | "EYE_CORNER" | "EYE_CORNER_DIAG" | "EYE_FRAME" | "EYE_FRAME_TIGHT" | "EYE_FOLLOW" | "EYE_INSIDE" | "EYE_PAIR" | "EYE_STRIP" | "EYE_DENY" | "EYE_SEALGATE" | "EYE_SEALWALK" | "EYE_LONETRAP";
 
 interface VariantEntry {
   value: AIVariant;
@@ -61,9 +61,9 @@ export const AI_VARIANTS: ReadonlyArray<VariantEntry> = [
     help: "기본에, 귀에 쓰는 돌 수를 상대에 맞추는 규칙을 더합니다. 한 돌씩으로 동수면 그 귀를 두고 아무도 없는 귀로 가고, 상대가 두 돌째를 놓으면 돌아와 맞춥니다. 빈 판 240판에서 승률 52.5%로 유일하게 50%를 넘겼지만 집은 0.28칸 적었고, 둘 다 우연과 구분되지 않는 크기입니다. 사람 상대에서 어떤지가 남은 질문입니다.",
   },
   {
-    value: "EYE_INSIDE",
-    label: "기본 + 귀 안쪽 응수",
-    help: "기본에, 상대가 이미 돌을 둔 귀에 들어갈 때는 (1,2) 대신 귀 옆 1선 (0,1) 에 두는 규칙을 더합니다. 지금 북에는 (1,2) 점 여덟 개뿐이고 (0,1) 은 아예 없어서, 빈 귀를 짓는 자리와 상대 귀에 답하는 자리를 같은 점으로 씁니다. 한 귀만 떼어 끝까지 푼 결과 응수 자리별 평균은 (0,1) +0.24, (1,1) −0.38, (1,2) −1.16, (1,3) −1.32, (2,3) −1.63 으로, 플러스가 나오는 자리는 (0,1) 하나뿐이고 판 크기와 돌 수를 바꿔도 순서가 그대로였습니다. 빈 귀에 먼저 두는 자리는 (1,2) 그대로입니다. 여기에 더해, 아무도 없는 귀가 남아 있으면 상대가 이미 답한 귀에는 돌을 더 얹지 않고 그 빈 귀로 갑니다 — 플레이어가 세션 내내 지적한, 1대1이 된 귀에 하나 더 두는 동작입니다. 단 이 규칙은 그 귀에 쌍(두 돌)이 선 뒤부터 적용됩니다. 처음 판에서는 돌 수를 안 봐서 두 번째 돌까지 거부했고, 상대가 곧바로 따라 들어오는 상대에게는 네 귀 전부가 한 돌짜리로 남았습니다. 집으로 끝난 기보 100판에서 한 귀에 돌 1·2·3개를 둔 경우 얻은 집은 사람 기준 0.00·0.20·0.17칸이고 값은 네 번째 돌에서야 생깁니다.",
+    value: "EYE_PAIR",
+    label: "기본 + 쌍 세우고 빈 귀로",
+    help: "기본에, 플레이어가 요청한 귀 규칙만 더합니다 — 상대가 답해서 1대1이 된 귀에는 돌을 더 얹지 않고 아무도 없는 귀로 갑니다. 단 그 귀에 쌍(두 돌)이 선 뒤부터입니다. EYE_INSIDE의 첫 판에서는 돌 수를 안 봐서 두 번째 돌까지 거부했고, 상대가 곧바로 따라 들어오면 네 귀 전부가 한 돌짜리로 남았습니다. 집으로 끝난 기보 100판에서 한 귀에 돌 1·2·3개를 둔 경우 얻은 집은 사람 기준 0.00·0.20·0.17칸이고, 값은 네 번째 돌에서야 생깁니다. 상대가 이미 있는 귀에 답하는 자리는 (0,1) 이 아니라 원래의 프레임 점입니다 — 그 이유는 은퇴한 EYE_INSIDE 설명을 보세요.",
   },
   {
     value: "EYE_STRIP",
@@ -103,6 +103,11 @@ export const AI_VARIANTS: ReadonlyArray<VariantEntry> = [
  */
 export const RETIRED_VARIANTS: ReadonlyArray<{ value: AIVariant; label: string; why: string }> = [
   { value: "STANDARD", label: "이전 엔진", why: "눈 만들기 이전 동작. 기준선은 EYE로 옮겼습니다." },
+  {
+    value: "EYE_INSIDE",
+    label: "기본 + 귀 안쪽 응수",
+    why: "상대가 있는 귀에 (0,1) 로 답하는 규칙입니다. 이 규칙을 지지하는 측정이 결국 하나도 없었습니다 — 귀 솔버는 +0.24였지만 귀 하나를 고립시켜 푼 계산이라 상대가 귀 바깥에서 돌을 데려와 사냥하는 것을 아예 모델에 넣지 않고, 아레나 240판은 +0.075칸·55.0%로 구간이 0을 걸쳤습니다. 실전에서 발동한 3회 중 2회는 그 돌이 죽어서 판을 잃었고(18수·22수), 두 판 모두 놓자마자 상대가 공격해 1.5 단계가 네 턴씩 그 돌을 살리려다 실패했습니다. 이유는 구조적입니다: (0,1) 은 1선에서 귀에 붙은 자리라 자유칸이 최대 3개이고, 빈 귀의 (1,2) 는 4개입니다. 1.88 의 안전 검사는 강제 잡기만 보므로 여러 수에 걸친 사냥은 통과하고, 고립수·죽을 자리·봉쇄 감지 가드 어느 것도 이 돌을 막지 못했습니다. 플레이어가 요청한 나머지 절반(쌍 세우고 빈 귀로)은 EYE_PAIR 로 옮겼습니다.",
+  },
   {
     value: "EYE_DENY",
     label: "귀 안쪽 응수 + 틀 안에 들어가기",
@@ -162,6 +167,7 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FRAME_TIGHT" ||
     variant === "EYE_FOLLOW" ||
     variant === "EYE_INSIDE" ||
+    variant === "EYE_PAIR" ||
     variant === "EYE_STRIP" ||
     variant === "EYE_DENY" ||
     variant === "EYE_SEALGATE" ||
@@ -177,6 +183,7 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FRAME_TIGHT" ||
     variant === "EYE_FOLLOW" ||
     variant === "EYE_INSIDE" ||
+    variant === "EYE_PAIR" ||
     variant === "EYE_STRIP" ||
     variant === "EYE_DENY" ||
     variant === "EYE_SEALGATE" ||
@@ -188,6 +195,7 @@ export function applyAIVariant(variant: AIVariant): void {
     variant === "EYE_FRAME_TIGHT" ||
     variant === "EYE_FOLLOW" ||
     variant === "EYE_INSIDE" ||
+    variant === "EYE_PAIR" ||
     variant === "EYE_STRIP" ||
     variant === "EYE_DENY" ||
     variant === "EYE_SEALGATE" ||
@@ -228,7 +236,9 @@ export function applyAIVariant(variant: AIVariant): void {
   // separate them either: it measured the (0,1) half at +0.075 cells and 55.0%
   // over 240 games, both intervals across even, because its own opponent rarely
   // builds the corner shape a person does.
-  setCornerBookLeaveContestedEnabled(variant === "EYE_INSIDE" || variant === "EYE_DENY");
+  setCornerBookLeaveContestedEnabled(
+    variant === "EYE_INSIDE" || variant === "EYE_DENY" || variant === "EYE_PAIR",
+  );
   // The strip family — a wall from one rim to the opposite one. See its comment
   // in frameworks.ts for the shapes measured out of the recorded games.
   setEdgeStripFramesEnabled(variant === "EYE_STRIP");
