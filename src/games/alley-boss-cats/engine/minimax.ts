@@ -2693,12 +2693,40 @@ export function findBestMoveVeryHard(
       return settle;
     }
   }
-  const bigger = largerVersionOf(rootState, aiPlayer, chosen, LARGER_ENCLOSURE_READ_MS);
-  if (bigger) {
-    lastDecision = { ...lastDecision, stage: `${lastDecision.stage} + larger` };
-    return bigger;
+  if (groundIsTheQuestion(lastDecision.stage)) {
+    const bigger = largerVersionOf(rootState, aiPlayer, chosen, LARGER_ENCLOSURE_READ_MS);
+    if (bigger) {
+      lastDecision = { ...lastDecision, stage: `${lastDecision.stage} + larger` };
+      return bigger;
+    }
   }
   return chosen;
+}
+
+/**
+ * Whether this stage's move may be traded for a bigger enclosure.
+ *
+ * The upgrade used to run on whatever the ladder returned, which put it in
+ * direct contradiction with the stages above it. Stage 1 says a forced capture
+ * "still outranks any amount of ground"; stage 1.5 says "no amount of ground is
+ * actually a competing option" — and both handed their move to a function whose
+ * whole job is to trade it for ground.
+ *
+ * It was not theoretical. Over 877 recorded engine turns the upgrade replaced
+ * ten moves, and seven of the ten came from a stage that had just said ground
+ * does not compete: six from 1.85 and one from 1.5.
+ *
+ * The validation was the weak half of the problem. `largerVersionOf` clears a
+ * swap by asking `opponentCanForceCapture` on a 300ms slice, while the alarm was
+ * raised by `existingGroupDanger` on its own budget — so a danger the deeper
+ * read proved could be waved through by the shallower one. Stage 1.85 is worse
+ * still: nothing in the upgrade looks at the pocket it was escaping.
+ *
+ * An allow-list rather than a deny-list, so a stage added later has to opt in
+ * deliberately instead of inheriting an override nobody considered.
+ */
+function groundIsTheQuestion(stage: string): boolean {
+  return ["1.87", "1.88", "1.9", "2 ", "3 ", "4 "].some((prefix) => stage.startsWith(prefix));
 }
 
 /** Read given to checking the upgrade does not hand over a group. */
