@@ -35,6 +35,7 @@ function describeOutcome(record: MatchRecord): string {
 
 function describeSetup(record: MatchRecord): string {
   if (record.mode === "LOCAL") return "로컬 2인";
+  if (record.mode === "ONLINE") return `온라인 · 내 무리 ${PLAYER_NAME[record.playerSide]}`;
   return `${DIFFICULTY_NAME[record.difficulty] ?? record.difficulty} · 내 무리 ${PLAYER_NAME[record.playerSide]}`;
 }
 

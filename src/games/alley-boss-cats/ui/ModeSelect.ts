@@ -2,6 +2,7 @@ import type { Difficulty } from "../ai";
 import { createInitialState } from "../rules";
 import { loadGame, loadSettings, saveSettings, type Mode } from "../storage";
 import type { GameState, Player } from "../types";
+import { renderOnlineSetup } from "./OnlineSetup";
 import { renderRecords } from "./RecordsScreen";
 import { renderSettingsPanel } from "./SettingsPanel";
 import { renderStats } from "./StatsScreen";
@@ -11,6 +12,8 @@ export interface StartConfig {
   difficulty: Difficulty;
   humanSide: Player;
   initialState: GameState;
+  /** Room code to relay moves through. Only set when `mode === "ONLINE"`. */
+  onlineCode?: string;
 }
 
 export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfig) => void): void {
@@ -59,8 +62,13 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
     mode = "LOCAL";
     updateVisibility();
   });
+  const modeOnline = radioButton("mode", "온라인", mode === "ONLINE", () => {
+    mode = "ONLINE";
+    updateVisibility();
+  });
   modeGroup.appendChild(modeAI);
   modeGroup.appendChild(modeLocal);
+  modeGroup.appendChild(modeOnline);
   wrap.appendChild(modeGroup);
 
   const difficultyGroup = document.createElement("div");
@@ -109,6 +117,25 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   startBtn.textContent = "게임 시작";
   startBtn.addEventListener("click", () => {
     saveSettings({ ...loadSettings(), lastMode: mode, lastDifficulty: difficulty, lastHumanSide: humanSide });
+    if (mode === "ONLINE") {
+      // humanSide is decided by whether this client hosts or joins, not by
+      // the (hidden, for this mode) side picker above — OnlineSetup supplies
+      // it once a room is actually connected.
+      renderOnlineSetup(
+        wrap,
+        (session) => {
+          onStart({
+            mode: "ONLINE",
+            difficulty,
+            humanSide: session.humanSide,
+            initialState: createInitialState(),
+            onlineCode: session.code,
+          });
+        },
+        () => renderModeSelect(host, onStart),
+      );
+      return;
+    }
     onStart({ mode, difficulty, humanSide, initialState: createInitialState() });
   });
   wrap.appendChild(startBtn);

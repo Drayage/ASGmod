@@ -13,7 +13,7 @@ const SAVE_VERSION = 1;
  * growing until localStorage refuses to write. */
 const MAX_RECORDS = 50;
 
-export type Mode = "AI" | "LOCAL";
+export type Mode = "AI" | "LOCAL" | "ONLINE";
 
 export interface SavedGame {
   version: number;

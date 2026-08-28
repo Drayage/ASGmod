@@ -1,11 +1,12 @@
 import type { AIAction, Difficulty } from "../ai";
 import { getAIMove } from "../ai";
 import { SearchAIClient, TIME_LIMIT_MS } from "../engine/aiWorkerClient";
+import { sendOnlineMove, subscribeOnlineRoom } from "../net/online";
 import { applyMove, isLegalMove, isTerritoryCell, passTurn } from "../rules";
 import * as sound from "../sound";
 import { clearGame, recordResult, saveGame, saveRecord, type AITiming, type Mode } from "../storage";
 import { opponent } from "../types";
-import type { GameState, Player } from "../types";
+import type { GameState, Move, Player } from "../types";
 import { renderBoard } from "./BoardView";
 import { renderResult } from "./ResultModal";
 import { renderRulesModal } from "./RulesModal";
@@ -16,6 +17,10 @@ export interface GameScreenConfig {
   difficulty: Difficulty;
   humanSide: Player;
   initialState: GameState;
+  /** Room code this session is relaying moves through. Set only when
+   * `mode === "ONLINE"` — obtained from the host/join flow in ModeSelect
+   * before the screen ever mounts. */
+  onlineCode?: string;
 }
 
 const PLAYER_NAME: Record<Player, string> = { A: "치즈냥", B: "고등어냥" };
@@ -43,13 +48,26 @@ export function mountGameScreen(
   const aiTimings: AITiming[] = [];
 
   const isAIMode = config.mode === "AI";
-  const humanTurnNow = () => !isAIMode || state.currentPlayer === config.humanSide;
+  const isOnlineMode = config.mode === "ONLINE";
+  const humanTurnNow = () => (!isAIMode && !isOnlineMode) || state.currentPlayer === config.humanSide;
+
+  // Online-only state. `opponentOnline` starts optimistic — the room
+  // subscription corrects it the moment its first snapshot arrives, well
+  // before the player could plausibly notice a wrong initial value.
+  let unsubscribeOnline: (() => void) | null = null;
+  let opponentOnline = true;
+  let onlineError: string | null = null;
+  let onlineSubmitting = false;
 
   const root = document.createElement("div");
   root.className = "abc-screen";
   container.appendChild(root);
 
   function persist() {
+    // The Firebase room is the source of truth for an online game — there is
+    // nothing to save locally, and nothing here to clear on a device that
+    // may hold an unrelated saved AI/local game.
+    if (isOnlineMode) return;
     if (state.winner) {
       clearGame();
     } else {
@@ -70,6 +88,12 @@ export function mountGameScreen(
 
   function defaultStatus(): string {
     if (state.winner) return "";
+    if (isOnlineMode) {
+      if (!opponentOnline) return "상대의 연결이 끊겼습니다. 다시 연결되기를 기다리는 중...";
+      if (onlineSubmitting) return "이동을 전송하는 중...";
+      if (!humanTurnNow()) return `${PLAYER_NAME[state.currentPlayer]}의 차례를 기다리는 중...`;
+      return `${PLAYER_NAME[state.currentPlayer]} 차례입니다. 빈 골목을 선택하거나 쉬어가기를 누르세요.`;
+    }
     if (isAIMode && !humanTurnNow()) return `${PLAYER_NAME[state.currentPlayer]}가 골목을 살펴보는 중...`;
     return `${PLAYER_NAME[state.currentPlayer]} 차례입니다. 빈 골목을 선택하거나 쉬어가기를 누르세요.`;
   }
@@ -91,6 +115,12 @@ export function mountGameScreen(
     rulesBtn.textContent = "규칙 보기";
     rulesBtn.addEventListener("click", () => renderRulesModal(root));
     header.appendChild(rulesBtn);
+    if (isOnlineMode && config.onlineCode) {
+      const roomInfo = document.createElement("span");
+      roomInfo.className = "abc-room-info";
+      roomInfo.textContent = `방 코드 ${config.onlineCode} · 상대 ${opponentOnline ? "연결됨" : "연결 끊김"}`;
+      header.appendChild(roomInfo);
+    }
     root.appendChild(header);
 
     root.appendChild(renderPlayerPanel("A"));
@@ -100,7 +130,7 @@ export function mountGameScreen(
     root.appendChild(boardHost);
     renderBoard(boardHost, {
       state,
-      interactive: !state.winner && !aiThinking && humanTurnNow(),
+      interactive: !state.winner && !aiThinking && !onlineSubmitting && humanTurnNow(),
       shakeCell,
       showDanger: true,
       onCellClick: handleCellClick,
@@ -112,6 +142,13 @@ export function mountGameScreen(
     status.className = "abc-status";
     status.textContent = statusMessage || defaultStatus();
     root.appendChild(status);
+
+    if (onlineError) {
+      const errorLine = document.createElement("p");
+      errorLine.className = "abc-status abc-online-error";
+      errorLine.textContent = onlineError;
+      root.appendChild(errorLine);
+    }
 
     root.appendChild(renderControls());
 
@@ -169,23 +206,28 @@ export function mountGameScreen(
     const passBtn = document.createElement("button");
     passBtn.type = "button";
     passBtn.textContent = "쉬어가기";
-    passBtn.disabled = Boolean(state.winner) || aiThinking || !humanTurnNow();
+    passBtn.disabled = Boolean(state.winner) || aiThinking || onlineSubmitting || !humanTurnNow();
     passBtn.addEventListener("click", handlePass);
     controls.appendChild(passBtn);
 
-    const undoBtn = document.createElement("button");
-    undoBtn.type = "button";
-    undoBtn.textContent = "무르기";
-    undoBtn.disabled = !canUndo() || aiThinking;
-    undoBtn.addEventListener("click", handleUndo);
-    controls.appendChild(undoBtn);
+    // Undo has no meaning once a move has been relayed through the shared
+    // room — there is no "unsend" for the opponent's copy of it — so it is
+    // simply unavailable in online mode rather than acting local-only.
+    if (!isOnlineMode) {
+      const undoBtn = document.createElement("button");
+      undoBtn.type = "button";
+      undoBtn.textContent = "무르기";
+      undoBtn.disabled = !canUndo() || aiThinking;
+      undoBtn.addEventListener("click", handleUndo);
+      controls.appendChild(undoBtn);
+    }
 
     const newGameBtn = document.createElement("button");
     newGameBtn.type = "button";
     newGameBtn.textContent = "새 게임";
     newGameBtn.addEventListener("click", () => {
       if (state.winner || window.confirm("현재 대국을 포기하고 새 게임을 시작할까요?")) {
-        clearGame();
+        if (!isOnlineMode) clearGame();
         onExit();
       }
     });
@@ -195,7 +237,7 @@ export function mountGameScreen(
   }
 
   function canUndo(): boolean {
-    if (state.winner) return false;
+    if (state.winner || isOnlineMode) return false;
     if (!isAIMode) return history.length > 1;
     return history.some((s, i) => i < history.length - 1 && s.currentPlayer === config.humanSide);
   }
@@ -220,7 +262,11 @@ export function mountGameScreen(
   }
 
   function handlePass() {
-    if (state.winner || aiThinking || !humanTurnNow()) return;
+    if (state.winner || aiThinking || onlineSubmitting || !humanTurnNow()) return;
+    if (isOnlineMode) {
+      void submitOnlineMove({ turn: state.moveHistory.length + 1, player: state.currentPlayer, type: "PASS" });
+      return;
+    }
     sound.playPass();
     const next = passTurn(state);
     pushState(next);
@@ -230,7 +276,7 @@ export function mountGameScreen(
   }
 
   function handleCellClick(row: number, col: number) {
-    if (state.winner || aiThinking || !humanTurnNow()) return;
+    if (state.winner || aiThinking || onlineSubmitting || !humanTurnNow()) return;
     const player = state.currentPlayer;
 
     if (!isLegalMove(state, row, col, player)) {
@@ -248,6 +294,11 @@ export function mountGameScreen(
       return;
     }
 
+    if (isOnlineMode) {
+      void submitOnlineMove({ turn: state.moveHistory.length + 1, player, type: "PLACE", row, col });
+      return;
+    }
+
     const territoryBefore = state.territories[player].length;
     const next = applyMove(state, row, col);
     sound.playPlace();
@@ -260,6 +311,77 @@ export function mountGameScreen(
     pushState(next);
     render();
     maybeTriggerAI();
+  }
+
+  /**
+   * Sends a locally-confirmed-legal move to the room. This never applies the
+   * move to local state directly — `startOnlineSync`'s subscription is the
+   * single path that drives `applyMove`/`passTurn`, for this player's own
+   * moves exactly as much as the opponent's, so both clients replay the same
+   * ordered history through the same pure reducers.
+   */
+  async function submitOnlineMove(move: Move) {
+    if (!config.onlineCode) {
+      onlineError = "온라인 방 코드가 없습니다.";
+      render();
+      return;
+    }
+    onlineSubmitting = true;
+    onlineError = null;
+    render();
+    try {
+      await sendOnlineMove(config.onlineCode, move);
+    } catch (err) {
+      onlineError = err instanceof Error ? err.message : "이동을 전송하지 못했습니다.";
+    } finally {
+      onlineSubmitting = false;
+      render();
+    }
+  }
+
+  /** Replays whatever new moves the room now has, in turn order, through the
+   * same reducers local/AI mode use — the room's move list is simply this
+   * mode's event queue. Stops (rather than throws past its caller) the
+   * moment a move fails to apply, which given only client-side validation is
+   * this game's fallback against a cheating or buggy opponent client: play
+   * halts with a visible error instead of the two clients silently
+   * diverging. */
+  function applyIncomingOnlineMoves(moves: Move[]) {
+    try {
+      while (state.moveHistory.length < moves.length) {
+        const move = moves[state.moveHistory.length];
+        if (!move || move.turn !== state.moveHistory.length + 1) break;
+        const mover = move.player;
+        const territoryBefore = state.territories[mover].length;
+        const next = move.type === "PASS" ? passTurn(state) : applyMove(state, move.row, move.col);
+        if (move.type === "PASS") {
+          sound.playPass();
+        } else {
+          sound.playPlace();
+          if (next.winner === mover && next.winReason === "CAPTURE") sound.playCaptureWin();
+          else if (next.territories[mover].length > territoryBefore) sound.playTerritoryComplete();
+        }
+        pushState(next);
+      }
+      statusMessage = "";
+      shakeCell = null;
+    } catch {
+      statusMessage = "상대의 이동을 적용할 수 없습니다. 게임 상태가 어긋났을 수 있습니다.";
+    }
+  }
+
+  function startOnlineSync() {
+    if (!config.onlineCode) {
+      onlineError = "온라인 방 코드가 없습니다.";
+      render();
+      return;
+    }
+    unsubscribeOnline = subscribeOnlineRoom(config.onlineCode, config.humanSide, (update) => {
+      if (cancelled) return;
+      opponentOnline = update.opponentOnline;
+      applyIncomingOnlineMoves(update.moves);
+      render();
+    });
   }
 
   function delay(ms: number): Promise<void> {
@@ -327,11 +449,16 @@ export function mountGameScreen(
   }
 
   render();
-  void maybeTriggerAI();
+  if (isOnlineMode) {
+    startOnlineSync();
+  } else {
+    void maybeTriggerAI();
+  }
 
   return () => {
     cancelled = true;
     if (aiTimer) clearTimeout(aiTimer);
     searchAI.terminate();
+    unsubscribeOnline?.();
   };
 }
