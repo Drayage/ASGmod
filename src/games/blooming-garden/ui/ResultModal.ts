@@ -5,15 +5,18 @@ const PLAYER_NAME: Record<Player, string> = { A: "장미 정원사", B: "수국 
 
 export interface ResultPanelOptions {
   state: GameState;
-  /** Null hides the restart button — for online mode, where there is no
-   * rematch flow yet and restarting locally would just desync this client
-   * from the shared room. */
+  /** Null hides the restart button — for online mode (no rematch flow yet;
+   * restarting locally would just desync this client from the shared room)
+   * and for a 정원 순회 leg (its own "다음 맵" replaces plain restart). */
   onRestart: (() => void) | null;
+  /** Set only for a 정원 순회 leg: advances to the next map (or the tour's
+   * summary screen, on the last one) instead of restarting this one. */
+  onNext?: (() => void) | null;
   onExit: () => void;
 }
 
 export function renderResultPanel(host: HTMLElement, options: ResultPanelOptions): void {
-  const { state, onRestart, onExit } = options;
+  const { state, onRestart, onNext, onExit } = options;
   if (!state.winner) return;
 
   const counts = countFlowers(state);
@@ -31,7 +34,13 @@ export function renderResultPanel(host: HTMLElement, options: ResultPanelOptions
   const actions = document.createElement("div");
   actions.className = "grdn-result-actions";
 
-  if (onRestart) {
+  if (onNext) {
+    const nextBtn = document.createElement("button");
+    nextBtn.type = "button";
+    nextBtn.textContent = "다음 맵";
+    nextBtn.addEventListener("click", onNext);
+    actions.appendChild(nextBtn);
+  } else if (onRestart) {
     const restartBtn = document.createElement("button");
     restartBtn.type = "button";
     restartBtn.textContent = "다시 시작";

@@ -20,9 +20,18 @@ export interface StartConfig {
    * also records its result under today's date key, alongside (not instead
    * of) the normal per-game stats recording every game already gets. */
   isDaily?: boolean;
+  /** Set only for a leg of 정원 순회 (TourScreen supplies it, never
+   * ModeSelect) — replaces the result panel's plain restart button with
+   * "다음 맵", called with this leg's winner once the player is ready to
+   * move on. */
+  onTourNext?: (winner: Player | "DRAW") => void;
 }
 
-export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfig) => void): void {
+export function renderModeSelect(
+  host: HTMLElement,
+  onStart: (config: StartConfig) => void,
+  onStartTour: (difficulty: Difficulty) => void,
+): void {
   host.innerHTML = "";
 
   const settings = loadSettings();
@@ -139,7 +148,7 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
             onlineCode: session.code,
           });
         },
-        () => renderModeSelect(host, onStart),
+        () => renderModeSelect(host, onStart, onStartTour),
       );
       return;
     }
@@ -151,15 +160,22 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   statsBtn.type = "button";
   statsBtn.className = "grdn-link-btn";
   statsBtn.textContent = "통계 보기";
-  statsBtn.addEventListener("click", () => renderStats(wrap, () => renderModeSelect(host, onStart)));
+  statsBtn.addEventListener("click", () => renderStats(wrap, () => renderModeSelect(host, onStart, onStartTour)));
   wrap.appendChild(statsBtn);
 
   const achievementsBtn = document.createElement("button");
   achievementsBtn.type = "button";
   achievementsBtn.className = "grdn-link-btn";
   achievementsBtn.textContent = "업적 보기";
-  achievementsBtn.addEventListener("click", () => renderAchievements(wrap, () => renderModeSelect(host, onStart)));
+  achievementsBtn.addEventListener("click", () => renderAchievements(wrap, () => renderModeSelect(host, onStart, onStartTour)));
   wrap.appendChild(achievementsBtn);
+
+  const tourBtn = document.createElement("button");
+  tourBtn.type = "button";
+  tourBtn.className = "grdn-link-btn";
+  tourBtn.textContent = "정원 순회 시작";
+  tourBtn.addEventListener("click", () => onStartTour(difficulty));
+  wrap.appendChild(tourBtn);
 
   host.appendChild(wrap);
 
