@@ -22,6 +22,14 @@ const games: GameMeta[] = [
     maxPlayers: 2,
     load: () => import("./blooming-garden/game"),
   },
+  {
+    id: "animal-shogi",
+    title: "동물쇼기",
+    description: "3×4 미니 장기. 사자를 잡거나 상대 진영 끝에 도착하면 승리.",
+    minPlayers: 2,
+    maxPlayers: 2,
+    load: () => import("./animal-shogi/game"),
+  },
 ];
 
 export default games;
