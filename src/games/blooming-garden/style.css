@@ -244,6 +244,7 @@
 .grdn-controls {
   display: flex;
   justify-content: center;
+  gap: 0.5rem;
 }
 
 .grdn-controls button {
@@ -254,6 +255,11 @@
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
   cursor: pointer;
+}
+
+.grdn-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .grdn-result-panel {
