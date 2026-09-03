@@ -14,6 +14,14 @@ const games: GameMeta[] = [
     maxPlayers: 2,
     load: () => import("./alley-boss-cats/game"),
   },
+  {
+    id: "blooming-garden",
+    title: "꽃피는 정원",
+    description: "가까운 화단엔 꽃을 피우고 먼 화단엔 씨앗을 날려 정원을 물들이세요.",
+    minPlayers: 2,
+    maxPlayers: 2,
+    load: () => import("./blooming-garden/game"),
+  },
 ];
 
 export default games;
