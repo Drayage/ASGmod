@@ -1,5 +1,7 @@
+import { stepOffsets } from "../rules";
 import { BOARD_COLS, BOARD_ROWS } from "../types";
 import type { Coord, GameState, HandPieceType, Piece, PieceType, Player } from "../types";
+import { offsetPosition, PIECE_ICON_SVG } from "./pieceArt";
 
 export type Selection = { kind: "BOARD"; coord: Coord } | { kind: "HAND"; pieceType: HandPieceType } | null;
 
@@ -27,11 +29,45 @@ function key(row: number, col: number): string {
   return `${row},${col}`;
 }
 
+/**
+ * A piece tile: its animal icon, a small name caption, and — printed right
+ * on the tile the same way a real Dōbutsu Shōgi piece is — a dot at each
+ * compass position this piece can step to. Reads its own movement pattern
+ * straight from `stepOffsets`, the same function `rules.ts` uses to decide
+ * legal moves, so the dots can never drift out of sync with what the piece
+ * actually does.
+ */
 function renderPiece(piece: Piece): HTMLSpanElement {
-  const span = document.createElement("span");
-  span.className = `asg-piece asg-piece--${piece.owner.toLowerCase()} asg-piece--${piece.type.toLowerCase()}`;
-  span.textContent = PIECE_LABEL[piece.type];
-  return span;
+  const wrap = document.createElement("span");
+  wrap.className = `asg-piece asg-piece--${piece.owner.toLowerCase()} asg-piece--${piece.type.toLowerCase()}`;
+
+  const icon = document.createElement("span");
+  icon.className = "asg-piece-icon";
+  icon.innerHTML = PIECE_ICON_SVG[piece.type];
+  wrap.appendChild(icon);
+
+  const label = document.createElement("span");
+  label.className = "asg-piece-label";
+  label.textContent = PIECE_LABEL[piece.type];
+  wrap.appendChild(label);
+
+  for (const [dr, dc] of stepOffsets(piece)) {
+    const dot = document.createElement("span");
+    dot.className = "asg-piece-dir";
+    const pos = offsetPosition(dr, dc);
+    dot.style.top = pos.top;
+    dot.style.left = pos.left;
+    wrap.appendChild(dot);
+  }
+
+  return wrap;
+}
+
+function renderHandIcon(type: PieceType): HTMLSpanElement {
+  const icon = document.createElement("span");
+  icon.className = "asg-hand-icon";
+  icon.innerHTML = PIECE_ICON_SVG[type];
+  return icon;
 }
 
 function renderHand(
@@ -58,7 +94,10 @@ function renderHand(
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = `asg-hand-piece asg-piece--${player.toLowerCase()} asg-piece--${type.toLowerCase()}`;
-    chip.textContent = count > 1 ? `${PIECE_LABEL[type]} ×${count}` : PIECE_LABEL[type];
+    chip.appendChild(renderHandIcon(type));
+    const label = document.createElement("span");
+    label.textContent = count > 1 ? `${PIECE_LABEL[type]} ×${count}` : PIECE_LABEL[type];
+    chip.appendChild(label);
     const clickable = interactive && player === state.currentPlayer;
     chip.disabled = !clickable;
     if (selected?.kind === "HAND" && selected.pieceType === type) {

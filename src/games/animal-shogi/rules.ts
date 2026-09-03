@@ -43,7 +43,7 @@ function cloneBoard(board: Board): Board {
 /** Offsets a piece may step to, one square, before considering board edges
  * or occupancy. LION/GIRAFFE/ELEPHANT are the same for both players;
  * CHICK/HEN depend on which way "forward" is for `owner`. */
-function stepOffsets(piece: Piece): Array<[number, number]> {
+export function stepOffsets(piece: Piece): Array<[number, number]> {
   switch (piece.type) {
     case "LION":
       return [
