@@ -3,6 +3,7 @@ import { maps } from "../maps";
 import { createInitialState } from "../rules";
 import { loadSettings, saveSettings, type Mode } from "../storage";
 import type { GameState, Player } from "../types";
+import { renderAchievements } from "./AchievementsScreen";
 import { renderOnlineSetup } from "./OnlineSetup";
 import { renderStats } from "./StatsScreen";
 
@@ -145,6 +146,13 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   statsBtn.textContent = "통계 보기";
   statsBtn.addEventListener("click", () => renderStats(wrap, () => renderModeSelect(host, onStart)));
   wrap.appendChild(statsBtn);
+
+  const achievementsBtn = document.createElement("button");
+  achievementsBtn.type = "button";
+  achievementsBtn.className = "grdn-link-btn";
+  achievementsBtn.textContent = "업적 보기";
+  achievementsBtn.addEventListener("click", () => renderAchievements(wrap, () => renderModeSelect(host, onStart)));
+  wrap.appendChild(achievementsBtn);
 
   host.appendChild(wrap);
 }
