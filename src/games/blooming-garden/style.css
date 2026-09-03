@@ -319,6 +319,13 @@
   cursor: pointer;
 }
 
+.grdn-map-info {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0 0 0.5rem;
+}
+
 /* Online mode: header room indicator, and the host/join setup screen. */
 
 .grdn-header {
