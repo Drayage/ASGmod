@@ -505,3 +505,45 @@
   color: var(--muted);
   margin: 0 0 0.5rem;
 }
+
+/* Overlay + modal, used by the tutorial */
+
+.grdn-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 100;
+}
+
+.grdn-modal {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 380px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  text-align: center;
+}
+
+.grdn-modal h2 {
+  margin: 0;
+}
+
+.grdn-tutorial-counter {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.grdn-tutorial-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+}
