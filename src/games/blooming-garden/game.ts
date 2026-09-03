@@ -3,6 +3,7 @@ import type { GameCleanup } from "../../shared/types";
 import { mountGameScreen } from "./ui/GameScreen";
 import { renderModeSelect } from "./ui/ModeSelect";
 import { mountTourScreen } from "./ui/TourScreen";
+import { maybeShowTutorial } from "./ui/Tutorial";
 
 export function mount(container: HTMLElement): GameCleanup {
   let cleanupScreen: (() => void) | null = null;
@@ -28,7 +29,7 @@ export function mount(container: HTMLElement): GameCleanup {
     );
   }
 
-  showModeSelect();
+  maybeShowTutorial(container, showModeSelect);
 
   return () => {
     active = false;

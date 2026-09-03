@@ -17,6 +17,8 @@ export interface Settings {
   lastDifficulty: Difficulty;
   lastHumanSide: Player;
   lastMapId: string;
+  /** Whether the first-visit tutorial has been shown (or skipped). */
+  tutorialCompleted: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -25,6 +27,7 @@ const DEFAULT_SETTINGS: Settings = {
   lastDifficulty: "NORMAL",
   lastHumanSide: "A",
   lastMapId: "practice-garden",
+  tutorialCompleted: false,
 };
 
 function readJson<T>(key: string): T | null {

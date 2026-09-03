@@ -5,6 +5,7 @@ import { createInitialState } from "../rules";
 import { getDailyResult, loadSettings, saveSettings, type Mode } from "../storage";
 import type { GameState, Player } from "../types";
 import { renderAchievements } from "./AchievementsScreen";
+import { renderTutorial } from "./Tutorial";
 import { renderOnlineSetup } from "./OnlineSetup";
 import { renderStats } from "./StatsScreen";
 
@@ -176,6 +177,13 @@ export function renderModeSelect(
   tourBtn.textContent = "정원 순회 시작";
   tourBtn.addEventListener("click", () => onStartTour(difficulty));
   wrap.appendChild(tourBtn);
+
+  const tutorialBtn = document.createElement("button");
+  tutorialBtn.type = "button";
+  tutorialBtn.className = "grdn-link-btn";
+  tutorialBtn.textContent = "튜토리얼 다시 보기";
+  tutorialBtn.addEventListener("click", () => renderTutorial(wrap, () => renderModeSelect(host, onStart, onStartTour)));
+  wrap.appendChild(tutorialBtn);
 
   host.appendChild(wrap);
 
