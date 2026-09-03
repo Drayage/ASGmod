@@ -160,7 +160,12 @@ export function mountGameScreen(
     }
 
     if (state.winner) {
-      renderResultPanel(root, { state, onRestart: isOnlineMode ? null : restart, onExit: exit });
+      renderResultPanel(root, {
+        state,
+        onRestart: isOnlineMode || config.onTourNext ? null : restart,
+        onNext: config.onTourNext ? () => config.onTourNext!(state.winner!) : null,
+        onExit: exit,
+      });
     } else {
       const controls = document.createElement("div");
       controls.className = "grdn-controls";
