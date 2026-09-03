@@ -7,6 +7,7 @@
   --grdn-clone: #4caf50;
   --grdn-jump: #d9a441;
   --grdn-danger: #d94f4f;
+  --grdn-greenhouse: #cdeedd;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -15,6 +16,7 @@
     --grdn-clone: #6fcf73;
     --grdn-jump: #e0b95c;
     --grdn-danger: #ff6b6b;
+    --grdn-greenhouse: #2f5443;
   }
 }
 
@@ -152,6 +154,11 @@
 
 .grdn-cell--obstacle {
   background: var(--grdn-pond) !important;
+}
+
+.grdn-cell--greenhouse {
+  background: var(--grdn-greenhouse) !important;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.4);
 }
 
 .grdn-cell--flower {

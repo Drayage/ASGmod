@@ -1,8 +1,12 @@
-import type { Board, Cell } from "./types";
+import type { Board, Cell, TerrainGrid } from "./types";
 
 /**
  * ASCII layout for a map: one string per row, same length per row.
- * `.` empty · `#` obstacle · `P` player A start flower · `Q` player B start flower.
+ * `.` empty · `#` obstacle · `P` player A start flower · `Q` player B start
+ * flower · `G` empty cell with 온실(greenhouse) terrain — the flower
+ * standing there is immune to conversion, and stays that way after any
+ * later flower takes the cell over, since terrain is separate from
+ * occupancy (see `applyAction` in rules.ts).
  * Every map here is symmetric under a corner-swapping reflection so neither
  * starting corner is structurally favoured (see games/README design notes).
  */
@@ -154,6 +158,20 @@ export const maps: MapDef[] = [
       "Q.....P",
     ],
   },
+  {
+    id: "greenhouse-garden",
+    name: "온실 정원",
+    description: "온실 칸의 꽃은 상대에게 물들지 않는 확장 맵.",
+    rows: [
+      "P.....Q",
+      "...G...",
+      ".......",
+      ".G...G.",
+      ".......",
+      "...G...",
+      "Q.....P",
+    ],
+  },
 ];
 
 export const DEFAULT_MAP_ID = maps[0].id;
@@ -175,4 +193,8 @@ const CHAR_TO_CELL: Record<string, Cell> = {
 
 export function boardFromMap(map: MapDef): Board {
   return map.rows.map((row) => row.split("").map((ch) => CHAR_TO_CELL[ch] ?? "EMPTY"));
+}
+
+export function terrainFromMap(map: MapDef): TerrainGrid {
+  return map.rows.map((row) => row.split("").map((ch) => (ch === "G" ? "GREENHOUSE" : "NONE")));
 }
