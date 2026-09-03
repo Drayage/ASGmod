@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardFromMap } from "./maps";
+import { boardFromMap, maps } from "./maps";
 import {
   countFlowers,
   createInitialState,
@@ -172,5 +172,31 @@ describe("getAllLegalMoves", () => {
     const state = stateFromRows([".......", ".......", ".......", "P.....P", ".......", ".......", "......."]);
     const moves = getAllLegalMoves(state, "A");
     expect(moves.length).toBeGreaterThan(getLegalMovesFrom(state, 3, 0).length);
+  });
+});
+
+describe("map roster", () => {
+  it.each(maps.map((m) => [m.id, m] as const))("%s starts with a legal move for both players", (_id, map) => {
+    const state = createInitialState(map.id);
+    expect(map.rows).toHaveLength(state.board.length);
+    for (const row of map.rows) expect(row).toHaveLength(state.board.length);
+    expect(hasAnyLegalMove(state, "A")).toBe(true);
+    expect(hasAnyLegalMove(state, "B")).toBe(true);
+  });
+
+  it("keeps every map's starting flowers on symmetric opposite corners", () => {
+    for (const map of maps) {
+      const state = createInitialState(map.id);
+      const size = state.board.length;
+      expect(state.board[0][0]).toBe("PLAYER_A");
+      expect(state.board[size - 1][size - 1]).toBe("PLAYER_A");
+      expect(state.board[0][size - 1]).toBe("PLAYER_B");
+      expect(state.board[size - 1][0]).toBe("PLAYER_B");
+    }
+  });
+
+  it("has at least the 10 maps the design calls for", () => {
+    expect(maps.length).toBeGreaterThanOrEqual(10);
+    expect(new Set(maps.map((m) => m.id)).size).toBe(maps.length);
   });
 });

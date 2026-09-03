@@ -43,12 +43,22 @@ function convertedCells(before: GameState, after: GameState, mover: Player, land
   return converted;
 }
 
+function lastMoveOf(state: GameState): Coord | null {
+  const last = state.moveHistory[state.moveHistory.length - 1];
+  return last ? { row: last.row, col: last.col } : null;
+}
+
 export function mountGameScreen(
   container: HTMLElement,
   config: StartConfig,
   onExit: () => void,
 ): () => void {
   let state = config.initialState;
+  /** One entry per completed move (human or AI), `history[0]` the starting
+   * position. Undo pops off this stack instead of replaying moveHistory
+   * backwards, so it stays correct even though moves aren't reversible on
+   * their own (a clone can't be un-added without knowing what it converted). */
+  let history: GameState[] = [state];
   let selected: Coord | null = null;
   let legalTargets: Action[] = [];
   let justConverted = new Set<string>();
@@ -104,6 +114,12 @@ export function mountGameScreen(
     } else {
       const controls = document.createElement("div");
       controls.className = "grdn-controls";
+      const undoBtn = document.createElement("button");
+      undoBtn.type = "button";
+      undoBtn.textContent = "되돌리기";
+      undoBtn.disabled = !canUndo();
+      undoBtn.addEventListener("click", undo);
+      controls.appendChild(undoBtn);
       const exitBtn = document.createElement("button");
       exitBtn.type = "button";
       exitBtn.textContent = "메뉴로";
@@ -174,6 +190,7 @@ export function mountGameScreen(
     lastMove = { row: action.row, col: action.col };
     justConverted = convertedCells(before, after, mover, lastMove);
     state = after;
+    history.push(state);
 
     statusMessage = skipMessage(skippedPlayers);
     render();
@@ -208,10 +225,45 @@ export function mountGameScreen(
     }, AI_THINK_DELAY_MS);
   }
 
+  /** True once there's a position to go back to and nothing is mid-flight. */
+  function canUndo(): boolean {
+    return history.length > 1 && !aiThinking && !state.winner;
+  }
+
+  function undo() {
+    if (!canUndo()) return;
+    if (aiTimer) {
+      clearTimeout(aiTimer);
+      aiTimer = null;
+      aiThinking = false;
+    }
+
+    history.pop();
+    if (isAIMode) {
+      // Land back on the human's own last decision, not on the position
+      // where the AI is about to answer it — otherwise "undo" would just
+      // hand the turn straight back to the AI with nothing changed for
+      // the player.
+      while (history.length > 1 && history[history.length - 1].currentPlayer !== config.humanSide) {
+        history.pop();
+      }
+    }
+    state = history[history.length - 1];
+
+    clearSelection();
+    if (convertedTimer) clearTimeout(convertedTimer);
+    convertedTimer = null;
+    justConverted = new Set();
+    lastMove = lastMoveOf(state);
+    statusMessage = "";
+    render();
+  }
+
   function restart() {
     if (convertedTimer) clearTimeout(convertedTimer);
     convertedTimer = null;
     state = config.initialState;
+    history = [state];
     clearSelection();
     justConverted = new Set();
     lastMove = null;
