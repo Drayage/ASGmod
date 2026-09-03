@@ -4,6 +4,7 @@ import type { Player } from "./types";
 const PREFIX = "abstract-games:blooming-garden";
 const SETTINGS_KEY = `${PREFIX}:settings`;
 const STATS_KEY = `${PREFIX}:stats`;
+const DAILY_KEY = `${PREFIX}:daily`;
 const SAVE_VERSION = 1;
 
 export type Mode = "AI" | "LOCAL" | "ONLINE";
@@ -150,4 +151,30 @@ export function recordResult(outcome: MatchOutcome): Stats {
 
   writeJson(STATS_KEY, stats);
   return stats;
+}
+
+/** One attempt at a given day's challenge. Replaying the same day overwrites
+ * this with the latest attempt rather than only keeping the first — the
+ * daily garden is a shared prompt, not a one-shot exam. */
+export interface DailyResult {
+  mapId: string;
+  humanSide: Player;
+  winner: Player | "DRAW";
+  playedAt: number;
+}
+
+function loadDailyResults(): Record<string, DailyResult> {
+  return readJson<Record<string, DailyResult>>(DAILY_KEY) ?? {};
+}
+
+/** The result recorded for `dateKey` (see `todayKey` in ./daily), or `null`
+ * if that day hasn't been played yet. */
+export function getDailyResult(dateKey: string): DailyResult | null {
+  return loadDailyResults()[dateKey] ?? null;
+}
+
+export function recordDailyResult(dateKey: string, result: Omit<DailyResult, "playedAt">): void {
+  const all = loadDailyResults();
+  all[dateKey] = { ...result, playedAt: Date.now() };
+  writeJson(DAILY_KEY, all);
 }
