@@ -19,6 +19,8 @@ export interface Settings {
   lastMapId: string;
   /** Whether the first-visit tutorial has been shown (or skipped). */
   tutorialCompleted: boolean;
+  soundEnabled: boolean;
+  musicEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -28,6 +30,8 @@ const DEFAULT_SETTINGS: Settings = {
   lastHumanSide: "A",
   lastMapId: "practice-garden",
   tutorialCompleted: false,
+  soundEnabled: true,
+  musicEnabled: false,
 };
 
 function readJson<T>(key: string): T | null {

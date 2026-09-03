@@ -1,13 +1,15 @@
 import { getAIMove } from "../ai";
+import { todayKey } from "../daily";
 import { sendOnlineMove, subscribeOnlineRoom } from "../net/online";
 import { getLegalMovesFrom, playMove } from "../rules";
-import { todayKey } from "../daily";
+import * as sound from "../sound";
 import { recordDailyResult, recordResult } from "../storage";
 import { cellOwner } from "../types";
 import type { Action, Coord, GameState, Move, Player } from "../types";
 import type { StartConfig } from "./ModeSelect";
 import { renderBoard } from "./BoardView";
 import { renderResultPanel } from "./ResultModal";
+import { renderSettingsPanel } from "./SettingsPanel";
 
 const PLAYER_NAME: Record<Player, string> = { A: "장미 정원사", B: "수국 정원사" };
 const AI_THINK_DELAY_MS = 350;
@@ -116,6 +118,9 @@ export function mountGameScreen(
       if (config.isDaily) {
         recordDailyResult(todayKey(), { mapId: config.mapId, humanSide: config.humanSide, winner: state.winner });
       }
+      if (state.winner === "DRAW") sound.playDraw();
+      else if (config.mode === "LOCAL" || state.winner === config.humanSide) sound.playWin();
+      else sound.playLose();
     }
 
     root.innerHTML = "";
@@ -179,6 +184,11 @@ export function mountGameScreen(
         undoBtn.addEventListener("click", undo);
         controls.appendChild(undoBtn);
       }
+      const settingsBtn = document.createElement("button");
+      settingsBtn.type = "button";
+      settingsBtn.textContent = "설정";
+      settingsBtn.addEventListener("click", () => renderSettingsPanel(root));
+      controls.appendChild(settingsBtn);
       const exitBtn = document.createElement("button");
       exitBtn.type = "button";
       exitBtn.textContent = "메뉴로";
@@ -213,6 +223,7 @@ export function mountGameScreen(
         selected = { row, col };
         legalTargets = getLegalMovesFrom(state, row, col);
         statusMessage = "";
+        sound.playSelect();
       }
       render();
       return;
@@ -255,6 +266,11 @@ export function mountGameScreen(
     justConverted = convertedCells(before, after, mover, lastMove);
     state = after;
     history.push(state);
+
+    if (action.type === "CLONE") sound.playClone();
+    else sound.playJump();
+    if (justConverted.size > 0) sound.playConvert(justConverted.size);
+    if (skippedPlayers.length > 0) sound.playSkipTurn();
 
     statusMessage = skipMessage(skippedPlayers);
     render();
@@ -351,6 +367,9 @@ export function mountGameScreen(
       clearSelection();
       lastMove = { row: lastApplied.row, col: lastApplied.col };
       justConverted = convertedCells(before, state, lastApplied.player, lastMove);
+      if (lastApplied.type === "CLONE") sound.playClone();
+      else sound.playJump();
+      if (justConverted.size > 0) sound.playConvert(justConverted.size);
       if (convertedTimer) clearTimeout(convertedTimer);
       convertedTimer = setTimeout(() => {
         convertedTimer = null;
