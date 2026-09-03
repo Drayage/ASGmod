@@ -1,6 +1,7 @@
 import { getAIMove } from "../ai";
 import { sendOnlineMove, subscribeOnlineRoom } from "../net/online";
 import { getLegalMovesFrom, playMove } from "../rules";
+import { recordResult } from "../storage";
 import { cellOwner } from "../types";
 import type { Action, Coord, GameState, Move, Player } from "../types";
 import type { StartConfig } from "./ModeSelect";
@@ -66,6 +67,7 @@ export function mountGameScreen(
   let lastMove: Coord | null = null;
   let statusMessage = "";
   let aiThinking = false;
+  let statsRecorded = false;
   let cancelled = false;
   let aiTimer: ReturnType<typeof setTimeout> | null = null;
   let convertedTimer: ReturnType<typeof setTimeout> | null = null;
@@ -101,6 +103,17 @@ export function mountGameScreen(
   }
 
   function render() {
+    if (state.winner && !statsRecorded) {
+      statsRecorded = true;
+      recordResult({
+        mode: config.mode,
+        difficulty: config.difficulty,
+        mapId: config.mapId,
+        humanSide: config.humanSide,
+        winner: state.winner,
+      });
+    }
+
     root.innerHTML = "";
 
     if (isOnlineMode && config.onlineCode) {
@@ -399,6 +412,7 @@ export function mountGameScreen(
     lastMove = null;
     statusMessage = "";
     aiThinking = false;
+    statsRecorded = false;
     render();
     if (isAIMode && state.currentPlayer !== config.humanSide) {
       scheduleAIMove();

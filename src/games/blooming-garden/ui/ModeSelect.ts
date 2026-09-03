@@ -4,6 +4,7 @@ import { createInitialState } from "../rules";
 import { loadSettings, saveSettings, type Mode } from "../storage";
 import type { GameState, Player } from "../types";
 import { renderOnlineSetup } from "./OnlineSetup";
+import { renderStats } from "./StatsScreen";
 
 export interface StartConfig {
   mode: Mode;
@@ -137,6 +138,13 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
     onStart({ mode, difficulty, humanSide, mapId, initialState: createInitialState(mapId) });
   });
   wrap.appendChild(startBtn);
+
+  const statsBtn = document.createElement("button");
+  statsBtn.type = "button";
+  statsBtn.className = "grdn-link-btn";
+  statsBtn.textContent = "통계 보기";
+  statsBtn.addEventListener("click", () => renderStats(wrap, () => renderModeSelect(host, onStart)));
+  wrap.appendChild(statsBtn);
 
   host.appendChild(wrap);
 }
