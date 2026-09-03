@@ -8,6 +8,14 @@ import { renderResultPanel } from "./ResultModal";
 
 const PLAYER_NAME: Record<Player, string> = { A: "장미 정원사", B: "수국 정원사" };
 const AI_THINK_DELAY_MS = 350;
+/** How long the "just converted" flash stays on a cell. Longer than the CSS
+ * animation itself (0.5s) so the animation always finishes before the class
+ * is removed. Cleared by a timer rather than the next click, because
+ * `render()` rebuilds the board from scratch on every call — a selection
+ * click, the AI's "thinking" render, anything — and a fresh DOM node replays
+ * its animation the moment the class lands on it, so the class has to stop
+ * being applied on its own instead of waiting for the player to do something. */
+const CONVERTED_FLASH_MS = 650;
 
 function countFlowers(state: GameState): Record<Player, number> {
   const counts: Record<Player, number> = { A: 0, B: 0 };
@@ -49,6 +57,7 @@ export function mountGameScreen(
   let aiThinking = false;
   let cancelled = false;
   let aiTimer: ReturnType<typeof setTimeout> | null = null;
+  let convertedTimer: ReturnType<typeof setTimeout> | null = null;
 
   const isAIMode = config.mode === "AI";
   const humanTurnNow = () => !isAIMode || state.currentPlayer === config.humanSide;
@@ -169,6 +178,14 @@ export function mountGameScreen(
     statusMessage = skipMessage(skippedPlayers);
     render();
 
+    if (convertedTimer) clearTimeout(convertedTimer);
+    convertedTimer = setTimeout(() => {
+      convertedTimer = null;
+      if (cancelled) return;
+      justConverted = new Set();
+      render();
+    }, CONVERTED_FLASH_MS);
+
     if (state.winner || !isAIMode) return;
     if (state.currentPlayer !== config.humanSide) scheduleAIMove();
   }
@@ -192,6 +209,8 @@ export function mountGameScreen(
   }
 
   function restart() {
+    if (convertedTimer) clearTimeout(convertedTimer);
+    convertedTimer = null;
     state = config.initialState;
     clearSelection();
     justConverted = new Set();
@@ -207,6 +226,7 @@ export function mountGameScreen(
   function exit() {
     cancelled = true;
     if (aiTimer) clearTimeout(aiTimer);
+    if (convertedTimer) clearTimeout(convertedTimer);
     onExit();
   }
 
@@ -218,6 +238,7 @@ export function mountGameScreen(
   return () => {
     cancelled = true;
     if (aiTimer) clearTimeout(aiTimer);
+    if (convertedTimer) clearTimeout(convertedTimer);
     container.innerHTML = "";
   };
 }
