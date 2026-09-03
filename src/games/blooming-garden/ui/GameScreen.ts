@@ -1,7 +1,8 @@
 import { getAIMove } from "../ai";
 import { sendOnlineMove, subscribeOnlineRoom } from "../net/online";
 import { getLegalMovesFrom, playMove } from "../rules";
-import { recordResult } from "../storage";
+import { todayKey } from "../daily";
+import { recordDailyResult, recordResult } from "../storage";
 import { cellOwner } from "../types";
 import type { Action, Coord, GameState, Move, Player } from "../types";
 import type { StartConfig } from "./ModeSelect";
@@ -112,6 +113,9 @@ export function mountGameScreen(
         humanSide: config.humanSide,
         winner: state.winner,
       });
+      if (config.isDaily) {
+        recordDailyResult(todayKey(), { mapId: config.mapId, humanSide: config.humanSide, winner: state.winner });
+      }
     }
 
     root.innerHTML = "";

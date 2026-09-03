@@ -1,7 +1,8 @@
 import { DIFFICULTY_LABELS, type Difficulty } from "../ai";
-import { maps } from "../maps";
+import { DAILY_DIFFICULTY, dailyMapId, todayKey } from "../daily";
+import { findMap, maps } from "../maps";
 import { createInitialState } from "../rules";
-import { loadSettings, saveSettings, type Mode } from "../storage";
+import { getDailyResult, loadSettings, saveSettings, type Mode } from "../storage";
 import type { GameState, Player } from "../types";
 import { renderAchievements } from "./AchievementsScreen";
 import { renderOnlineSetup } from "./OnlineSetup";
@@ -15,6 +16,10 @@ export interface StartConfig {
   initialState: GameState;
   /** Room code to relay moves through. Only set when `mode === "ONLINE"`. */
   onlineCode?: string;
+  /** True for a game started from the "오늘의 정원" button — GameScreen
+   * also records its result under today's date key, alongside (not instead
+   * of) the normal per-game stats recording every game already gets. */
+  isDaily?: boolean;
 }
 
 export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfig) => void): void {
@@ -31,6 +36,8 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   wrap.innerHTML = `
     <p class="grdn-tagline">가까운 화단에는 꽃을 피우고, 먼 화단에는 씨앗을 날려<br>상대의 정원을 내 꽃으로 물들이세요.<br>2인 / 5~15분</p>
   `;
+
+  wrap.appendChild(renderDailyCard());
 
   const modeGroup = document.createElement("div");
   modeGroup.className = "grdn-option-group";
@@ -155,6 +162,54 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   wrap.appendChild(achievementsBtn);
 
   host.appendChild(wrap);
+
+  function renderDailyCard(): HTMLDivElement {
+    const dateKey = todayKey();
+    const dailyMap = findMap(dailyMapId(dateKey));
+    const result = getDailyResult(dateKey);
+
+    const card = document.createElement("div");
+    card.className = "grdn-daily-card";
+
+    const title = document.createElement("p");
+    title.className = "grdn-daily-title";
+    title.textContent = "오늘의 정원";
+    card.appendChild(title);
+
+    const mapLine = document.createElement("p");
+    mapLine.className = "grdn-daily-map";
+    mapLine.textContent = dailyMap?.name ?? "";
+    card.appendChild(mapLine);
+
+    const status = document.createElement("p");
+    status.className = "grdn-daily-status";
+    status.textContent = result ? dailyResultLabel(result.winner) : "아직 도전하지 않았습니다.";
+    card.appendChild(status);
+
+    const dailyBtn = document.createElement("button");
+    dailyBtn.type = "button";
+    dailyBtn.className = "grdn-primary-btn";
+    dailyBtn.textContent = result ? "다시 도전하기" : "오늘의 정원 도전";
+    dailyBtn.addEventListener("click", () => {
+      const dailyMapIdValue = dailyMapId(dateKey);
+      onStart({
+        mode: "AI",
+        difficulty: DAILY_DIFFICULTY,
+        humanSide: "A",
+        mapId: dailyMapIdValue,
+        initialState: createInitialState(dailyMapIdValue),
+        isDaily: true,
+      });
+    });
+    card.appendChild(dailyBtn);
+
+    return card;
+  }
+}
+
+function dailyResultLabel(winner: Player | "DRAW"): string {
+  if (winner === "DRAW") return "오늘의 결과: 무승부";
+  return winner === "A" ? "오늘의 결과: 승리!" : "오늘의 결과: 패배";
 }
 
 function radioButton(name: string, label: string, checked: boolean, onChange: () => void): HTMLLabelElement {

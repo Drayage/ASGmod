@@ -462,3 +462,37 @@
   padding: 0.5rem 1.25rem;
   cursor: pointer;
 }
+
+/* Daily garden card on mode-select */
+
+.grdn-daily-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  align-items: center;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  text-align: center;
+}
+
+.grdn-daily-title {
+  font-weight: 700;
+  margin: 0;
+}
+
+.grdn-daily-map {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.grdn-daily-status {
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+}
+
+.grdn-daily-card .grdn-primary-btn {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+}
