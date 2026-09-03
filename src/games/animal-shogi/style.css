@@ -91,7 +91,7 @@
   grid-template-columns: repeat(var(--cols), 1fr);
   grid-template-rows: repeat(var(--rows), 1fr);
   gap: 3px;
-  width: min(70vw, 320px);
+  width: min(80vw, 360px);
   aspect-ratio: var(--cols) / var(--rows);
   background: #c9b98f;
   padding: 4px;
@@ -132,16 +132,14 @@
 }
 
 .asg-piece {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 84%;
-  height: 84%;
+  width: 88%;
+  height: 88%;
   border-radius: 10px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  line-height: 1.1;
-  text-align: center;
   color: #fff;
 }
 
@@ -157,6 +155,41 @@
 .asg-piece--lion {
   outline: 2px solid rgba(255, 255, 255, 0.6);
   outline-offset: -4px;
+}
+
+.asg-piece-icon {
+  width: 62%;
+  height: 62%;
+}
+
+.asg-piece-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.asg-piece-label {
+  font-size: 0.5rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* One dot per direction this piece can step to, positioned exactly where
+ * `pieceArt.ts`'s offsetPosition puts it — printed on the tile itself, the
+ * same trick real Dōbutsu Shōgi pieces use so the movement pattern reads at
+ * a glance instead of needing to be memorised or looked up. */
+.asg-piece-dir {
+  position: absolute;
+  width: 9%;
+  height: 9%;
+  min-width: 5px;
+  min-height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
 .asg-cell--target {
@@ -196,7 +229,7 @@
   gap: 0.4rem;
   justify-content: center;
   min-height: 2rem;
-  width: min(70vw, 320px);
+  width: min(80vw, 360px);
 }
 
 .asg-hand-empty {
@@ -206,13 +239,28 @@
 }
 
 .asg-hand-piece {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   border: none;
   border-radius: 8px;
-  padding: 0.35rem 0.6rem;
+  padding: 0.3rem 0.6rem;
   font-size: 0.75rem;
   font-weight: 600;
   color: #fff;
   cursor: pointer;
+}
+
+.asg-hand-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+}
+
+.asg-hand-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .asg-hand-piece:disabled {
