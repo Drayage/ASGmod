@@ -1,5 +1,6 @@
 import { getAIMove } from "../ai";
 import { todayKey } from "../daily";
+import { findMap } from "../maps";
 import { sendOnlineMove, subscribeOnlineRoom } from "../net/online";
 import { getLegalMovesFrom, playMove } from "../rules";
 import * as sound from "../sound";
@@ -124,6 +125,14 @@ export function mountGameScreen(
     }
 
     root.innerHTML = "";
+
+    const map = findMap(config.mapId);
+    if (map) {
+      const mapInfo = document.createElement("p");
+      mapInfo.className = "grdn-map-info";
+      mapInfo.textContent = `${map.name} — ${map.description}`;
+      root.appendChild(mapInfo);
+    }
 
     if (isOnlineMode && config.onlineCode) {
       const header = document.createElement("div");
