@@ -3,6 +3,7 @@ import { maps } from "../maps";
 import { createInitialState } from "../rules";
 import { loadSettings, saveSettings, type Mode } from "../storage";
 import type { GameState, Player } from "../types";
+import { renderOnlineSetup } from "./OnlineSetup";
 
 export interface StartConfig {
   mode: Mode;
@@ -10,6 +11,8 @@ export interface StartConfig {
   humanSide: Player;
   mapId: string;
   initialState: GameState;
+  /** Room code to relay moves through. Only set when `mode === "ONLINE"`. */
+  onlineCode?: string;
 }
 
 export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfig) => void): void {
@@ -39,6 +42,12 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   modeGroup.appendChild(
     radioButton("mode", "로컬 2인", mode === "LOCAL", () => {
       mode = "LOCAL";
+      updateVisibility();
+    }),
+  );
+  modeGroup.appendChild(
+    radioButton("mode", "온라인", mode === "ONLINE", () => {
+      mode = "ONLINE";
       updateVisibility();
     }),
   );
@@ -103,6 +112,28 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
       lastHumanSide: humanSide,
       lastMapId: mapId,
     });
+    if (mode === "ONLINE") {
+      // humanSide and mapId are decided by whether this client hosts or
+      // joins — OnlineSetup supplies both once a room is actually connected,
+      // overriding whatever this screen's (now irrelevant, for a joiner)
+      // side-effectless map pick was.
+      renderOnlineSetup(
+        wrap,
+        mapId,
+        (session) => {
+          onStart({
+            mode: "ONLINE",
+            difficulty,
+            humanSide: session.humanSide,
+            mapId: session.mapId,
+            initialState: createInitialState(session.mapId),
+            onlineCode: session.code,
+          });
+        },
+        () => renderModeSelect(host, onStart),
+      );
+      return;
+    }
     onStart({ mode, difficulty, humanSide, mapId, initialState: createInitialState(mapId) });
   });
   wrap.appendChild(startBtn);
