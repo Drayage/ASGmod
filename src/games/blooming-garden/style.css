@@ -364,3 +364,36 @@
 .grdn-online-error {
   color: var(--grdn-danger);
 }
+
+/* Stats screen */
+
+.grdn-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-width: 360px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.grdn-stats h2 {
+  margin-top: 0;
+}
+
+.grdn-stats-subhead {
+  margin: 0.75rem 0 0 !important;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.grdn-stats button {
+  align-self: center;
+  margin-top: 1rem;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: none;
+  border-radius: 8px;
+  padding: 0.5rem 1.25rem;
+  cursor: pointer;
+}
