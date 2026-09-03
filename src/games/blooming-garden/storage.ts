@@ -67,8 +67,13 @@ export interface Stats {
   losses: number;
   draws: number;
   winsByDifficulty: Record<Difficulty, number>;
+  winsByMode: Record<Mode, number>;
   playsByMap: Record<string, number>;
   winsByMap: Record<string, number>;
+  /** Consecutive AI/ONLINE wins right now — any loss or draw resets it to 0. */
+  currentWinStreak: number;
+  /** The longest `currentWinStreak` has ever reached, for achievements. */
+  bestWinStreak: number;
 }
 
 const DEFAULT_STATS: Stats = {
@@ -78,8 +83,11 @@ const DEFAULT_STATS: Stats = {
   losses: 0,
   draws: 0,
   winsByDifficulty: { EASY: 0, NORMAL: 0, HARD: 0 },
+  winsByMode: { AI: 0, LOCAL: 0, ONLINE: 0 },
   playsByMap: {},
   winsByMap: {},
+  currentWinStreak: 0,
+  bestWinStreak: 0,
 };
 
 export function loadStats(): Stats {
@@ -90,12 +98,19 @@ export function loadStats(): Stats {
   // objects, so the first mutation anywhere corrupts the shared default for
   // the rest of the session.
   if (saved?.version !== SAVE_VERSION) {
-    return { ...DEFAULT_STATS, winsByDifficulty: { ...DEFAULT_STATS.winsByDifficulty }, playsByMap: {}, winsByMap: {} };
+    return {
+      ...DEFAULT_STATS,
+      winsByDifficulty: { ...DEFAULT_STATS.winsByDifficulty },
+      winsByMode: { ...DEFAULT_STATS.winsByMode },
+      playsByMap: {},
+      winsByMap: {},
+    };
   }
   return {
     ...DEFAULT_STATS,
     ...saved,
     winsByDifficulty: { ...DEFAULT_STATS.winsByDifficulty, ...saved.winsByDifficulty },
+    winsByMode: { ...DEFAULT_STATS.winsByMode, ...saved.winsByMode },
     playsByMap: { ...saved.playsByMap },
     winsByMap: { ...saved.winsByMap },
   };
@@ -118,13 +133,18 @@ export function recordResult(outcome: MatchOutcome): Stats {
 
   if (outcome.winner === "DRAW") {
     stats.draws += 1;
+    if (outcome.mode !== "LOCAL") stats.currentWinStreak = 0;
   } else if (outcome.mode !== "LOCAL") {
     if (outcome.winner === outcome.humanSide) {
       stats.wins += 1;
       stats.winsByMap[outcome.mapId] = (stats.winsByMap[outcome.mapId] ?? 0) + 1;
+      stats.winsByMode[outcome.mode] += 1;
       if (outcome.mode === "AI") stats.winsByDifficulty[outcome.difficulty] += 1;
+      stats.currentWinStreak += 1;
+      stats.bestWinStreak = Math.max(stats.bestWinStreak, stats.currentWinStreak);
     } else {
       stats.losses += 1;
+      stats.currentWinStreak = 0;
     }
   }
 
