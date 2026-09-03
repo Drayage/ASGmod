@@ -5,7 +5,7 @@ const PREFIX = "abstract-games:blooming-garden";
 const SETTINGS_KEY = `${PREFIX}:settings`;
 const SAVE_VERSION = 1;
 
-export type Mode = "AI" | "LOCAL";
+export type Mode = "AI" | "LOCAL" | "ONLINE";
 
 export interface Settings {
   version: number;

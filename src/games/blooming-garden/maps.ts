@@ -156,7 +156,7 @@ export const maps: MapDef[] = [
   },
 ];
 
-const DEFAULT_MAP_ID = maps[0].id;
+export const DEFAULT_MAP_ID = maps[0].id;
 
 export function findMap(id: string): MapDef | undefined {
   return maps.find((m) => m.id === id);
