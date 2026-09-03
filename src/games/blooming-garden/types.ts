@@ -8,6 +8,16 @@ export type Cell = "EMPTY" | "PLAYER_A" | "PLAYER_B" | "OBSTACLE";
 
 export type Board = Cell[][];
 
+/**
+ * A cell property tracked separately from what currently occupies it — a
+ * flower can sit on a GREENHOUSE cell and later move away, and the terrain
+ * stays GREENHOUSE the whole time regardless of occupant. `NONE` is by far
+ * the most common value; every map before 온실 정원 is all-NONE.
+ */
+export type Terrain = "NONE" | "GREENHOUSE";
+
+export type TerrainGrid = Terrain[][];
+
 export interface Coord {
   row: number;
   col: number;
@@ -24,6 +34,9 @@ export type Move = Action & { turn: number; player: Player };
 
 export interface GameState {
   board: Board;
+  /** Same dimensions as `board`, persistent regardless of what's currently
+   * standing on each cell. */
+  terrain: TerrainGrid;
   currentPlayer: Player;
   /** `null` while the game is in progress, a `Player` for a decisive result,
    * or `"DRAW"` when both gardeners end with the same number of flowers. */

@@ -1,4 +1,4 @@
-import { boardFromMap, resolveMap } from "./maps";
+import { boardFromMap, resolveMap, terrainFromMap } from "./maps";
 import { cellOwner, opponent, playerCell } from "./types";
 import type { Action, Board, GameState, Player } from "./types";
 
@@ -6,6 +6,7 @@ export function createInitialState(mapId: string): GameState {
   const map = resolveMap(mapId);
   return {
     board: boardFromMap(map),
+    terrain: terrainFromMap(map),
     currentPlayer: "A",
     winner: null,
     moveHistory: [],
@@ -123,6 +124,7 @@ function applyAction(state: GameState, action: Action): GameState {
       const r = action.row + dr;
       const c = action.col + dc;
       if (!inBounds(r, c, size)) continue;
+      if (state.terrain[r][c] === "GREENHOUSE") continue;
       if (board[r][c] === opponentCell) board[r][c] = playerCell(player);
     }
   }

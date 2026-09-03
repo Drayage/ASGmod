@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardFromMap, maps } from "./maps";
+import { boardFromMap, maps, terrainFromMap } from "./maps";
 import {
   countFlowers,
   createInitialState,
@@ -13,8 +13,10 @@ import {
 import type { GameState } from "./types";
 
 function stateFromRows(rows: string[], currentPlayer: "A" | "B" = "A"): GameState {
-  const board = boardFromMap({ id: "test", name: "test", description: "", rows });
-  return { board, currentPlayer, winner: null, moveHistory: [], mapId: "test" };
+  const map = { id: "test", name: "test", description: "", rows };
+  const board = boardFromMap(map);
+  const terrain = terrainFromMap(map);
+  return { board, terrain, currentPlayer, winner: null, moveHistory: [], mapId: "test" };
 }
 
 describe("createInitialState", () => {
@@ -198,5 +200,38 @@ describe("map roster", () => {
   it("has at least the 10 maps the design calls for", () => {
     expect(maps.length).toBeGreaterThanOrEqual(10);
     expect(new Set(maps.map((m) => m.id)).size).toBe(maps.length);
+  });
+});
+
+describe("greenhouse terrain", () => {
+  it("protects the flower standing on it from conversion", () => {
+    // Q sits on a greenhouse cell surrounded by A on three sides; a normal
+    // cell in the same shape would be converted.
+    const state = stateFromRows(["QQ.....", "Q......", ".......", "...P...", ".......", ".......", "......."]);
+    state.terrain[0][0] = "GREENHOUSE";
+    const { state: after } = playMove(state, { type: "CLONE", row: 1, col: 1 });
+    expect(after.board[0][0]).toBe("PLAYER_B"); // protected
+    expect(after.board[0][1]).toBe("PLAYER_A"); // ordinary cell, converts as normal
+    expect(after.board[1][0]).toBe("PLAYER_A");
+  });
+
+  it("doesn't block ordinary movement — an empty greenhouse cell is still a normal target", () => {
+    const state = stateFromRows([".......", ".......", ".......", "...P...", ".......", ".......", "......."]);
+    state.terrain[3][4] = "GREENHOUSE";
+    const moves = getLegalMovesFrom(state, 3, 3);
+    expect(moves.some((m) => m.type === "CLONE" && m.row === 3 && m.col === 4)).toBe(true);
+  });
+
+  it("leaves every non-greenhouse map's terrain grid all-NONE", () => {
+    const state = createInitialState("practice-garden");
+    expect(state.terrain.every((row) => row.every((t) => t === "NONE"))).toBe(true);
+  });
+
+  it("온실 정원 starts with a legal move for both players and real greenhouse cells", () => {
+    const state = createInitialState("greenhouse-garden");
+    expect(hasAnyLegalMove(state, "A")).toBe(true);
+    expect(hasAnyLegalMove(state, "B")).toBe(true);
+    const greenhouseCells = state.terrain.flat().filter((t) => t === "GREENHOUSE");
+    expect(greenhouseCells.length).toBeGreaterThan(0);
   });
 });

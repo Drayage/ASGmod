@@ -82,6 +82,10 @@ export function renderBoard(host: HTMLElement, options: BoardRenderOptions): voi
       if (lastMove && lastMove.row === row && lastMove.col === col) {
         cell.classList.add("grdn-cell--last-move");
       }
+      if (state.terrain[row][col] === "GREENHOUSE") {
+        cell.classList.add("grdn-cell--greenhouse");
+        cell.setAttribute("aria-label", `${cell.getAttribute("aria-label") ?? ""} — 온실 (물듦 면역)`);
+      }
 
       grid.appendChild(cell);
     }
