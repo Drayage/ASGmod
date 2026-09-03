@@ -5,6 +5,7 @@ import { createInitialState } from "../rules";
 import { getDailyResult, loadSettings, saveSettings, type Mode } from "../storage";
 import type { GameState, Player } from "../types";
 import { renderAchievements } from "./AchievementsScreen";
+import { renderSettingsPanel } from "./SettingsPanel";
 import { renderTutorial } from "./Tutorial";
 import { renderOnlineSetup } from "./OnlineSetup";
 import { renderStats } from "./StatsScreen";
@@ -184,6 +185,13 @@ export function renderModeSelect(
   tutorialBtn.textContent = "튜토리얼 다시 보기";
   tutorialBtn.addEventListener("click", () => renderTutorial(wrap, () => renderModeSelect(host, onStart, onStartTour)));
   wrap.appendChild(tutorialBtn);
+
+  const settingsBtn = document.createElement("button");
+  settingsBtn.type = "button";
+  settingsBtn.className = "grdn-link-btn";
+  settingsBtn.textContent = "설정";
+  settingsBtn.addEventListener("click", () => renderSettingsPanel(wrap));
+  wrap.appendChild(settingsBtn);
 
   host.appendChild(wrap);
 

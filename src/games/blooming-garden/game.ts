@@ -1,11 +1,17 @@
 import "./style.css";
 import type { GameCleanup } from "../../shared/types";
+import { setMusicEnabled, setSoundEnabled } from "./sound";
+import { loadSettings } from "./storage";
 import { mountGameScreen } from "./ui/GameScreen";
 import { renderModeSelect } from "./ui/ModeSelect";
 import { mountTourScreen } from "./ui/TourScreen";
 import { maybeShowTutorial } from "./ui/Tutorial";
 
 export function mount(container: HTMLElement): GameCleanup {
+  const settings = loadSettings();
+  setSoundEnabled(settings.soundEnabled);
+  setMusicEnabled(settings.musicEnabled);
+
   let cleanupScreen: (() => void) | null = null;
   let active = true;
 
@@ -34,6 +40,7 @@ export function mount(container: HTMLElement): GameCleanup {
   return () => {
     active = false;
     cleanupScreen?.();
+    setMusicEnabled(false);
     container.innerHTML = "";
   };
 }

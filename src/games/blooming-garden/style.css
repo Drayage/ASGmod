@@ -547,3 +547,18 @@
   justify-content: space-between;
   margin-top: 0.75rem;
 }
+
+/* Settings panel */
+
+.grdn-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.grdn-settings .grdn-primary-btn {
+  align-self: center;
+  margin-top: 0.5rem;
+}
