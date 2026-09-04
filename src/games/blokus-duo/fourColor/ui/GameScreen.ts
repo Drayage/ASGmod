@@ -63,7 +63,7 @@ export function mountFourColorGameScreen(
     if (state.winner) return "";
     if (isAIMode && !humanTurnNow()) return `${COLOR_LABEL[state.currentColor]}가 생각하는 중...`;
     return selectedPieceId
-      ? "초록색으로 표시된 칸을 눌러 놓으세요."
+      ? "연하게 칠해진 칸이 이 조각을 놓을 수 있는 자리예요. 초록 점이 있는 칸을 짚어 놓으세요."
       : `${COLOR_LABEL[state.currentColor]} (${PLAYER_NAME[activePlayer()]}) 차례입니다.`;
   }
 
@@ -139,7 +139,7 @@ export function mountFourColorGameScreen(
 
     const preview = document.createElement("div");
     preview.className = "bkd-selected-preview";
-    preview.appendChild(renderShapeGrid(currentOrientation(pieceId), state.currentColor, 12));
+    preview.appendChild(renderShapeGrid(currentOrientation(pieceId), state.currentColor, 18));
     bar.appendChild(preview);
 
     const rotateBtn = document.createElement("button");
