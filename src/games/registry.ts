@@ -30,6 +30,14 @@ const games: GameMeta[] = [
     maxPlayers: 2,
     load: () => import("./animal-shogi/game"),
   },
+  {
+    id: "blokus-duo",
+    title: "블로커스 듀오",
+    description: "14×14 보드에서 21개 조각을 꼭짓점으로 이어 붙여 최대한 많이 놓으세요.",
+    minPlayers: 2,
+    maxPlayers: 2,
+    load: () => import("./blokus-duo/game"),
+  },
 ];
 
 export default games;
