@@ -19,6 +19,10 @@ export function renderResultPanel(host: HTMLElement, options: ResultPanelOptions
   heading.textContent = state.winner === "DRAW" ? "무승부!" : `${PLAYER_NAME[state.winner]} 승리!`;
   panel.appendChild(heading);
 
+  const flavor = document.createElement("p");
+  flavor.textContent = "마을이 완성되었습니다.";
+  panel.appendChild(flavor);
+
   const score = document.createElement("p");
   score.textContent = `P1 ${state.scores.P1}점 · P2 ${state.scores.P2}점`;
   panel.appendChild(score);

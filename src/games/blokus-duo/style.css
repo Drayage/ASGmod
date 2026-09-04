@@ -151,6 +151,52 @@
   background: var(--bkd-green);
 }
 
+/* Every placed block gets a small roof + doorway silhouette so a filled-in
+ * area reads as a cluster of little houses — the finished board looks like
+ * a village growing outward from each player's corner, not just a
+ * colored grid. */
+.bkd-cell--p1,
+.bkd-cell--p2,
+.bkd-cell--blue,
+.bkd-cell--yellow,
+.bkd-cell--red,
+.bkd-cell--green {
+  overflow: hidden;
+}
+
+.bkd-cell--p1::before,
+.bkd-cell--p2::before,
+.bkd-cell--blue::before,
+.bkd-cell--yellow::before,
+.bkd-cell--red::before,
+.bkd-cell--green::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 42%;
+  background: rgba(0, 0, 0, 0.2);
+  clip-path: polygon(50% 0%, 100% 60%, 100% 100%, 0 100%, 0 60%);
+}
+
+.bkd-cell--p1::after,
+.bkd-cell--p2::after,
+.bkd-cell--blue::after,
+.bkd-cell--yellow::after,
+.bkd-cell--red::after,
+.bkd-cell--green::after {
+  content: "";
+  position: absolute;
+  bottom: 8%;
+  left: 50%;
+  width: 26%;
+  height: 32%;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 1px 1px 0 0;
+  transform: translateX(-50%);
+}
+
 .bkd-cell--start-p1::after,
 .bkd-cell--start-p2::after,
 .bkd-cell--start-blue::after,

@@ -32,8 +32,8 @@ const games: GameMeta[] = [
   },
   {
     id: "blokus-duo",
-    title: "블로커스 듀오",
-    description: "14×14 보드에서 21개 조각을 꼭짓점으로 이어 붙여 최대한 많이 놓으세요.",
+    title: "꼭짓점 마을",
+    description: "조각을 꼭짓점으로 이어 붙여 나만의 마을을 넓혀가세요.",
     minPlayers: 2,
     maxPlayers: 2,
     load: () => import("./blokus-duo/game"),
