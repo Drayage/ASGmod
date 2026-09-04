@@ -1,6 +1,8 @@
 import { DIFFICULTY_LABELS, type Difficulty } from "../ai";
+import { createInitialState as createFourColorInitialState } from "../fourColor/rules";
+import type { FourColorStartConfig } from "../fourColor/ui/GameScreen";
 import { createInitialState } from "../rules";
-import { loadSettings, saveSettings, type Mode } from "../storage";
+import { loadSettings, saveSettings, type BoardMode, type Mode } from "../storage";
 import type { GameState, Player } from "../types";
 
 export interface StartConfig {
@@ -10,20 +12,52 @@ export interface StartConfig {
   initialState: GameState;
 }
 
-export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfig) => void): void {
+export type StartResult =
+  | { boardMode: "DUO"; config: StartConfig }
+  | { boardMode: "FOUR_COLOR"; config: FourColorStartConfig };
+
+export function renderModeSelect(host: HTMLElement, onStart: (result: StartResult) => void): void {
   host.innerHTML = "";
 
   const settings = loadSettings();
+  let boardMode: BoardMode = settings.lastBoardMode;
   let mode: Mode = settings.lastMode;
   let difficulty: Difficulty = settings.lastDifficulty;
   let humanSide: Player = settings.lastHumanSide;
 
   const wrap = document.createElement("div");
   wrap.className = "bkd-mode-select";
-  wrap.innerHTML = `
-    <p class="bkd-tagline">14×14 보드에서 각자 21개 조각을 놓는 2인용 블로커스.<br>
-    자기 조각끼리는 꼭짓점만 맞닿아야 하고 변은 맞닿을 수 없어요. 더 못 놓으면 자동으로 차례를 넘깁니다.<br>2인 / 15~20분</p>
-  `;
+
+  const tagline = document.createElement("p");
+  tagline.className = "bkd-tagline";
+  wrap.appendChild(tagline);
+
+  function updateTagline() {
+    tagline.innerHTML =
+      boardMode === "DUO"
+        ? `14×14 보드에서 각자 21개 조각을 놓는 2인용 블로커스.<br>
+           자기 조각끼리는 꼭짓점만 맞닿아야 하고 변은 맞닿을 수 없어요. 더 못 놓으면 자동으로 차례를 넘깁니다.<br>2인 / 15~20분`
+        : `정식 4인용 20×20 보드를 2인이 각자 2색씩 맡아서 하는 설정.<br>
+           P1은 블루+레드, P2는 옐로우+그린 — 턴은 블루→옐로우→레드→그린 순서로 자동 진행됩니다.<br>2인 / 30분 이상`;
+  }
+
+  const boardGroup = document.createElement("div");
+  boardGroup.className = "bkd-option-group";
+  boardGroup.innerHTML = `<span class="bkd-option-label">보드</span>`;
+  boardGroup.appendChild(
+    radioButton("board", "듀오 (14×14, 2색)", boardMode === "DUO", () => {
+      boardMode = "DUO";
+      updateTagline();
+    }),
+  );
+  boardGroup.appendChild(
+    radioButton("board", "4색전 (20×20, 2인 2색씩)", boardMode === "FOUR_COLOR", () => {
+      boardMode = "FOUR_COLOR";
+      updateTagline();
+    }),
+  );
+  wrap.appendChild(boardGroup);
+  updateTagline();
 
   const modeGroup = document.createElement("div");
   modeGroup.className = "bkd-option-group";
@@ -82,8 +116,15 @@ export function renderModeSelect(host: HTMLElement, onStart: (config: StartConfi
   startBtn.className = "bkd-primary-btn";
   startBtn.textContent = "게임 시작";
   startBtn.addEventListener("click", () => {
-    saveSettings({ ...loadSettings(), lastMode: mode, lastDifficulty: difficulty, lastHumanSide: humanSide });
-    onStart({ mode, difficulty, humanSide, initialState: createInitialState() });
+    saveSettings({ ...loadSettings(), lastBoardMode: boardMode, lastMode: mode, lastDifficulty: difficulty, lastHumanSide: humanSide });
+    if (boardMode === "DUO") {
+      onStart({ boardMode: "DUO", config: { mode, difficulty, humanSide, initialState: createInitialState() } });
+    } else {
+      onStart({
+        boardMode: "FOUR_COLOR",
+        config: { mode, difficulty, humanSide, initialState: createFourColorInitialState() },
+      });
+    }
   });
   wrap.appendChild(startBtn);
 

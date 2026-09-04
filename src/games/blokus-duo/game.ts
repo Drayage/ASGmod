@@ -1,5 +1,6 @@
 import "./style.css";
 import type { GameCleanup } from "../../shared/types";
+import { mountFourColorGameScreen } from "./fourColor/ui/GameScreen";
 import { mountGameScreen } from "./ui/GameScreen";
 import { renderModeSelect } from "./ui/ModeSelect";
 
@@ -12,10 +13,13 @@ export function mount(container: HTMLElement): GameCleanup {
     cleanupScreen = null;
     if (!active) return;
     container.innerHTML = "";
-    renderModeSelect(container, (config) => {
+    renderModeSelect(container, (result) => {
       if (!active) return;
       container.innerHTML = "";
-      cleanupScreen = mountGameScreen(container, config, showModeSelect);
+      cleanupScreen =
+        result.boardMode === "DUO"
+          ? mountGameScreen(container, result.config, showModeSelect)
+          : mountFourColorGameScreen(container, result.config, showModeSelect);
     });
   }
 
