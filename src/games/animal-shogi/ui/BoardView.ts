@@ -1,5 +1,5 @@
 import { stepOffsets } from "../rules";
-import { BOARD_COLS, BOARD_ROWS } from "../types";
+import { BOARD_COLS, BOARD_ROWS, opponent } from "../types";
 import type { Coord, GameState, HandPieceType, Piece, PieceType, Player } from "../types";
 import { offsetPosition, PIECE_ICON_SVG } from "./pieceArt";
 
@@ -13,6 +13,10 @@ export interface BoardRenderOptions {
    * nothing is selected. */
   legalTargets: Coord[];
   lastMove: { from: Coord | null; to: Coord } | null;
+  /** Whose seat the board is drawn from — this player's pieces render at
+   * the bottom, moving "up" toward the opponent, regardless of whether
+   * they're A or B. */
+  viewpoint: Player;
   onCellClick: (row: number, col: number) => void;
   onHandPieceClick: (player: Player, pieceType: HandPieceType) => void;
 }
@@ -111,20 +115,28 @@ function renderHand(
 }
 
 export function renderBoard(host: HTMLElement, options: BoardRenderOptions): void {
-  const { state, interactive, selected, legalTargets, lastMove, onCellClick, onHandPieceClick } = options;
+  const { state, interactive, selected, legalTargets, lastMove, viewpoint, onCellClick, onHandPieceClick } = options;
   host.innerHTML = "";
 
   const targetKeys = new Set(legalTargets.map((c) => key(c.row, c.col)));
 
-  host.appendChild(renderHand("B", state, selected, interactive, onHandPieceClick));
+  // Always draw the viewer's own pieces at the bottom, moving "up" — flip
+  // the visual row/column order (not the underlying coordinates, which
+  // stay real board coordinates for click handlers and legality) when the
+  // viewer is B, whose pieces otherwise sit at the top of the array.
+  const flip = viewpoint === "B";
+  const rowOrder = flip ? [...Array(BOARD_ROWS).keys()].reverse() : [...Array(BOARD_ROWS).keys()];
+  const colOrder = flip ? [...Array(BOARD_COLS).keys()].reverse() : [...Array(BOARD_COLS).keys()];
+
+  host.appendChild(renderHand(opponent(viewpoint), state, selected, interactive, onHandPieceClick));
 
   const grid = document.createElement("div");
   grid.className = "asg-board";
   grid.style.setProperty("--rows", String(BOARD_ROWS));
   grid.style.setProperty("--cols", String(BOARD_COLS));
 
-  for (let row = 0; row < BOARD_ROWS; row++) {
-    for (let col = 0; col < BOARD_COLS; col++) {
+  for (const row of rowOrder) {
+    for (const col of colOrder) {
       const piece = state.board[row][col];
       const cell = document.createElement("button");
       cell.type = "button";
@@ -168,5 +180,5 @@ export function renderBoard(host: HTMLElement, options: BoardRenderOptions): voi
   }
   host.appendChild(grid);
 
-  host.appendChild(renderHand("A", state, selected, interactive, onHandPieceClick));
+  host.appendChild(renderHand(viewpoint, state, selected, interactive, onHandPieceClick));
 }
