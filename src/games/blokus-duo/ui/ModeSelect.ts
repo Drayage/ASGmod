@@ -35,23 +35,23 @@ export function renderModeSelect(host: HTMLElement, onStart: (result: StartResul
   function updateTagline() {
     tagline.innerHTML =
       boardMode === "DUO"
-        ? `14×14 보드에서 각자 21개 조각을 놓는 2인용 블로커스.<br>
-           자기 조각끼리는 꼭짓점만 맞닿아야 하고 변은 맞닿을 수 없어요. 더 못 놓으면 자동으로 차례를 넘깁니다.<br>2인 / 15~20분`
-        : `정식 4인용 20×20 보드를 2인이 각자 2색씩 맡아서 하는 설정.<br>
+        ? `14×14 마을 부지에서 각자 21개 조각으로 건물을 지어 나가는 2인 대결.<br>
+           내 건물끼리는 꼭짓점으로만 이어야 하고 변으로 맞닿으면 안 돼요. 더 못 지으면 자동으로 차례를 넘깁니다.<br>2인 / 15~20분`
+        : `20×20 넓은 마을을 2인이 각자 두 가지 색으로 나눠 짓는 설정.<br>
            P1은 블루+레드, P2는 옐로우+그린 — 턴은 블루→옐로우→레드→그린 순서로 자동 진행됩니다.<br>2인 / 30분 이상`;
   }
 
   const boardGroup = document.createElement("div");
   boardGroup.className = "bkd-option-group";
-  boardGroup.innerHTML = `<span class="bkd-option-label">보드</span>`;
+  boardGroup.innerHTML = `<span class="bkd-option-label">마을 크기</span>`;
   boardGroup.appendChild(
-    radioButton("board", "듀오 (14×14, 2색)", boardMode === "DUO", () => {
+    radioButton("board", "작은 마을 (14×14, 2색)", boardMode === "DUO", () => {
       boardMode = "DUO";
       updateTagline();
     }),
   );
   boardGroup.appendChild(
-    radioButton("board", "4색전 (20×20, 2인 2색씩)", boardMode === "FOUR_COLOR", () => {
+    radioButton("board", "큰 마을 (20×20, 2인 2색씩)", boardMode === "FOUR_COLOR", () => {
       boardMode = "FOUR_COLOR";
       updateTagline();
     }),
