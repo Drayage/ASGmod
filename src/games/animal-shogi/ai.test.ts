@@ -33,6 +33,9 @@ describe("getAIMove", () => {
       }
       expect(state.winner).not.toBeNull();
     },
-    30_000,
+    // Comfortably above the ~21s this takes in isolation locally — CI runs
+    // many other test files' worker processes concurrently on shared,
+    // slower hardware, which was enough to push this past a 30s cap.
+    60_000,
   );
 });
