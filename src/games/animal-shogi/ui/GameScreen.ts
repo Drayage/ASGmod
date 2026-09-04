@@ -20,6 +20,10 @@ export function mountGameScreen(container: HTMLElement, config: StartConfig, onE
 
   const isAIMode = config.mode === "AI";
   const humanTurnNow = () => !isAIMode || state.currentPlayer === config.humanSide;
+  // AI mode: always draw from the human's chosen seat. Local pass-and-play
+  // has no single "human" side, so flip to whoever's about to move — each
+  // player sees their own pieces at the bottom on their turn.
+  const viewpoint = () => (isAIMode ? config.humanSide : state.currentPlayer);
 
   const root = document.createElement("div");
   root.className = "asg-screen";
@@ -50,6 +54,7 @@ export function mountGameScreen(container: HTMLElement, config: StartConfig, onE
       selected,
       legalTargets,
       lastMove,
+      viewpoint: viewpoint(),
       onCellClick: handleCellClick,
       onHandPieceClick: handleHandPieceClick,
     });
