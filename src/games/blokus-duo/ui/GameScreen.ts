@@ -48,7 +48,7 @@ export function mountGameScreen(container: HTMLElement, config: StartConfig, onE
     if (state.winner) return "";
     if (isAIMode && !humanTurnNow()) return `${PLAYER_NAME[state.currentPlayer]}가 생각하는 중...`;
     return selectedPieceId
-      ? "초록색으로 표시된 칸을 눌러 놓으세요."
+      ? "연하게 칠해진 칸이 이 조각을 놓을 수 있는 자리예요. 초록 점이 있는 칸을 짚어 놓으세요."
       : `${PLAYER_NAME[state.currentPlayer]} 차례입니다. 아래에서 조각을 고르세요.`;
   }
 
@@ -117,7 +117,7 @@ export function mountGameScreen(container: HTMLElement, config: StartConfig, onE
 
     const preview = document.createElement("div");
     preview.className = "bkd-selected-preview";
-    preview.appendChild(renderShapeGrid(currentOrientation(pieceId), state.currentPlayer, 12));
+    preview.appendChild(renderShapeGrid(currentOrientation(pieceId), state.currentPlayer, 18));
     bar.appendChild(preview);
 
     const rotateBtn = document.createElement("button");

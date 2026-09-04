@@ -76,6 +76,16 @@ export function renderBoard(host: HTMLElement, options: BoardRenderOptions): voi
       for (const c of cells) cellEls[c.row][c.col].classList.add("bkd-cell--ghost");
     };
 
+    // Faintly shade every cell any legal placement of the current piece
+    // would cover, all at once — without this, the only way to discover
+    // where a piece actually lands (and what shape it makes) was to hover
+    // or tap one anchor dot at a time, which is exactly what made this
+    // hard to read. Hovering/tapping a specific anchor still intensifies
+    // just that one placement into the full ghost, as a placement preview.
+    for (const placement of placements) {
+      for (const c of placement.cells) cellEls[c.row][c.col].classList.add("bkd-cell--hint");
+    }
+
     for (const placement of placements) {
       const key = `${placement.anchor.row},${placement.anchor.col}`;
       const anchorEl = cellEls[placement.anchor.row][placement.anchor.col];
