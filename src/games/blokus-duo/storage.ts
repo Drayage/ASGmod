@@ -7,10 +7,15 @@ const SAVE_VERSION = 1;
 
 export type Mode = "AI" | "LOCAL";
 
+/** "DUO" is the standard 14×14/2-color board; "FOUR_COLOR" is the classic
+ * 20×20/4-color board played by 2 humans who each take two colors. */
+export type BoardMode = "DUO" | "FOUR_COLOR";
+
 export interface Settings {
   version: number;
   /** How the last game was set up, so the mode-select screen offers it
    * again instead of resetting to the defaults on every visit. */
+  lastBoardMode: BoardMode;
   lastMode: Mode;
   lastDifficulty: Difficulty;
   lastHumanSide: Player;
@@ -18,6 +23,7 @@ export interface Settings {
 
 const DEFAULT_SETTINGS: Settings = {
   version: SAVE_VERSION,
+  lastBoardMode: "DUO",
   lastMode: "AI",
   lastDifficulty: "NORMAL",
   lastHumanSide: "P1",

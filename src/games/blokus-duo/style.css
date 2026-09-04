@@ -1,6 +1,10 @@
 :root {
   --bkd-p1: #3a6ea5;
   --bkd-p2: #c98a1f;
+  --bkd-blue: #3a6ea5;
+  --bkd-yellow: #d6b32c;
+  --bkd-red: #c1503f;
+  --bkd-green: #4d8b57;
   --bkd-anchor: #4caf50;
   --bkd-last: #f2b705;
   --bkd-board-bg: #c9b98f;
@@ -11,6 +15,10 @@
   :root {
     --bkd-p1: #6fa3d8;
     --bkd-p2: #e0aa4f;
+    --bkd-blue: #6fa3d8;
+    --bkd-yellow: #e0cb5f;
+    --bkd-red: #d97e6c;
+    --bkd-green: #79b884;
     --bkd-anchor: #6fcf73;
     --bkd-last: #ffc93c;
     --bkd-board-bg: #3a3527;
@@ -98,6 +106,17 @@
   border-radius: 8px;
 }
 
+.bkd-board--four {
+  width: min(96vw, 560px);
+}
+
+.bkd-tray-pair {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .bkd-cell {
   position: relative;
   border: none;
@@ -116,8 +135,28 @@
   background: var(--bkd-p2);
 }
 
+.bkd-cell--blue {
+  background: var(--bkd-blue);
+}
+
+.bkd-cell--yellow {
+  background: var(--bkd-yellow);
+}
+
+.bkd-cell--red {
+  background: var(--bkd-red);
+}
+
+.bkd-cell--green {
+  background: var(--bkd-green);
+}
+
 .bkd-cell--start-p1::after,
-.bkd-cell--start-p2::after {
+.bkd-cell--start-p2::after,
+.bkd-cell--start-blue::after,
+.bkd-cell--start-yellow::after,
+.bkd-cell--start-red::after,
+.bkd-cell--start-green::after {
   content: "";
   position: absolute;
   inset: 30%;
@@ -130,6 +169,22 @@
 
 .bkd-cell--start-p2::after {
   background: color-mix(in srgb, var(--bkd-p2) 60%, transparent);
+}
+
+.bkd-cell--start-blue::after {
+  background: color-mix(in srgb, var(--bkd-blue) 60%, transparent);
+}
+
+.bkd-cell--start-yellow::after {
+  background: color-mix(in srgb, var(--bkd-yellow) 60%, transparent);
+}
+
+.bkd-cell--start-red::after {
+  background: color-mix(in srgb, var(--bkd-red) 60%, transparent);
+}
+
+.bkd-cell--start-green::after {
+  background: color-mix(in srgb, var(--bkd-green) 60%, transparent);
 }
 
 .bkd-cell--anchor {
@@ -215,6 +270,22 @@
 
 .bkd-shape-cell--p2 {
   background: var(--bkd-p2);
+}
+
+.bkd-shape-cell--blue {
+  background: var(--bkd-blue);
+}
+
+.bkd-shape-cell--yellow {
+  background: var(--bkd-yellow);
+}
+
+.bkd-shape-cell--red {
+  background: var(--bkd-red);
+}
+
+.bkd-shape-cell--green {
+  background: var(--bkd-green);
 }
 
 .bkd-shape-cell--empty {
