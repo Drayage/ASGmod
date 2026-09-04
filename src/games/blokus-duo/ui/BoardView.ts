@@ -53,16 +53,38 @@ export function renderBoard(host: HTMLElement, options: BoardRenderOptions): voi
   }
 
   if (interactive) {
+    // Touch has no hover, so a single tap on an anchor used to place the
+    // piece immediately with no preview at all. On a coarse (touch)
+    // pointer, the first tap on an anchor now only previews it — the same
+    // ghost a mouse gets from hovering — and a second tap on that same,
+    // now-previewed anchor confirms the placement. A real mouse is
+    // unaffected: hover already shows the ghost before any click, so the
+    // first click there still places directly.
+    const isTouchLike = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+    let armedKey: string | null = null;
+
+    const clearGhosts = () => {
+      for (const row of cellEls) for (const cell of row) cell.classList.remove("bkd-cell--ghost");
+    };
+    const showGhost = (cells: Coord[]) => {
+      for (const c of cells) cellEls[c.row][c.col].classList.add("bkd-cell--ghost");
+    };
+
     for (const placement of placements) {
+      const key = `${placement.anchor.row},${placement.anchor.col}`;
       const anchorEl = cellEls[placement.anchor.row][placement.anchor.col];
       anchorEl.disabled = false;
       anchorEl.classList.add("bkd-cell--anchor");
-      anchorEl.addEventListener("click", () => onAnchorClick(placement.anchor.row, placement.anchor.col));
-      anchorEl.addEventListener("mouseenter", () => {
-        for (const c of placement.cells) cellEls[c.row][c.col].classList.add("bkd-cell--ghost");
-      });
-      anchorEl.addEventListener("mouseleave", () => {
-        for (const c of placement.cells) cellEls[c.row][c.col].classList.remove("bkd-cell--ghost");
+      anchorEl.addEventListener("mouseenter", () => showGhost(placement.cells));
+      anchorEl.addEventListener("mouseleave", clearGhosts);
+      anchorEl.addEventListener("click", () => {
+        if (isTouchLike && armedKey !== key) {
+          clearGhosts();
+          showGhost(placement.cells);
+          armedKey = key;
+          return;
+        }
+        onAnchorClick(placement.anchor.row, placement.anchor.col);
       });
     }
   }
