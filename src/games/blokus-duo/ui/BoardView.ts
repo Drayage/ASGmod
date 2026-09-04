@@ -17,6 +17,21 @@ export interface BoardRenderOptions {
   onAnchorClick: (row: number, col: number) => void;
 }
 
+/** Which of a placement's cells sit on the outer edge of its shape, per
+ * side — used to outline each candidate placement with its own silhouette
+ * instead of a flat, undifferentiated fill, so neighboring or overlapping
+ * placements don't blur into one indistinct blob. */
+function silhouetteEdges(cells: Coord[]): Array<{ coord: Coord; top: boolean; right: boolean; bottom: boolean; left: boolean }> {
+  const set = new Set(cells.map((c) => `${c.row},${c.col}`));
+  return cells.map((c) => ({
+    coord: c,
+    top: !set.has(`${c.row - 1},${c.col}`),
+    right: !set.has(`${c.row},${c.col + 1}`),
+    bottom: !set.has(`${c.row + 1},${c.col}`),
+    left: !set.has(`${c.row},${c.col - 1}`),
+  }));
+}
+
 export function renderBoard(host: HTMLElement, options: BoardRenderOptions): void {
   const { state, interactive, placements, lastMoveCells, onAnchorClick } = options;
   host.innerHTML = "";
@@ -74,10 +89,21 @@ export function renderBoard(host: HTMLElement, options: BoardRenderOptions): voi
     // would cover, all at once — without this, the only way to discover
     // where a piece actually lands (and what shape it makes) was to hover
     // or tap one anchor dot at a time, which is exactly what made this
-    // hard to read. Hovering/tapping a specific anchor still intensifies
-    // just that one placement into the full ghost, as a placement preview.
+    // hard to read. Each placement also gets its own outline traced around
+    // its true silhouette (not just a filled cell), so when two candidate
+    // placements sit next to or overlap each other, they still read as
+    // distinct shapes instead of merging into one blob. Hovering/tapping a
+    // specific anchor still intensifies just that one placement into the
+    // full ghost, as a placement preview.
     for (const placement of placements) {
-      for (const c of placement.cells) cellEls[c.row][c.col].classList.add("bkd-cell--hint");
+      for (const edge of silhouetteEdges(placement.cells)) {
+        const cellEl = cellEls[edge.coord.row][edge.coord.col];
+        cellEl.classList.add("bkd-cell--hint");
+        if (edge.top) cellEl.classList.add("bkd-cell--hint-top");
+        if (edge.right) cellEl.classList.add("bkd-cell--hint-right");
+        if (edge.bottom) cellEl.classList.add("bkd-cell--hint-bottom");
+        if (edge.left) cellEl.classList.add("bkd-cell--hint-left");
+      }
     }
 
     for (const placement of placements) {
