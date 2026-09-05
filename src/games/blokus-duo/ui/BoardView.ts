@@ -78,28 +78,50 @@ export function renderBoard(host: HTMLElement, options: BoardRenderOptions): voi
   }
 
   if (interactive) {
+    // Every placement paints its own true, full silhouette as a
+    // translucent overlay layer (pointer-events: none, so it never
+    // intercepts clicks) on every cell it covers — not just the cells it
+    // "wins" — so where two candidates overlap, both colors show through
+    // and blend instead of one hiding the other.
+    const placementOverlays: HTMLElement[][] = placements.map(() => []);
+    placements.forEach((placement, index) => {
+      const color = placementColor(index, placements.length);
+      for (const edge of silhouetteEdges(placement.cells)) {
+        const overlay = document.createElement("span");
+        overlay.className = "bkd-hint-overlay";
+        overlay.style.setProperty("--hint-color", color);
+        if (edge.top) overlay.classList.add("bkd-hint-overlay--top");
+        if (edge.right) overlay.classList.add("bkd-hint-overlay--right");
+        if (edge.bottom) overlay.classList.add("bkd-hint-overlay--bottom");
+        if (edge.left) overlay.classList.add("bkd-hint-overlay--left");
+        cellEls[edge.coord.row][edge.coord.col].appendChild(overlay);
+        placementOverlays[index].push(overlay);
+      }
+    });
+
     // Touch has no hover, so a single tap used to place the piece
     // immediately with no preview at all. On a coarse (touch) pointer, the
-    // first tap on a placement now only previews it — the same ghost a
-    // mouse gets from hovering — and a second tap on that same,
-    // now-previewed placement confirms it. A real mouse is unaffected:
-    // hover already shows the ghost before any click, so the first click
-    // there still places directly.
+    // first tap on a placement now only previews it — the same
+    // intensified overlay a mouse gets from hovering — and a second tap on
+    // that same, now-previewed placement confirms it. A real mouse is
+    // unaffected: hover already shows the preview before any click, so the
+    // first click there still places directly.
     const isTouchLike = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
     let armedKey: string | null = null;
 
     const clearGhosts = () => {
-      for (const row of cellEls) for (const cell of row) cell.classList.remove("bkd-cell--ghost");
+      for (const overlays of placementOverlays) for (const el of overlays) el.classList.remove("bkd-hint-overlay--active");
     };
-    const showGhost = (cells: Coord[]) => {
-      for (const c of cells) cellEls[c.row][c.col].classList.add("bkd-cell--ghost");
+    const showGhost = (index: number) => {
+      for (const el of placementOverlays[index]) el.classList.add("bkd-hint-overlay--active");
     };
 
-    // Give each covered cell exactly one "owning" placement (first in list
-    // order wins) instead of stacking a click handler from every
-    // placement that happens to cover it. Two candidates can still overlap
-    // visually, but each board cell only ever acts on behalf of one of
-    // them, so a click is never ambiguous about which placement it means.
+    // Interaction is still resolved one-owner-per-cell (first-listed
+    // placement wins a shared cell) so a click is never ambiguous about
+    // which candidate it means, even though the visuals above show every
+    // overlapping candidate at once. A placement that lost every other
+    // cell to an earlier one always keeps its own anchor cell reserved, so
+    // it's never left with nothing clickable.
     const owner = new Map<string, number>();
     for (let i = 0; i < placements.length; i++) {
       for (const c of placements[i].cells) {
@@ -107,9 +129,6 @@ export function renderBoard(host: HTMLElement, options: BoardRenderOptions): voi
         if (!owner.has(key)) owner.set(key, i);
       }
     }
-    // Guarantee every placement keeps at least one cell of its own to
-    // click — even if every other cell it covers got claimed by an
-    // earlier-listed placement — by always reserving its own anchor cell.
     placements.forEach((placement, index) => {
       const anchorKey = `${placement.anchor.row},${placement.anchor.col}`;
       const hasOwnCell = placement.cells.some((c) => owner.get(`${c.row},${c.col}`) === index);
@@ -118,27 +137,19 @@ export function renderBoard(host: HTMLElement, options: BoardRenderOptions): voi
 
     placements.forEach((placement, index) => {
       const key = `${placement.anchor.row},${placement.anchor.col}`;
-      const color = placementColor(index, placements.length);
-
-      for (const edge of silhouetteEdges(placement.cells)) {
-        const cellKey = `${edge.coord.row},${edge.coord.col}`;
+      for (const c of placement.cells) {
+        const cellKey = `${c.row},${c.col}`;
         if (owner.get(cellKey) !== index) continue;
 
-        const cellEl = cellEls[edge.coord.row][edge.coord.col];
-        cellEl.style.setProperty("--hint-color", color);
-        cellEl.classList.add("bkd-cell--hint");
-        if (edge.top) cellEl.classList.add("bkd-cell--hint-top");
-        if (edge.right) cellEl.classList.add("bkd-cell--hint-right");
-        if (edge.bottom) cellEl.classList.add("bkd-cell--hint-bottom");
-        if (edge.left) cellEl.classList.add("bkd-cell--hint-left");
-
+        const cellEl = cellEls[c.row][c.col];
         cellEl.disabled = false;
-        cellEl.addEventListener("mouseenter", () => showGhost(placement.cells));
+        cellEl.classList.add("bkd-cell--clickable");
+        cellEl.addEventListener("mouseenter", () => showGhost(index));
         cellEl.addEventListener("mouseleave", clearGhosts);
         cellEl.addEventListener("click", () => {
           if (isTouchLike && armedKey !== key) {
             clearGhosts();
-            showGhost(placement.cells);
+            showGhost(index);
             armedKey = key;
             return;
           }
