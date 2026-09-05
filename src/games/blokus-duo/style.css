@@ -233,39 +233,49 @@
   background: color-mix(in srgb, var(--bkd-green) 60%, transparent);
 }
 
-/* Every cell any legal placement of the selected piece would cover, shown
- * all at once so the whole set of possible shapes/positions is visible
- * without hovering or tapping one at a time — and clickable directly,
- * anywhere within the shape, not just at one specific marked square. Each
- * placement carries its own --hint-color (set inline per cell, a rainbow
- * hue spread across however many candidates there are right now) so
- * neighboring or overlapping placements read as distinct shapes instead of
- * blurring into one indistinct blob or all looking alike. The border is
- * drawn only on each placement's true silhouette edges (the four
- * --hint-{side} classes below), not uniformly around every covered cell. */
-.bkd-cell--hint {
+.bkd-cell--clickable {
   cursor: pointer;
-  background: color-mix(in srgb, var(--hint-color, var(--bkd-anchor)) 22%, var(--bkd-cell-bg));
 }
 
-.bkd-cell--hint-top {
-  border-top: 2px solid var(--hint-color, var(--bkd-anchor));
+/* Every legal placement of the selected piece paints its own true
+ * silhouette as a translucent overlay layer on every cell it covers, all
+ * at once — the whole set of possible shapes/positions is visible without
+ * hovering or tapping one at a time, and any of them can be clicked
+ * directly, anywhere within the shape, not just at one specific marked
+ * square. Each placement carries its own --hint-color (set inline per
+ * overlay, a rainbow hue spread across however many candidates there are
+ * right now), and because every candidate is a real translucent layer
+ * rather than one cell claiming exclusive ownership of its color, two
+ * overlapping placements' colors genuinely blend where they cover the
+ * same square instead of one hiding the other. The border is drawn only
+ * on each placement's true silhouette edges (the four --top/right/
+ * bottom/left modifiers), not uniformly around every covered cell. */
+.bkd-hint-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 1px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--hint-color) 30%, transparent);
 }
 
-.bkd-cell--hint-right {
-  border-right: 2px solid var(--hint-color, var(--bkd-anchor));
+.bkd-hint-overlay--top {
+  border-top: 2px solid var(--hint-color);
 }
 
-.bkd-cell--hint-bottom {
-  border-bottom: 2px solid var(--hint-color, var(--bkd-anchor));
+.bkd-hint-overlay--right {
+  border-right: 2px solid var(--hint-color);
 }
 
-.bkd-cell--hint-left {
-  border-left: 2px solid var(--hint-color, var(--bkd-anchor));
+.bkd-hint-overlay--bottom {
+  border-bottom: 2px solid var(--hint-color);
 }
 
-.bkd-cell--ghost {
-  background: color-mix(in srgb, var(--hint-color, var(--bkd-anchor)) 55%, var(--bkd-cell-bg));
+.bkd-hint-overlay--left {
+  border-left: 2px solid var(--hint-color);
+}
+
+.bkd-hint-overlay--active {
+  background: color-mix(in srgb, var(--hint-color) 65%, transparent);
 }
 
 .bkd-cell--last-move {
