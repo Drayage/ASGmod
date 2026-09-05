@@ -48,7 +48,7 @@ export function mountGameScreen(container: HTMLElement, config: StartConfig, onE
     if (state.winner) return "";
     if (isAIMode && !humanTurnNow()) return `${PLAYER_NAME[state.currentPlayer]}가 생각하는 중...`;
     return selectedPieceId
-      ? "연하게 칠해진 칸이 이 조각을 놓을 수 있는 자리예요. 초록 점이 있는 칸을 짚어 놓으세요."
+      ? "색칠된 모양이 이 조각을 놓을 수 있는 자리예요. 원하는 모양 위를 짚어 놓으세요."
       : `${PLAYER_NAME[state.currentPlayer]} 차례입니다. 아래에서 조각을 고르세요.`;
   }
 

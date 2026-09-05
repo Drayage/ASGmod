@@ -233,51 +233,39 @@
   background: color-mix(in srgb, var(--bkd-green) 60%, transparent);
 }
 
-.bkd-cell--anchor {
-  cursor: pointer;
-  box-shadow: inset 0 0 0 2px var(--bkd-anchor);
-}
-
-.bkd-cell--anchor::after {
-  content: "";
-  position: absolute;
-  inset: 32%;
-  border-radius: 50%;
-  background: var(--bkd-anchor);
-  opacity: 0.7;
-}
-
 /* Every cell any legal placement of the selected piece would cover, shown
  * all at once so the whole set of possible shapes/positions is visible
- * without hovering or tapping each anchor one at a time. Weaker than
- * --ghost (declared after it here) so hovering/tapping a specific anchor
- * still visibly intensifies into a placement preview. The border is drawn
- * only on each placement's true silhouette edges (see the four
- * --hint-{side} classes below), not uniformly around every covered cell —
- * otherwise adjacent or overlapping candidate placements blur into one
- * indistinct blob instead of reading as separate shapes. */
+ * without hovering or tapping one at a time — and clickable directly,
+ * anywhere within the shape, not just at one specific marked square. Each
+ * placement carries its own --hint-color (set inline per cell, a rainbow
+ * hue spread across however many candidates there are right now) so
+ * neighboring or overlapping placements read as distinct shapes instead of
+ * blurring into one indistinct blob or all looking alike. The border is
+ * drawn only on each placement's true silhouette edges (the four
+ * --hint-{side} classes below), not uniformly around every covered cell. */
 .bkd-cell--hint {
-  background: color-mix(in srgb, var(--bkd-anchor) 18%, var(--bkd-cell-bg));
+  cursor: pointer;
+  background: color-mix(in srgb, var(--hint-color, var(--bkd-anchor)) 22%, var(--bkd-cell-bg));
 }
 
 .bkd-cell--hint-top {
-  border-top: 2px solid var(--bkd-anchor);
+  border-top: 2px solid var(--hint-color, var(--bkd-anchor));
 }
 
 .bkd-cell--hint-right {
-  border-right: 2px solid var(--bkd-anchor);
+  border-right: 2px solid var(--hint-color, var(--bkd-anchor));
 }
 
 .bkd-cell--hint-bottom {
-  border-bottom: 2px solid var(--bkd-anchor);
+  border-bottom: 2px solid var(--hint-color, var(--bkd-anchor));
 }
 
 .bkd-cell--hint-left {
-  border-left: 2px solid var(--bkd-anchor);
+  border-left: 2px solid var(--hint-color, var(--bkd-anchor));
 }
 
 .bkd-cell--ghost {
-  background: color-mix(in srgb, var(--bkd-anchor) 55%, var(--bkd-cell-bg));
+  background: color-mix(in srgb, var(--hint-color, var(--bkd-anchor)) 55%, var(--bkd-cell-bg));
 }
 
 .bkd-cell--last-move {
