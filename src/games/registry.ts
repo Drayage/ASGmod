@@ -38,6 +38,14 @@ const games: GameMeta[] = [
     maxPlayers: 2,
     load: () => import("./blokus-duo/game"),
   },
+  {
+    id: "stepping-stones",
+    title: "징검다리",
+    description: "5×5 개울에 돌을 놓거나 쌓아 옮기며 내 편끼리 이어 건너세요.",
+    minPlayers: 2,
+    maxPlayers: 2,
+    load: () => import("./stepping-stones/game"),
+  },
 ];
 
 export default games;
