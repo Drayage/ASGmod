@@ -1,0 +1,352 @@
+:root {
+  --stp-p1: #3a6ea5;
+  --stp-p2: #c9622a;
+  --stp-target: #4caf50;
+  --stp-last: #f2b705;
+  --stp-board-bg: #bcd6dd;
+  --stp-cell-bg: #dcebee;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --stp-p1: #6fa3d8;
+    --stp-p2: #e0894f;
+    --stp-target: #6fcf73;
+    --stp-last: #ffc93c;
+    --stp-board-bg: #223138;
+    --stp-cell-bg: #33454d;
+  }
+}
+
+.stp-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.stp-status {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  min-height: 1.2em;
+  margin: 0;
+}
+
+.stp-tagline {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.stp-mode-select {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: stretch;
+  max-width: 420px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.stp-option-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stp-option-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  width: 100%;
+}
+
+.stp-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.stp-primary-btn {
+  border: 1px solid var(--accent);
+  background: var(--card-bg);
+  color: var(--accent);
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.stp-board-host {
+  display: flex;
+  justify-content: center;
+}
+
+.stp-board {
+  display: grid;
+  grid-template-columns: repeat(var(--size), 1fr);
+  grid-template-rows: repeat(var(--size), 1fr);
+  gap: 3px;
+  width: min(90vw, 400px);
+  aspect-ratio: 1 / 1;
+  background: var(--stp-board-bg);
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.stp-cell {
+  position: relative;
+  border: none;
+  border-radius: 6px;
+  background: var(--stp-cell-bg);
+  padding: 0;
+  cursor: default;
+  touch-action: manipulation;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stp-cell:not(:disabled) {
+  cursor: pointer;
+}
+
+.stp-cell:not(:disabled):hover {
+  filter: brightness(1.06);
+}
+
+.stp-cell--target {
+  box-shadow: inset 0 0 0 2px var(--stp-target);
+}
+
+.stp-target-marker {
+  position: absolute;
+  inset: 40%;
+  border-radius: 50%;
+  background: var(--stp-target);
+  opacity: 0.75;
+}
+
+.stp-cell--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.stp-cell--last-move {
+  box-shadow: inset 0 0 0 2px var(--stp-last);
+}
+
+.stp-stack {
+  position: relative;
+  width: 74%;
+  height: 74%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stp-piece {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stp-piece--flat {
+  border-radius: 50%;
+}
+
+.stp-piece--standing {
+  width: 46%;
+  height: 92%;
+  border-radius: 4px;
+  margin: 0 auto;
+}
+
+.stp-piece--cap {
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.stp-piece-cap-dot {
+  width: 32%;
+  height: 32%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.stp-piece--p1 {
+  background: var(--stp-p1);
+}
+
+.stp-piece--p2 {
+  background: var(--stp-p2);
+}
+
+.stp-stack-count {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.2rem;
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  font-size: 0.6rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stp-palette {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.stp-palette-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.stp-palette-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.stp-palette-btn--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.stp-palette-icon {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+.stp-palette-btn--flat .stp-palette-icon {
+  border-radius: 50%;
+}
+
+.stp-palette-btn--standing .stp-palette-icon {
+  border-radius: 3px;
+  width: 0.55rem;
+  height: 1.1rem;
+}
+
+.stp-palette-btn--cap .stp-palette-icon {
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--card-bg);
+}
+
+.stp-carry-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.stp-carry-bar button {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--fg);
+  border-radius: 8px;
+  min-width: 1.8rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.stp-carry-btn--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.stp-controls {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.stp-controls button {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.stp-result-panel {
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--card-bg);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 360px;
+  margin: 0 auto;
+  animation: stp-result-in 0.25s ease both;
+}
+
+@keyframes stp-result-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.stp-result-panel h2 {
+  text-align: center;
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.stp-result-panel p {
+  text-align: center;
+  margin: 0.2rem 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.stp-result-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.stp-result-actions button {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: none;
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
