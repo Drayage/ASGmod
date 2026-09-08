@@ -256,6 +256,7 @@
   border-radius: 1px;
   pointer-events: none;
   background: color-mix(in srgb, var(--hint-color) 30%, transparent);
+  z-index: 1;
 }
 
 .bkd-hint-overlay--top {
@@ -274,8 +275,30 @@
   border-left: 2px solid var(--hint-color);
 }
 
+/* Hovering (mouse) or the first tap (touch) on a placement — see
+ * showGhost/armedKey in BoardView.ts. Pulled to the front (z-index) and
+ * darkened well past the resting overlays so which candidate is actually
+ * under the pointer is never in doubt, even stacked on top of several
+ * overlapping, similarly-colored ones. */
 .bkd-hint-overlay--active {
-  background: color-mix(in srgb, var(--hint-color) 65%, transparent);
+  z-index: 10;
+  background: color-mix(in srgb, var(--hint-color) 88%, transparent);
+}
+
+.bkd-hint-overlay--active.bkd-hint-overlay--top {
+  border-top-width: 3px;
+}
+
+.bkd-hint-overlay--active.bkd-hint-overlay--right {
+  border-right-width: 3px;
+}
+
+.bkd-hint-overlay--active.bkd-hint-overlay--bottom {
+  border-bottom-width: 3px;
+}
+
+.bkd-hint-overlay--active.bkd-hint-overlay--left {
+  border-left-width: 3px;
 }
 
 .bkd-cell--last-move {
